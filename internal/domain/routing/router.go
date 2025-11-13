@@ -2,6 +2,7 @@
 package routing
 
 import (
+	"math/rand"
 	"regexp"
 	"strings"
 	"time"
@@ -31,12 +32,30 @@ type Decision struct {
 
 // Router handles profile routing based on rules
 type Router struct {
-	routes *config.RoutesConfig
+	routes        *config.RoutesConfig
+	epsilonRate   float64
+	enableExplore bool
+	rng           *rand.Rand
 }
 
 // NewRouter creates a new router
 func NewRouter(routes *config.RoutesConfig) *Router {
-	return &Router{routes: routes}
+	return &Router{
+		routes:        routes,
+		epsilonRate:   0.03, // 3% default exploration rate
+		enableExplore: true,
+		rng:           rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+}
+
+// SetExplorationRate sets the epsilon value for epsilon-greedy exploration
+func (r *Router) SetExplorationRate(epsilon float64) {
+	r.epsilonRate = epsilon
+}
+
+// SetEnableExplore enables or disables exploration
+func (r *Router) SetEnableExplore(enable bool) {
+	r.enableExplore = enable
 }
 
 // Route determines which profile to use based on context
@@ -49,23 +68,76 @@ func (r *Router) Route(ctx Context, activeProfile string) *Decision {
 		}
 	}
 
+	// First, determine the normal routing decision
+	var normalDecision *Decision
+
 	// Try each rule in order
 	for _, rule := range r.routes.Rules {
 		if r.matchRule(rule, ctx) {
-			return &Decision{
+			normalDecision = &Decision{
 				ProfileKey: rule.Use,
 				RuleID:     rule.ID,
 				Explain:    rule.Explain,
 				Fallback:   rule.Fallback,
 			}
+			break
 		}
 	}
 
-	// No rule matched, use active profile
-	return &Decision{
-		ProfileKey: activeProfile,
-		Explain:    "No routing rule matched",
+	// If no rule matched, use active profile
+	if normalDecision == nil {
+		normalDecision = &Decision{
+			ProfileKey: activeProfile,
+			Explain:    "No routing rule matched",
+		}
 	}
+
+	// Apply epsilon-greedy exploration
+	if r.enableExplore && r.rng.Float64() < r.epsilonRate {
+		// Explore: randomly select a different profile
+		allProfiles := r.collectAllProfiles()
+		if len(allProfiles) > 1 {
+			// Remove the normal choice to ensure exploration is different
+			var explorationOptions []string
+			for _, p := range allProfiles {
+				if p != normalDecision.ProfileKey {
+					explorationOptions = append(explorationOptions, p)
+				}
+			}
+
+			if len(explorationOptions) > 0 {
+				exploredProfile := explorationOptions[r.rng.Intn(len(explorationOptions))]
+				return &Decision{
+					ProfileKey: exploredProfile,
+					RuleID:     normalDecision.RuleID,
+					Explain:    "Exploration: randomly selected for learning",
+					Fallback:   normalDecision.ProfileKey, // Can fallback to normal choice
+					Explore:    true,
+				}
+			}
+		}
+	}
+
+	return normalDecision
+}
+
+// collectAllProfiles collects all profile names mentioned in rules
+func (r *Router) collectAllProfiles() []string {
+	profileSet := make(map[string]bool)
+	for _, rule := range r.routes.Rules {
+		if rule.Use != "" {
+			profileSet[rule.Use] = true
+		}
+		if rule.Fallback != "" {
+			profileSet[rule.Fallback] = true
+		}
+	}
+
+	profiles := make([]string, 0, len(profileSet))
+	for p := range profileSet {
+		profiles = append(profiles, p)
+	}
+	return profiles
 }
 
 // matchRule checks if a rule matches the context

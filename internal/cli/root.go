@@ -17,6 +17,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
+	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/domain/version"
@@ -60,6 +61,8 @@ func Run(args []string) error {
 		return runReport(home, args[1:])
 	case "release":
 		return runRelease(args[1:])
+	case "route":
+		return runRoute(home, args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -76,6 +79,8 @@ func printUsage() {
 	fmt.Println("  boba budget [--status]")
 	fmt.Println("  boba action [--auto]")
 	fmt.Println("  boba report [--format json|csv]")
+	fmt.Println("  boba route test <text|@file>")
+	fmt.Println("  boba hooks install|remove|track")
 }
 
 func runLS(home string, args []string) error {
@@ -728,4 +733,128 @@ func findRepoRoot(start string) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+func runRoute(home string, args []string) error {
+	if len(args) == 0 {
+		return errors.New("route subcommand required (test)")
+	}
+
+	switch args[0] {
+	case "test":
+		return runRouteTest(home, args[1:])
+	default:
+		return fmt.Errorf("unknown route subcommand: %s", args[0])
+	}
+}
+
+func runRouteTest(home string, args []string) error {
+	flags := flag.NewFlagSet("route test", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	if flags.NArg() == 0 {
+		return errors.New("route test requires text or @file argument")
+	}
+
+	// Load configurations
+	routes, err := config.LoadRoutes(home)
+	if err != nil {
+		return fmt.Errorf("load routes: %w", err)
+	}
+
+	activeProfile, err := config.LoadActiveProfile(home)
+	if err != nil {
+		activeProfile = "default"
+	}
+
+	// Get text input
+	input := flags.Arg(0)
+	var text string
+	if strings.HasPrefix(input, "@") {
+		// Read from file
+		filePath := strings.TrimPrefix(input, "@")
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("read file: %w", err)
+		}
+		text = string(data)
+	} else {
+		text = input
+	}
+
+	// Detect project context
+	cwd, _ := os.Getwd()
+	project := ""
+	branch := ""
+	projectTypes := []string{}
+
+	if repoRoot, err := findRepoRoot(cwd); err == nil {
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot)
+		if projectCfg != nil {
+			project = projectCfg.Project.Name
+			projectTypes = projectCfg.Project.Type
+		}
+
+		// Get git branch
+		cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoRoot
+		if output, err := cmd.Output(); err == nil {
+			branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	// Determine time of day
+	hour := time.Now().Hour()
+	timeOfDay := "day"
+	if hour < 6 || hour >= 22 {
+		timeOfDay = "night"
+	} else if hour >= 18 {
+		timeOfDay = "evening"
+	}
+
+	// Build routing context
+	ctx := routing.Context{
+		Text:        text,
+		CtxChars:    len(text),
+		Project:     project,
+		Branch:      branch,
+		ProjectType: projectTypes,
+		TimeOfDay:   timeOfDay,
+	}
+
+	// Route decision
+	router := routing.NewRouter(routes)
+	decision := router.Route(ctx, activeProfile)
+
+	// Display results
+	fmt.Println("=== Route Test Results ===")
+	fmt.Printf("Text length: %d chars\n", ctx.CtxChars)
+	if ctx.Project != "" {
+		fmt.Printf("Project: %s (types: %v)\n", ctx.Project, ctx.ProjectType)
+	}
+	if ctx.Branch != "" {
+		fmt.Printf("Branch: %s\n", ctx.Branch)
+	}
+	fmt.Printf("Time of day: %s\n", ctx.TimeOfDay)
+	fmt.Println()
+
+	fmt.Println("=== Routing Decision ===")
+	fmt.Printf("Profile: %s\n", decision.ProfileKey)
+	if decision.RuleID != "" {
+		fmt.Printf("Rule ID: %s\n", decision.RuleID)
+	}
+	if decision.Explain != "" {
+		fmt.Printf("Explanation: %s\n", decision.Explain)
+	}
+	if decision.Explore {
+		fmt.Println("(exploration mode)")
+	}
+	if decision.Fallback != "" {
+		fmt.Printf("Fallback: %s\n", decision.Fallback)
+	}
+
+	return nil
 }
