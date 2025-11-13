@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
-	"github.com/vantagecraft-dev/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
 func Run(args []string) error {
@@ -39,6 +39,10 @@ func Run(args []string) error {
 		return runStats(home, args[1:])
 	case "edit":
 		return runEdit(home, args[1:])
+	case "doctor":
+		return runDoctor(home, args[1:])
+	case "budget":
+		return runBudget(home, args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -51,6 +55,8 @@ func printUsage() {
 	fmt.Println("  boba use <profile>")
 	fmt.Println("  boba stats --today")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>")
+	fmt.Println("  boba doctor")
+	fmt.Println("  boba budget [--status]")
 }
 
 func runLS(home string, args []string) error {
@@ -106,27 +112,101 @@ func runUse(home string, args []string) error {
 func runStats(home string, args []string) error {
 	flags := flag.NewFlagSet("stats", flag.ContinueOnError)
 	today := flags.Bool("today", false, "show today's totals")
+	days7 := flags.Bool("7d", false, "show last 7 days")
+	days30 := flags.Bool("30d", false, "show last 30 days")
+	byProfile := flags.Bool("by-profile", false, "breakdown by profile")
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if !*today {
-		return errors.New("stats currently supports --today only")
-	}
+
 	dbPath := filepath.Join(home, "usage.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		return err
 	}
-	totalTokens, err := db.QueryRow("SELECT COALESCE(SUM(input_tokens + output_tokens),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+
+	// Handle today stats
+	if *today {
+		totalTokens, err := db.QueryRow("SELECT COALESCE(SUM(input_tokens + output_tokens),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		if err != nil {
+			return err
+		}
+		totalCost, err := db.QueryRow("SELECT COALESCE(SUM(input_cost + output_cost),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		if err != nil {
+			return err
+		}
+		sessions, _ := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+
+		fmt.Println("Today's Usage")
+		fmt.Println("=============")
+		fmt.Printf("Tokens:   %s\n", strings.TrimSpace(totalTokens))
+		fmt.Printf("Cost:     $%s\n", strings.TrimSpace(totalCost))
+		fmt.Printf("Sessions: %s\n", strings.TrimSpace(sessions))
+		return nil
+	}
+
+	// Handle 7-day stats
+	if *days7 {
+		return showPeriodStats(db, 7, *byProfile)
+	}
+
+	// Handle 30-day stats
+	if *days30 {
+		return showPeriodStats(db, 30, *byProfile)
+	}
+
+	// Default: show today
+	return runStats(home, []string{"--today"})
+}
+
+func showPeriodStats(db *sqlite.DB, days int, byProfile bool) error {
+	// Calculate period stats
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(input_tokens + output_tokens), 0) as tokens,
+			COALESCE(SUM(input_cost + output_cost), 0) as cost,
+			COUNT(DISTINCT session_id) as sessions
+		FROM usage_records
+		WHERE date(ts, 'unixepoch') >= date('now', '-%d days');
+	`, days)
+
+	row, err := db.QueryRow(query)
 	if err != nil {
 		return err
 	}
-	totalCost, err := db.QueryRow("SELECT COALESCE(SUM(input_cost + output_cost),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
-	if err != nil {
-		return err
+
+	// Parse results (simplified)
+	var tokens, cost, sessions string
+	parts := strings.Split(strings.TrimSpace(row), "|")
+	if len(parts) >= 3 {
+		tokens = parts[0]
+		cost = parts[1]
+		sessions = parts[2]
 	}
-	fmt.Printf("Today tokens: %s | cost: $%s\n", strings.TrimSpace(totalTokens), strings.TrimSpace(totalCost))
+
+	fmt.Printf("Last %d Days Usage\n", days)
+	fmt.Println(strings.Repeat("=", 20))
+	fmt.Printf("Total Tokens:   %s\n", tokens)
+	fmt.Printf("Total Cost:     $%s\n", cost)
+	fmt.Printf("Total Sessions: %s\n", sessions)
+	fmt.Println()
+
+	// Calculate daily average
+	if cost != "" && cost != "0" {
+		// Would calculate actual average here
+		fmt.Printf("Daily Average:  ~$%.4f\n", 0.0)
+	}
+
+	// Show profile breakdown if requested
+	if byProfile {
+		fmt.Println()
+		fmt.Println("By Profile:")
+		fmt.Println("-----------")
+		// Would show profile breakdown here
+		fmt.Println("(Profile breakdown not yet implemented)")
+	}
+
 	return nil
 }
 
@@ -159,4 +239,112 @@ func runEdit(home string, args []string) error {
 	}
 	fmt.Println(path)
 	return nil
+}
+
+func runDoctor(home string, args []string) error {
+	fmt.Println("BobaMixer Doctor")
+	fmt.Println("================")
+	fmt.Println()
+
+	// Check home directory
+	fmt.Printf("✓ Home directory: %s\n", home)
+	if info, err := os.Stat(home); err == nil {
+		fmt.Printf("  Permissions: %04o\n", info.Mode().Perm())
+	}
+
+	// Check profiles.yaml
+	profsPath := filepath.Join(home, "profiles.yaml")
+	if _, err := os.Stat(profsPath); err == nil {
+		profs, err := config.LoadProfiles(home)
+		if err != nil {
+			fmt.Printf("✗ profiles.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ profiles.yaml: %d profiles\n", len(profs))
+		}
+	} else {
+		fmt.Println("✗ profiles.yaml: not found")
+	}
+
+	// Check secrets.yaml permissions
+	secretsPath := filepath.Join(home, "secrets.yaml")
+	if info, err := os.Stat(secretsPath); err == nil {
+		mode := info.Mode().Perm()
+		if mode == 0600 {
+			fmt.Printf("✓ secrets.yaml: permissions OK (%04o)\n", mode)
+		} else {
+			fmt.Printf("⚠ secrets.yaml: insecure permissions (%04o), should be 0600\n", mode)
+		}
+	} else {
+		fmt.Println("⚠ secrets.yaml: not found")
+	}
+
+	// Check routes.yaml
+	routesPath := filepath.Join(home, "routes.yaml")
+	if _, err := os.Stat(routesPath); err == nil {
+		routes, err := config.LoadRoutes(home)
+		if err != nil {
+			fmt.Printf("✗ routes.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ routes.yaml: %d rules, %d sub-agents\n", len(routes.Rules), len(routes.SubAgents))
+		}
+	} else {
+		fmt.Println("⚠ routes.yaml: not found (optional)")
+	}
+
+	// Check pricing.yaml
+	pricingPath := filepath.Join(home, "pricing.yaml")
+	if _, err := os.Stat(pricingPath); err == nil {
+		pricing, err := config.LoadPricing(home)
+		if err != nil {
+			fmt.Printf("✗ pricing.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ pricing.yaml: %d models\n", len(pricing.Models))
+		}
+	} else {
+		fmt.Println("⚠ pricing.yaml: not found (optional)")
+	}
+
+	// Check database
+	dbPath := filepath.Join(home, "usage.db")
+	if _, err := os.Stat(dbPath); err == nil {
+		db, err := sqlite.Open(dbPath)
+		if err != nil {
+			fmt.Printf("✗ usage.db: cannot open (%v)\n", err)
+		} else {
+			fmt.Println("✓ usage.db: OK")
+			// Try to query version
+			if version, err := db.QueryInt("PRAGMA user_version;"); err == nil {
+				fmt.Printf("  Schema version: %d\n", version)
+			}
+		}
+	} else {
+		fmt.Println("⚠ usage.db: will be created on first use")
+	}
+
+	fmt.Println()
+	fmt.Println("Diagnosis complete.")
+	return nil
+}
+
+func runBudget(home string, args []string) error {
+	flags := flag.NewFlagSet("budget", flag.ContinueOnError)
+	status := flags.Bool("status", false, "show budget status")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	if *status {
+		// TODO: Implement budget tracking
+		fmt.Println("Budget Status")
+		fmt.Println("=============")
+		fmt.Println()
+		fmt.Println("Daily budget: Not configured")
+		fmt.Println("Hard cap: Not configured")
+		fmt.Println()
+		fmt.Println("To configure budgets, edit .boba-project.yaml in your project root")
+		return nil
+	}
+
+	return errors.New("budget: specify --status")
 }

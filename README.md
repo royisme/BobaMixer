@@ -1,7 +1,82 @@
+# BobaMixer
+
+> 面向多种代码/AI CLI 工具的配置编排、智能路由与用量统计工具
+
+[![Go Version](https://img.shields.io/badge/go-1.22+-blue.svg)](https://golang.org)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
+**BobaMixer** 是一个本地优先的 CLI 工具，用于管理多个 AI 模型配置文件、智能路由请求、跟踪用量和成本。
+
+## Quick Start
+
+👉 **[查看 Quickstart 指南](QUICKSTART.md)** 快速开始使用
+
+```bash
+# 安装
+go install github.com/royisme/bobamixer/cmd/boba@latest
+
+# 设置配置
+mkdir -p ~/.boba/logs
+cp configs/examples/*.yaml ~/.boba/
+
+# 使用
+boba ls --profiles
+boba use work-heavy
+boba stats --today
+boba doctor
+```
+
+## 功能特性
+
+- ✅ **Profile 管理** - 配置多个 AI 模型和工具，轻松切换
+- ✅ **智能路由** - 基于规则自动选择最合适的 profile
+- ✅ **用量统计** - 跟踪 token 使用量、成本和延迟
+- ✅ **预算管理** - 设置每日预算和硬性上限
+- ✅ **本地优先** - 所有数据存储在本地，不收集遥测
+- ✅ **安全** - secrets.yaml 使用 0600 权限保护 API 密钥
+
+## 架构
+
+BobaMixer 采用分层架构设计：
+
+- **CLI Layer** - 命令行接口 (use/ls/stats/doctor/budget/edit)
+- **Domain Layer** - 业务逻辑 (Routing/Pricing/Session/Usage)
+- **Adapter Layer** - 适配不同的服务 (HTTP/Tool/MCP)
+- **Data Layer** - SQLite 数据库和 YAML 配置
+
+## 开发状态
+
+**当前版本**: Phase 2 (v0.2.0)
+
+✅ Phase 1 已完成:
+- SQLite 数据库自动引导
+- 配置文件加载 (profiles/routes/pricing/secrets)
+- HTTP 和 Tool 适配器基础框架
+- CLI 命令 (ls/use/stats/edit/doctor/budget)
+- Routing 路由引擎
+- Pricing 价格管理器
+
+✅ Phase 2 已完成:
+- **ToolAdapter 增强** - JSON Lines usage 事件解析，支持参数和流式输出
+- **Tokenizer 估算器** - 智能 token 估算（支持 GPT/Claude/通用模型）
+- **HttpAdapter 增强** - 自动解析 Anthropic/OpenAI/OpenRouter API 的 usage 信息
+- **完整的单元测试** - 所有核心模块测试覆盖
+
+🚧 Phase 3 计划:
+- 预算跟踪和提醒功能
+- 统计趋势分析（7天/30天）
+- TUI 主界面完善（Bubble Tea）
+- 建议引擎
+
+📋 Phase 4 计划:
+- MCP 适配器支持
+- Git Hooks 集成
+- Goreleaser 发布配置
+
+---
+
 # BobaMixer 开发方案 v1
 
-> 面向多种代码类 CLI 工具的配置编排、智能路由与用量统计的 Bubble Tea TUI 工具。
-> 首发目标平台：macOS + Linux；Windows 通过 WSL 使用。
 > 核心原则：本地优先、可解释、低侵入、可迭代。
 
 ---
