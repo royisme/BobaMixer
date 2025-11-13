@@ -34,7 +34,9 @@ func TestBumpVersion(t *testing.T) {
 
 func TestPlanPrerelease(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "VERSION"), []byte("0.1.0\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("0.1.0\n"), 0o644); err != nil {
+		t.Fatalf("failed to write VERSION file: %v", err)
+	}
 	mgr := NewManager(dir)
 	next, err := mgr.Plan("patch", "rc.1")
 	if err != nil {

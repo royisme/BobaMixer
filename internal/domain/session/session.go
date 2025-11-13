@@ -39,7 +39,10 @@ func NewSession(profile, adapter string) *Session {
 // generateID generates a random session ID
 func generateID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// rand.Read should never fail with crypto/rand, but handle it anyway
+		panic(fmt.Sprintf("failed to generate random session ID: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
 

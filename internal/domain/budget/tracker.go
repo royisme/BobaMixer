@@ -202,7 +202,9 @@ func (t *Tracker) getTodaySpending(scope, target string) (float64, error) {
 	}
 
 	var spent float64
-	fmt.Sscanf(row, "%f", &spent)
+	if _, err := fmt.Sscanf(row, "%f", &spent); err != nil {
+		return 0, fmt.Errorf("failed to parse spending: %w", err)
+	}
 	return spent, nil
 }
 
@@ -229,7 +231,9 @@ func (t *Tracker) getPeriodSpending(scope, target string, start, end int64) (flo
 	}
 
 	var spent float64
-	fmt.Sscanf(row, "%f", &spent)
+	if _, err := fmt.Sscanf(row, "%f", &spent); err != nil {
+		return 0, fmt.Errorf("failed to parse spending: %w", err)
+	}
 	return spent, nil
 }
 

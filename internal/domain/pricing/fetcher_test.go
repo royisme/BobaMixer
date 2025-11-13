@@ -26,27 +26,27 @@ func TestGetPrice(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		modelName     string
-		expectedInput float64
+		name           string
+		modelName      string
+		expectedInput  float64
 		expectedOutput float64
 	}{
 		{
-			name:          "existing model",
-			modelName:     "claude-3-5-sonnet",
-			expectedInput: 0.015,
+			name:           "existing model",
+			modelName:      "claude-3-5-sonnet",
+			expectedInput:  0.015,
 			expectedOutput: 0.075,
 		},
 		{
-			name:          "another existing model",
-			modelName:     "deepseek-chat",
-			expectedInput: 0.0005,
+			name:           "another existing model",
+			modelName:      "deepseek-chat",
+			expectedInput:  0.0005,
 			expectedOutput: 0.002,
 		},
 		{
-			name:          "fallback to profile cost",
-			modelName:     "unknown-model",
-			expectedInput: 0.01,
+			name:           "fallback to profile cost",
+			modelName:      "unknown-model",
+			expectedInput:  0.01,
 			expectedOutput: 0.05,
 		},
 	}
