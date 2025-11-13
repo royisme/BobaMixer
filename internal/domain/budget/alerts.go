@@ -30,9 +30,9 @@ type Alert struct {
 
 // AlertConfig represents alert configuration
 type AlertConfig struct {
-	EnableDaily    bool
-	EnableCap      bool
-	WarningPercent float64 // Percentage to trigger warning (e.g., 80)
+	EnableDaily     bool
+	EnableCap       bool
+	WarningPercent  float64 // Percentage to trigger warning (e.g., 80)
 	CriticalPercent float64 // Percentage to trigger critical (e.g., 100)
 }
 
@@ -108,9 +108,7 @@ func (am *AlertManager) CheckBudgetAlerts(scope, target string) []Alert {
 	}
 
 	// Add to history
-	for _, alert := range alerts {
-		am.history = append(am.history, alert)
-	}
+	am.history = append(am.history, alerts...)
 
 	return alerts
 }

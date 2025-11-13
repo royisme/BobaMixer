@@ -42,9 +42,9 @@ func TestAnalyzeCostTrend(t *testing.T) {
 	engine := NewEngine(db)
 
 	tests := []struct {
-		name           string
-		trend          *stats.Trend
-		shouldSuggest  bool
+		name          string
+		trend         *stats.Trend
+		shouldSuggest bool
 	}{
 		{
 			name: "increasing trend with significant increase",
@@ -184,9 +184,9 @@ func TestDetectAnomalies(t *testing.T) {
 	engine := NewEngine(db)
 
 	tests := []struct {
-		name          string
-		trend         *stats.Trend
-		shouldDetect  bool
+		name         string
+		trend        *stats.Trend
+		shouldDetect bool
 	}{
 		{
 			name: "with spike",

@@ -20,6 +20,7 @@ type Profile struct {
 	Tags        []string
 	CostPer1K   Cost
 	Env         map[string]string
+	Params      map[string]string
 }
 
 type Cost struct {
@@ -94,7 +95,7 @@ func LoadProfiles(home string) (Profiles, error) {
 	sort.Strings(keys)
 	for _, key := range keys {
 		node, _ := raw[key].(map[string]interface{})
-		prof := Profile{Key: key, Env: map[string]string{}}
+		prof := Profile{Key: key, Env: map[string]string{}, Params: map[string]string{}}
 		prof.Name = stringValue(node["name"])
 		prof.Adapter = stringValue(node["adapter"])
 		prof.Provider = stringValue(node["provider"])
@@ -110,9 +111,13 @@ func LoadProfiles(home string) (Profiles, error) {
 			}
 		}
 		if env := toMap(node["env"]); env != nil {
-			prof.Env = map[string]string{}
 			for ek, ev := range env {
 				prof.Env[ek] = stringValue(ev)
+			}
+		}
+		if params := toMap(node["params"]); params != nil {
+			for pk, pv := range params {
+				prof.Params[pk] = stringValue(pv)
 			}
 		}
 		result[key] = prof

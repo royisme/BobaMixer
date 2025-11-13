@@ -15,8 +15,10 @@ import (
 	"time"
 
 	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
+	"github.com/royisme/bobamixer/internal/domain/version"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -49,10 +51,14 @@ func Run(args []string) error {
 		return runDoctor(home, args[1:])
 	case "budget":
 		return runBudget(home, args[1:])
+	case "hooks":
+		return runHooks(home, args[1:])
 	case "action":
 		return runAction(home, args[1:])
 	case "report":
 		return runReport(home, args[1:])
+	case "release":
+		return runRelease(args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -339,25 +345,216 @@ func runDoctor(home string, args []string) error {
 
 func runBudget(home string, args []string) error {
 	flags := flag.NewFlagSet("budget", flag.ContinueOnError)
-	status := flags.Bool("status", false, "show budget status")
+	status := flags.Bool("status", true, "show budget status summary")
+	daily := flags.Float64("daily", 0, "set daily budget limit (USD)")
+	cap := flags.Float64("cap", 0, "set hard cap (USD)")
+	scopeFlag := flags.String("scope", "auto", "scope: auto|global|project|profile")
+	targetFlag := flags.String("target", "", "scope target (profile or project name)")
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
-	if *status {
-		// TODO: Implement budget tracking
-		fmt.Println("Budget Status")
-		fmt.Println("=============")
-		fmt.Println()
-		fmt.Println("Daily budget: Not configured")
-		fmt.Println("Hard cap: Not configured")
-		fmt.Println()
-		fmt.Println("To configure budgets, edit .boba-project.yaml in your project root")
+	dbPath := filepath.Join(home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return err
+	}
+	tracker := budget.NewTracker(db)
+	scope, target, projectCfg, err := resolveBudgetScope(*scopeFlag, *targetFlag)
+	if err != nil {
+		return err
+	}
+	if projectCfg != nil && projectCfg.Budget != nil && projectCfg.Budget.DailyUSD > 0 {
+		if err := ensureBudget(tracker, "project", target, projectCfg.Budget); err != nil {
+			return err
+		}
+	}
+	if *daily > 0 || *cap > 0 {
+		if err := applyBudgetLimits(tracker, scope, target, *daily, *cap); err != nil {
+			return err
+		}
+		fmt.Println("Budget limits updated.")
+	}
+	if !*status {
 		return nil
 	}
+	statusInfo, err := tracker.GetStatus(scope, target)
+	if err != nil {
+		return err
+	}
+	printBudgetStatus(scope, target, statusInfo)
+	alerts := budget.NewAlertManager(tracker, nil).CheckBudgetAlerts(scope, target)
+	if len(alerts) > 0 {
+		fmt.Println()
+		fmt.Println("Alerts:")
+		for _, alert := range alerts {
+			fmt.Printf("[%s] %s - %s\n", alert.Level, alert.Title, alert.Message)
+		}
+	}
+	return nil
+}
 
-	return errors.New("budget: specify --status")
+func resolveBudgetScope(scopeOpt, target string) (string, string, *config.ProjectConfig, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", "", nil, err
+	}
+	if scopeOpt == "auto" {
+		cfg, path, err := config.FindProjectConfig(cwd)
+		if err != nil {
+			return "", "", nil, err
+		}
+		if cfg != nil {
+			targetName := cfg.Project.Name
+			if targetName == "" {
+				targetName = filepath.Base(filepath.Dir(path))
+			}
+			return "project", targetName, cfg, nil
+		}
+		return "global", "", nil, nil
+	}
+	switch scopeOpt {
+	case "global":
+		return "global", "", nil, nil
+	case "project":
+		if target == "" {
+			return "", "", nil, errors.New("--target required for project scope")
+		}
+		return "project", target, nil, nil
+	case "profile":
+		if target == "" {
+			return "", "", nil, errors.New("--target required for profile scope")
+		}
+		return "profile", target, nil, nil
+	default:
+		return "", "", nil, fmt.Errorf("unknown scope %s", scopeOpt)
+	}
+}
+
+func ensureBudget(tracker *budget.Tracker, scope, target string, cfg *config.BudgetSettings) error {
+	if cfg == nil {
+		return nil
+	}
+	entry, err := tracker.GetBudget(scope, target)
+	if err != nil {
+		_, createErr := tracker.CreateBudget(scope, target, cfg.DailyUSD, cfg.HardCap)
+		return createErr
+	}
+	return tracker.UpdateLimits(entry.ID, cfg.DailyUSD, cfg.HardCap)
+}
+
+func applyBudgetLimits(tracker *budget.Tracker, scope, target string, daily, cap float64) error {
+	budgetEntry, err := tracker.GetBudget(scope, target)
+	if err != nil {
+		_, err = tracker.CreateBudget(scope, target, daily, cap)
+		return err
+	}
+	if daily == 0 {
+		daily = budgetEntry.DailyUSD
+	}
+	if cap == 0 {
+		cap = budgetEntry.HardCapUSD
+	}
+	return tracker.UpdateLimits(budgetEntry.ID, daily, cap)
+}
+
+func printBudgetStatus(scope, target string, status *budget.Status) {
+	fmt.Printf("Budget Scope: %s (%s)\n", scope, target)
+	fmt.Println(strings.Repeat("=", 40))
+	fmt.Printf("Today:  $%.4f of $%.2f (%.1f%%)\n", status.CurrentSpent, status.DailyLimit, status.DailyProgress)
+	fmt.Printf("Period: $%.4f of $%.2f (%.1f%%)\n", status.Budget.SpentUSD, status.HardCap, status.TotalProgress)
+	fmt.Printf("Days Remaining: %d\n", status.DaysRemaining)
+	if level := status.GetWarningLevel(); level != "none" {
+		fmt.Printf("Warning Level: %s\n", strings.ToUpper(level))
+	}
+}
+
+func runHooks(home string, args []string) error {
+	if len(args) == 0 {
+		return errors.New("hooks requires subcommand")
+	}
+	manager := hooks.NewManager(home)
+	switch args[0] {
+	case "install":
+		repo, err := findRepoRootFromArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		return manager.Install(repo)
+	case "remove":
+		repo, err := findRepoRootFromArgs(args[1:])
+		if err != nil {
+			return err
+		}
+		return manager.Remove(repo)
+	case "track":
+		flags := flag.NewFlagSet("track", flag.ContinueOnError)
+		event := flags.String("event", "", "git hook event")
+		repo := flags.String("repo", "", "repo path")
+		branch := flags.String("branch", "", "branch name")
+		flags.SetOutput(io.Discard)
+		if err := flags.Parse(args[1:]); err != nil {
+			return err
+		}
+		return manager.Record(*event, *repo, *branch)
+	default:
+		return fmt.Errorf("unknown hooks subcommand %s", args[0])
+	}
+}
+
+func findRepoRootFromArgs(args []string) (string, error) {
+	var start string
+	if len(args) > 0 {
+		start = args[0]
+	}
+	if start == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		start = cwd
+	}
+	return findRepoRoot(start)
+}
+
+func runRelease(args []string) error {
+	flags := flag.NewFlagSet("release", flag.ContinueOnError)
+	bump := flags.String("bump", "patch", "bump type: major|minor|patch")
+	prerelease := flags.String("prerelease", "", "prerelease identifier")
+	notes := flags.String("notes", "", "changelog notes")
+	dry := flags.Bool("dry-run", false, "do not write changes")
+	repo := flags.String("repo", "", "repo root override")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	root := *repo
+	if root == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		root, err = findRepoRoot(cwd)
+		if err != nil {
+			return err
+		}
+	}
+	mgr := version.NewManager(root)
+	if *dry {
+		next, err := mgr.Plan(*bump, *prerelease)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Next version: %s\n", next)
+		return nil
+	}
+	next, err := mgr.Bump(*bump, *prerelease, *notes)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Version bumped to %s\n", next)
+	return nil
 }
 
 func runAction(home string, args []string) error {
@@ -480,14 +677,18 @@ func runReport(home string, args []string) error {
 		defer f.Close()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
-		writer.Write([]string{"date", "tokens", "cost", "sessions"})
+		if err := writer.Write([]string{"date", "tokens", "cost", "sessions"}); err != nil {
+			return err
+		}
 		for _, dp := range trend.DataPoints {
-			writer.Write([]string{
+			if err := writer.Write([]string{
 				dp.Date,
 				fmt.Sprintf("%d", dp.Tokens),
 				fmt.Sprintf("%.4f", dp.Cost),
 				fmt.Sprintf("%d", dp.Count),
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		if err := writer.Error(); err != nil {
 			return err
@@ -496,4 +697,24 @@ func runReport(home string, args []string) error {
 
 	fmt.Printf("Report exported to %s\n", fileName)
 	return nil
+}
+
+func findRepoRoot(start string) (string, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.New("repo root not found")
+		}
+		dir = parent
+	}
 }

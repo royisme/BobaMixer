@@ -45,7 +45,10 @@ func NewRecord(sessionID, tool, model string, result adapters.Result, pricingTab
 // generateID generates a random record ID
 func generateID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// rand.Read should never fail with crypto/rand, but handle it anyway
+		panic(fmt.Sprintf("failed to generate random ID: %v", err))
+	}
 	return hex.EncodeToString(b)
 }
 
@@ -90,7 +93,9 @@ func GetTodayStats(db *sqlite.DB) (*Stats, error) {
 
 	// Parse row (simplified)
 	stats := &Stats{}
-	fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions)
+	if _, err := fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions); err != nil {
+		return &Stats{}, fmt.Errorf("failed to parse stats: %w", err)
+	}
 
 	return stats, nil
 }
