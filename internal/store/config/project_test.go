@@ -9,6 +9,7 @@ import (
 func TestFindProjectConfig(t *testing.T) {
 	dir := t.TempDir()
 	nested := filepath.Join(dir, "a", "b")
+	// #nosec G301 -- test directory can have standard permissions
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -19,6 +20,7 @@ budget:
   daily_usd: 2.5
   hard_cap: 25
 `
+	// #nosec G306 -- test file can have readable permissions
 	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

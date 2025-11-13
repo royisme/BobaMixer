@@ -1,3 +1,4 @@
+// Package budget provides budget tracking and alerting functionality for API usage costs.
 package budget
 
 import (
@@ -15,17 +16,23 @@ const (
 	AlertLevelCritical
 )
 
+const (
+	scopeGlobal  = "global"
+	scopeProfile = "profile"
+	scopeProject = "project"
+)
+
 // Alert represents a budget alert/notification
 type Alert struct {
-	Level      AlertLevel
-	Title      string
-	Message    string
 	Timestamp  time.Time
-	Scope      string  // "global", "project", "profile"
-	Target     string  // project name or profile name
 	CurrentUSD float64 // current spending
 	LimitUSD   float64 // budget limit that was exceeded
 	Percent    float64 // percentage of budget used
+	Title      string
+	Message    string
+	Scope      string // "global", "project", "profile"
+	Target     string // project name or profile name
+	Level      AlertLevel
 }
 
 // AlertConfig represents alert configuration
@@ -148,7 +155,6 @@ func (am *AlertManager) checkThreshold(
 				current, limit,
 			)
 		}
-
 	} else if percent >= am.config.WarningPercent {
 		alert = &Alert{
 			Level:      AlertLevelWarning,
@@ -223,11 +229,12 @@ func (alert *Alert) FormatAlert() string {
 	}
 
 	var scopeInfo string
-	if alert.Scope == "profile" {
+	switch alert.Scope {
+	case scopeProfile:
 		scopeInfo = fmt.Sprintf("Profile: %s", alert.Target)
-	} else if alert.Scope == "project" {
+	case scopeProject:
 		scopeInfo = fmt.Sprintf("Project: %s", alert.Target)
-	} else {
+	default:
 		scopeInfo = "Global Budget"
 	}
 
@@ -267,7 +274,7 @@ func (alert *Alert) GetSuggestion() string {
 	}
 }
 
-// LevelToString converts AlertLevel to string
+// String converts AlertLevel to string
 func (level AlertLevel) String() string {
 	switch level {
 	case AlertLevelCritical:

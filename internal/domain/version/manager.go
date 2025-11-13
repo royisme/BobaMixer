@@ -1,3 +1,4 @@
+// Package version manages semantic versioning and changelog generation.
 package version
 
 import (
@@ -47,7 +48,7 @@ func (m *Manager) Bump(part, prerelease, notes string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(m.versionPath, []byte(next+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(m.versionPath, []byte(next+"\n"), 0o600); err != nil {
 		return "", err
 	}
 	if err := m.appendChangelog(next, notes); err != nil {
@@ -67,7 +68,7 @@ func (m *Manager) appendChangelog(version, notes string) error {
 		}
 		notes = notes + "\n"
 	}
-	var header string = "# Changelog\n\n"
+	var header = "# Changelog\n\n"
 	var tail string
 	if data, err := os.ReadFile(m.changelogPath); err == nil {
 		existing := strings.TrimSpace(string(data))
@@ -92,7 +93,7 @@ func (m *Manager) appendChangelog(version, notes string) error {
 		builder.WriteString(tail)
 		builder.WriteString("\n")
 	}
-	return os.WriteFile(m.changelogPath, []byte(builder.String()), 0o644)
+	return os.WriteFile(m.changelogPath, []byte(builder.String()), 0o600)
 }
 
 func bumpVersion(current, part, prerelease string) (string, error) {

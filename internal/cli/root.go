@@ -1,6 +1,8 @@
+// Package cli provides the command-line interface for BobaMixer.
 package cli
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -16,6 +18,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
+	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/domain/version"
@@ -23,6 +26,12 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	scopeGlobal  = "global"
+	scopeProject = "project"
+)
+
+//nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
 	home, err := config.ResolveHome()
 	if err != nil {
@@ -59,6 +68,8 @@ func Run(args []string) error {
 		return runReport(home, args[1:])
 	case "release":
 		return runRelease(args[1:])
+	case "route":
+		return runRoute(home, args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -75,6 +86,8 @@ func printUsage() {
 	fmt.Println("  boba budget [--status]")
 	fmt.Println("  boba action [--auto]")
 	fmt.Println("  boba report [--format json|csv]")
+	fmt.Println("  boba route test <text|@file>")
+	fmt.Println("  boba hooks install|remove|track")
 }
 
 func runLS(home string, args []string) error {
@@ -153,7 +166,10 @@ func runStats(home string, args []string) error {
 		if err != nil {
 			return err
 		}
-		sessions, _ := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		sessions, err := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		if err != nil {
+			return err
+		}
 
 		fmt.Println("Today's Usage")
 		fmt.Println("=============")
@@ -248,7 +264,8 @@ func runEdit(home string, args []string) error {
 		}
 	}
 	if editor := os.Getenv("EDITOR"); editor != "" {
-		cmd := exec.Command(editor, path)
+		// #nosec G204 -- EDITOR is intentionally user-configurable environment variable
+		cmd := exec.CommandContext(context.Background(), editor, path)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
@@ -258,7 +275,7 @@ func runEdit(home string, args []string) error {
 	return nil
 }
 
-func runDoctor(home string, args []string) error {
+func runDoctor(home string, _ []string) error {
 	fmt.Println("BobaMixer Doctor")
 	fmt.Println("================")
 	fmt.Println()
@@ -410,13 +427,13 @@ func resolveBudgetScope(scopeOpt, target string) (string, string, *config.Projec
 			if targetName == "" {
 				targetName = filepath.Base(filepath.Dir(path))
 			}
-			return "project", targetName, cfg, nil
+			return scopeProject, targetName, cfg, nil
 		}
-		return "global", "", nil, nil
+		return scopeGlobal, "", nil, nil
 	}
 	switch scopeOpt {
-	case "global":
-		return "global", "", nil, nil
+	case scopeGlobal:
+		return scopeGlobal, "", nil, nil
 	case "project":
 		if target == "" {
 			return "", "", nil, errors.New("--target required for project scope")
@@ -614,6 +631,7 @@ func runAction(home string, args []string) error {
 	return nil
 }
 
+//nolint:gocyclo // Complex report generation with multiple output formats and filters
 func runReport(home string, args []string) error {
 	flags := flag.NewFlagSet("report", flag.ContinueOnError)
 	days := flags.Int("days", 7, "number of days to include")
@@ -639,7 +657,10 @@ func runReport(home string, args []string) error {
 	if err != nil {
 		return err
 	}
-	suggs, _ := suggestions.NewEngine(db).GenerateSuggestions(*days)
+	suggs, err := suggestions.NewEngine(db).GenerateSuggestions(*days)
+	if err != nil {
+		return err
+	}
 
 	fileName := *output
 	if fileName == "" {
@@ -648,7 +669,7 @@ func runReport(home string, args []string) error {
 	if !filepath.IsAbs(fileName) {
 		fileName = filepath.Join(home, fileName)
 	}
-	if err := os.MkdirAll(filepath.Dir(fileName), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fileName), 0o750); err != nil {
 		return err
 	}
 
@@ -670,11 +691,15 @@ func runReport(home string, args []string) error {
 			return err
 		}
 	default:
+		// #nosec G304 -- fileName is constructed from validated user input and home directory
 		f, err := os.Create(fileName)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			//nolint:errcheck,gosec // Best effort cleanup, error irrelevant in defer
+			f.Close()
+		}()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
 		if err := writer.Write([]string{"date", "tokens", "cost", "sessions"}); err != nil {
@@ -717,4 +742,130 @@ func findRepoRoot(start string) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+func runRoute(home string, args []string) error {
+	if len(args) == 0 {
+		return errors.New("route subcommand required (test)")
+	}
+
+	switch args[0] {
+	case "test":
+		return runRouteTest(home, args[1:])
+	default:
+		return fmt.Errorf("unknown route subcommand: %s", args[0])
+	}
+}
+
+//nolint:gocyclo // Complex route testing with multiple output formats and conditions
+func runRouteTest(home string, args []string) error{
+	flags := flag.NewFlagSet("route test", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	if flags.NArg() == 0 {
+		return errors.New("route test requires text or @file argument")
+	}
+
+	// Load configurations
+	routes, err := config.LoadRoutes(home)
+	if err != nil {
+		return fmt.Errorf("load routes: %w", err)
+	}
+
+	activeProfile, err := config.LoadActiveProfile(home)
+	if err != nil {
+		activeProfile = "default"
+	}
+
+	// Get text input
+	input := flags.Arg(0)
+	var text string
+	if strings.HasPrefix(input, "@") {
+		// Read from file
+		filePath := strings.TrimPrefix(input, "@")
+		// #nosec G304 -- user-provided file path for route testing
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("read file: %w", err)
+		}
+		text = string(data)
+	} else {
+		text = input
+	}
+
+	// Detect project context
+	cwd, _ := os.Getwd() //nolint:errcheck
+	project := ""
+	branch := ""
+	projectTypes := []string{}
+
+	if repoRoot, err := findRepoRoot(cwd); err == nil {
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot) //nolint:errcheck
+		if projectCfg != nil {
+			project = projectCfg.Project.Name
+			projectTypes = projectCfg.Project.Type
+		}
+
+		// Get git branch
+		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoRoot
+		if output, err := cmd.Output(); err == nil {
+			branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	// Determine time of day
+	hour := time.Now().Hour()
+	timeOfDay := "day"
+	if hour < 6 || hour >= 22 {
+		timeOfDay = "night"
+	} else if hour >= 18 {
+		timeOfDay = "evening"
+	}
+
+	// Build routing context
+	ctx := routing.Context{
+		Text:        text,
+		CtxChars:    len(text),
+		Project:     project,
+		Branch:      branch,
+		ProjectType: projectTypes,
+		TimeOfDay:   timeOfDay,
+	}
+
+	// Route decision
+	router := routing.NewRouter(routes)
+	decision := router.Route(ctx, activeProfile)
+
+	// Display results
+	fmt.Println("=== Route Test Results ===")
+	fmt.Printf("Text length: %d chars\n", ctx.CtxChars)
+	if ctx.Project != "" {
+		fmt.Printf("Project: %s (types: %v)\n", ctx.Project, ctx.ProjectType)
+	}
+	if ctx.Branch != "" {
+		fmt.Printf("Branch: %s\n", ctx.Branch)
+	}
+	fmt.Printf("Time of day: %s\n", ctx.TimeOfDay)
+	fmt.Println()
+
+	fmt.Println("=== Routing Decision ===")
+	fmt.Printf("Profile: %s\n", decision.ProfileKey)
+	if decision.RuleID != "" {
+		fmt.Printf("Rule ID: %s\n", decision.RuleID)
+	}
+	if decision.Explain != "" {
+		fmt.Printf("Explanation: %s\n", decision.Explain)
+	}
+	if decision.Explore {
+		fmt.Println("(exploration mode)")
+	}
+	if decision.Fallback != "" {
+		fmt.Printf("Fallback: %s\n", decision.Fallback)
+	}
+
+	return nil
 }

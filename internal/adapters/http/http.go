@@ -1,3 +1,4 @@
+// Package httpadapter provides HTTP-based adapter implementation for API providers.
 package httpadapter
 
 import (
@@ -14,11 +15,11 @@ import (
 )
 
 type Client struct {
+	headers    map[string]string
+	httpClient *http.Client
 	name       string
 	provider   string // anthropic, openai, openrouter, etc.
 	endpoint   string
-	headers    map[string]string
-	httpClient *http.Client
 }
 
 // UsageResponse represents common usage response structure
@@ -78,9 +79,19 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 			Usage:   adapters.Usage{Estimate: adapters.EstimateHeuristic, LatencyMS: latencyMS},
 		}, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		//nolint:errcheck,gosec // Best effort cleanup, error irrelevant in defer
+		resp.Body.Close()
+	}()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return adapters.Result{
+			Success: false,
+			Error:   fmt.Sprintf("read response: %v", err),
+			Usage:   adapters.Usage{Estimate: adapters.EstimateHeuristic, LatencyMS: latencyMS},
+		}, nil
+	}
 
 	// Try to parse usage from response
 	usage := c.parseUsage(body)

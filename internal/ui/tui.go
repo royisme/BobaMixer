@@ -1,3 +1,4 @@
+// Package ui provides the terminal user interface for BobaMixer.
 package ui
 
 import (
@@ -30,25 +31,25 @@ const (
 
 // Model represents the TUI state
 type Model struct {
-	home          string
-	activeProfile string
+	lastUpdate    time.Time
 	profiles      config.Profiles
 	profileList   []string
-	selectedIdx   int
-	viewMode      ViewMode
-	width         int
-	height        int
+	sessionList   []*session.Session
+	notifications []notifications.Event
 	db            *sqlite.DB
 	budgetTracker *budget.Tracker
 	statsAnalyzer *stats.Analyzer
 	todayStats    *stats.DataPoint
 	trend7d       *stats.Trend
 	budgetStatus  *budget.Status
-	lastUpdate    time.Time
-	sessionList   []*session.Session
 	notifier      *notifications.Notifier
-	notifications []notifications.Event
+	home          string
+	activeProfile string
 	flashMessage  string
+	viewMode      ViewMode
+	selectedIdx   int
+	width         int
+	height        int
 	err           error
 }
 
@@ -108,6 +109,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update handles messages
+//nolint:gocyclo // Complex TUI event handling with multiple message types and view modes
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -513,10 +515,10 @@ func (m Model) renderFooter() string {
 
 // Messages
 type dataLoadedMsg struct {
+	sessions     []*session.Session
 	todayStats   *stats.DataPoint
 	trend7d      *stats.Trend
 	budgetStatus *budget.Status
-	sessions     []*session.Session
 	err          error
 }
 

@@ -21,13 +21,13 @@ const (
 
 // Suggestion represents a usage optimization suggestion
 type Suggestion struct {
-	Type        SuggestionType
-	Title       string
-	Description string
-	Impact      string   // Expected impact (e.g., "Save $5/day")
-	Priority    int      // 1-5, where 5 is highest priority
 	ActionItems []string // Recommended actions
 	Data        SuggestionData
+	Title       string
+	Description string
+	Impact      string // Expected impact (e.g., "Save $5/day")
+	Priority    int    // 1-5, where 5 is highest priority
+	Type        SuggestionType
 }
 
 // SuggestionData contains supporting data for suggestions
@@ -326,7 +326,7 @@ func (s *Suggestion) GetPriority() string {
 	}
 }
 
-// TypeToString converts SuggestionType to string
+// String converts SuggestionType to string
 func (t SuggestionType) String() string {
 	switch t {
 	case SuggestionCostOptimization:

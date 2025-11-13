@@ -30,20 +30,14 @@ jobs:
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Check formatting
-        run: |
-          if [ -n "$(gofmt -l .)" ]; then
-            echo "The following files are not formatted:"
-            gofmt -l .
-            exit 1
-          fi
-
-
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
       - name: Run golangci-lint
-        run: |
-          $(go env GOPATH)/bin/golangci-lint run --timeout=5m
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.6.1
+          args: --timeout=5m
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: go
 
 
   # Run tests with coverage

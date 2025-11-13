@@ -1,3 +1,4 @@
+// Package suggestions provides intelligent recommendations for optimizing usage and costs.
 package suggestions
 
 import (
@@ -11,9 +12,9 @@ import (
 
 // Applicator applies actionable suggestions to the local environment automatically.
 type Applicator struct {
-	home     string
-	tracker  *budget.Tracker
 	profiles config.Profiles
+	tracker  *budget.Tracker
+	home     string
 }
 
 // NewApplicator creates an applicator bound to the filesystem home + budget tracker.

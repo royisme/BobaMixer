@@ -8,8 +8,8 @@ import (
 
 // ProjectConfig represents the optional .boba-project.yaml file.
 type ProjectConfig struct {
-	Project ProjectInfo     `yaml:"project"`
 	Budget  *BudgetSettings `yaml:"budget"`
+	Project ProjectInfo     `yaml:"project"`
 }
 
 // ProjectInfo describes repository metadata.
@@ -33,6 +33,7 @@ func FindProjectConfig(start string) (*ProjectConfig, string, error) {
 	}
 	for {
 		path := filepath.Join(dir, ".boba-project.yaml")
+		// #nosec G304 -- path is constructed from directory traversal for project config
 		data, err := os.ReadFile(path)
 		if err == nil {
 			cfg, err := parseProjectConfig(data)

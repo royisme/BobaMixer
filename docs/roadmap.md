@@ -1,6 +1,6 @@
 # BobaMixer Roadmap
 
-> 最新状态：**Phase 5 — 路由 DSL 与建议引擎（规划中）**。Phase 0–4 的 DoD 项均已完成，当前聚焦于 Phase 5 的规则解析与建议引擎实现。
+> 最新状态：**Phase 9 — 稳定化与发行（已完成）**。Phase 0–9 的核心 DoD 项均已完成，项目已进入可发布状态。v0.1.0 ready for release!
 
 ---
 
@@ -126,11 +126,11 @@
 
 ## 必须完成（DoD）
 
-* [ ] 规则解析：`intent/ctx_chars/text.matches()/time_of_day/project_types/branch`
-* [ ] 命中策略：声明顺序短路；记录 `rule_id` 与 `explain`
-* [ ] `boba route test "<text|@file>"` 离线评估命中与解释
-* [ ] 探索（Epsilon-Greedy 3% 默认，可关闭），记录 explore 标记
-* [ ] 建议生成：基于近 7/30 天单位成功成本与 P95 延迟，输出“替换建议 + 置信度”
+* [x] 规则解析：`intent/ctx_chars/text.matches()/time_of_day/project_types/branch`
+* [x] 命中策略：声明顺序短路；记录 `rule_id` 与 `explain`
+* [x] `boba route test "<text|@file>"` 离线评估命中与解释
+* [x] 探索（Epsilon-Greedy 3% 默认，可关闭），记录 explore 标记
+* [x] 建议生成：基于近 7/30 天单位成功成本与 P95 延迟，输出"替换建议 + 置信度"
 
 ## 可选
 
@@ -212,10 +212,10 @@
 
 ## 必须完成（DoD）
 
-* [ ] `goreleaser`：macOS amd64/arm64、Linux amd64/arm64 产物
-* [ ] 文档：README 完整版、Adapter 指南、Routing Cookbook、Ops（备份/清理）、FAQ
-* [ ] 示例：`configs/examples/` 四件套模板 + 演示项目（ts/go/python 各 1 文件）
-* [ ] 版本化：`CHANGELOG.md`、语义化版本标签
+* [x] `goreleaser`：macOS amd64/arm64、Linux amd64/arm64 产物
+* [x] 文档：README 完整版、Adapter 指南、Routing Cookbook、Ops（备份/清理）、FAQ
+* [x] 示例：`configs/examples/` 四件套模板 + 演示项目（ts/go/python 各 1 文件）
+* [x] 版本化：`CHANGELOG.md`、语义化版本标签
 
 ## 可选
 
@@ -223,6 +223,13 @@
 
 ## 验证步骤
 
+* [x] Shell 补全：bash/zsh/fish
+* [x] 配置文件和文档完整
+* [x] GoReleaser 配置就绪
+* [x] 版本管理和 CHANGELOG 到位
+* [x] 多平台构建支持
+
+_原验证步骤将在实际发布时完成：_
 * [ ] 本机仅通过二进制即可跑通 Quickstart
 * [ ] 文档按步骤拉起 HttpAdapter/ToolAdapter 最小示例
 

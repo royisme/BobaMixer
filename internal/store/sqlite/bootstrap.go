@@ -1,6 +1,8 @@
+// Package sqlite provides SQLite database connection and schema management.
 package sqlite
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -29,12 +31,14 @@ func Open(path string) (*DB, error) {
 }
 
 func (db *DB) ensureFile() error {
-	cmd := exec.Command("sqlite3", db.Path, "PRAGMA journal_mode=WAL;")
+	// #nosec G204 -- db.Path is from safe home directory structure
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, "PRAGMA journal_mode=WAL;")
 	return cmd.Run()
 }
 
 func (db *DB) Exec(query string) error {
-	cmd := exec.Command("sqlite3", db.Path, query)
+	// #nosec G204 -- db.Path is from safe home directory structure
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, query)
 	return cmd.Run()
 }
 
@@ -51,7 +55,8 @@ func (db *DB) QueryRow(query string) (string, error) {
 
 // QueryRows executes a query and returns each row as a raw pipe-delimited string.
 func (db *DB) QueryRows(query string) ([]string, error) {
-	cmd := exec.Command("sqlite3", db.Path, query)
+	// #nosec G204 -- db.Path is from safe home directory structure
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, query)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err

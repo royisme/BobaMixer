@@ -1,3 +1,4 @@
+// Package config manages configuration loading, validation and storage.
 package config
 
 import (
@@ -9,6 +10,11 @@ import (
 )
 
 type Profile struct {
+	Temperature float64
+	Tags        []string
+	CostPer1K   Cost
+	Env         map[string]string
+	Params      map[string]string
 	Key         string
 	Name        string
 	Adapter     string
@@ -16,11 +22,6 @@ type Profile struct {
 	Endpoint    string
 	Model       string
 	MaxTokens   int
-	Temperature float64
-	Tags        []string
-	CostPer1K   Cost
-	Env         map[string]string
-	Params      map[string]string
 }
 
 type Cost struct {
@@ -38,9 +39,9 @@ type RoutesConfig struct {
 }
 
 type SubAgent struct {
-	Profile    string
 	Triggers   []string
 	Conditions map[string]interface{}
+	Profile    string
 }
 
 type RouteRule struct {
@@ -94,7 +95,10 @@ func LoadProfiles(home string) (Profiles, error) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		node, _ := raw[key].(map[string]interface{})
+		node, ok := raw[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
 		prof := Profile{Key: key, Env: map[string]string{}, Params: map[string]string{}}
 		prof.Name = stringValue(node["name"])
 		prof.Adapter = stringValue(node["adapter"])
@@ -232,6 +236,7 @@ func LoadPricing(home string) (*PricingTable, error) {
 }
 
 func readFileIfExists(path string) ([]byte, error) {
+	// #nosec G304 -- path is from safe home directory structure
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

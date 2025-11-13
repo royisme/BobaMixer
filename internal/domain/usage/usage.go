@@ -1,3 +1,4 @@
+// Package usage manages usage records and tracking for API calls.
 package usage
 
 import (
@@ -14,15 +15,15 @@ import (
 
 // Record represents a usage record
 type Record struct {
-	ID           string
-	SessionID    string
 	Timestamp    int64
-	InputTokens  int
-	OutputTokens int
 	InputCost    float64
 	OutputCost   float64
+	ID           string
+	SessionID    string
 	Tool         string
 	Model        string
+	InputTokens  int
+	OutputTokens int
 }
 
 // NewRecord creates a new usage record
@@ -117,7 +118,9 @@ func GetPeriodStats(db *sqlite.DB, days int) (*Stats, error) {
 	}
 
 	stats := &Stats{}
-	fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions)
+	if _, err := fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions); err != nil {
+		return &Stats{}, nil
+	}
 
 	return stats, nil
 }

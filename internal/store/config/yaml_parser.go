@@ -14,11 +14,16 @@ const (
 	tokenList
 )
 
+const (
+	boolTrue  = "true"
+	boolFalse = "false"
+)
+
 type yamlToken struct {
-	kind      yamlTokenKind
-	indent    int
 	key       string
 	value     string
+	kind      yamlTokenKind
+	indent    int
 	hasValue  bool
 	inlineMap bool
 }
@@ -40,8 +45,8 @@ func parseYAML(data []byte) (map[string]interface{}, error) {
 }
 
 type yamlLine struct {
-	indent int
 	text   string
+	indent int
 }
 
 func tokenizeYAML(raw string) []yamlLine {
@@ -140,6 +145,7 @@ func parseMap(tokens []yamlToken, idx int, indent int) (map[string]interface{}, 
 	return result, idx, nil
 }
 
+//nolint:gocyclo // Complex YAML parsing with multiple token types and nesting
 func parseList(tokens []yamlToken, idx int, indent int) ([]interface{}, int, error) {
 	var items []interface{}
 	for idx < len(tokens) {
@@ -234,8 +240,8 @@ func parseScalar(raw string) interface{} {
 	if strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"") && len(raw) >= 2 {
 		return strings.Trim(raw, "\"")
 	}
-	if raw == "true" || raw == "false" {
-		return raw == "true"
+	if raw == boolTrue || raw == boolFalse {
+		return raw == boolTrue
 	}
 	if strings.Contains(raw, ".") {
 		if f, err := strconv.ParseFloat(raw, 64); err == nil {

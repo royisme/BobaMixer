@@ -1,3 +1,4 @@
+// Package session manages execution sessions and their lifecycle.
 package session
 
 import (
@@ -13,17 +14,17 @@ import (
 
 // Session represents a single execution session
 type Session struct {
-	ID        string
 	StartedAt int64
 	EndedAt   int64
+	LatencyMS int64
+	ID        string
 	Project   string
 	Branch    string
 	Profile   string
 	Adapter   string
 	TaskType  string
-	Success   bool
-	LatencyMS int64
 	Notes     string
+	Success   bool
 }
 
 // NewSession creates a new session
@@ -130,7 +131,10 @@ func escape(s string) string {
 }
 
 func parseInt64(raw string) int64 {
-	v, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	v, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		return 0
+	}
 	return v
 }
 

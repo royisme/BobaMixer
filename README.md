@@ -1,510 +1,540 @@
-# BobaMixer
+# BobaMixer 🧋
 
-> 面向多种代码/AI CLI 工具的配置编排、智能路由与用量统计工具
+> **[English](#english)** | **[中文](#中文)**
 
-[![Go Version](https://img.shields.io/badge/go-1.22+-blue.svg)](https://golang.org)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+---
 
-**BobaMixer** 是一个本地优先的 CLI 工具，用于管理多个 AI 模型配置文件、智能路由请求、跟踪用量和成本。
+## English
 
-## Quick Start
+**Smart AI Adapter Router with Cost Tracking and Intelligent Routing**
 
-👉 **[查看 Quickstart 指南](QUICKSTART.md)** 快速开始使用
+BobaMixer is a comprehensive CLI tool for managing multiple AI providers, tracking costs, and optimizing your AI workload routing. It features intelligent routing, real-time budget tracking, and comprehensive usage analytics.
 
+[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/royisme/BobaMixer)](https://github.com/royisme/BobaMixer/releases)
+[![Documentation](https://img.shields.io/badge/docs-online-blue)](https://royisme.github.io/BobaMixer/)
+
+## ✨ Features
+
+### 📊 Usage Tracking & Analytics
+- **Real-time monitoring** of tokens, cost, and latency
+- **Multi-provider support** (Anthropic, OpenAI, OpenRouter, custom)
+- **Historical trends** with 7/30-day analysis
+- **Session tracking** with project/branch context
+- **Estimate accuracy levels** (exact, mapped, heuristic)
+
+### 🎯 Intelligent Routing
+- **Rule-based routing** with DSL expressions
+- **Context-aware** (text patterns, size, project type, branch, time)
+- **Epsilon-greedy exploration** for automatic optimization
+- **Offline testing** with `boba route test`
+
+### 💰 Budget Management
+- **Multi-level budgets** (global, project, profile)
+- **Proactive alerts** (warning and critical thresholds)
+- **Cost projections** and spending trends
+- **No blocking** - alerts only, never interrupts workflow
+
+### 🤖 Suggestion Engine
+- **Cost optimization recommendations** based on usage patterns
+- **Profile switching suggestions** with confidence scores
+- **P95 latency comparisons**
+- **Auto-apply** or manual review options
+
+### 🛠️ Adapters
+- **HTTP Adapter**: REST API providers (Anthropic, OpenAI, etc.)
+- **Tool Adapter**: CLI tools (claude-code, custom scripts)
+- **MCP Adapter**: Model Context Protocol integrations
+- **Extensible**: Easy to add custom adapters
+
+### 📈 TUI Dashboard
+- **Beautiful interface** with bubble tea
+- **Real-time stats** and trend visualizations
+- **Profile switching** and budget status
+- **Notification feed** for alerts and suggestions
+
+## 🚀 Quick Start
+
+### Installation
+
+**Using Go:**
 ```bash
-# 安装
 go install github.com/royisme/bobamixer/cmd/boba@latest
+```
 
-# 设置配置
-mkdir -p ~/.boba/logs
-cp configs/examples/*.yaml ~/.boba/
+**Using Homebrew (macOS/Linux):**
+```bash
+brew tap royisme/tap
+brew install bobamixer
+```
 
-# 使用
-boba ls --profiles
-boba use work-heavy
-boba stats --today
+**Download Binary:**
+Download from [Releases](https://github.com/royisme/BobaMixer/releases)
+
+### Initial Setup
+
+1. **Initialize configuration:**
+```bash
 boba doctor
 ```
 
-`params.command` + `endpoint: stdio` 会驱动 MCP Adapter 通过 STDIN/STDOUT 调用自定义 server。
+This creates `~/.boba/` with example configurations.
 
-## 功能特性
-
-- ✅ **Profile 管理** - 配置多个 AI 模型和工具，轻松切换
-- ✅ **智能路由** - 基于规则自动选择最合适的 profile
-- ✅ **用量统计** - 跟踪 token 使用量、成本和延迟
-- ✅ **预算管理** - 设置每日预算和硬性上限
-- ✅ **本地优先** - 所有数据存储在本地，不收集遥测
-- ✅ **安全** - secrets.yaml 使用 0600 权限保护 API 密钥
-
-## 架构
-
-BobaMixer 采用分层架构设计：
-
-- **CLI Layer** - 命令行接口 (use/ls/stats/doctor/budget/edit)
-- **Domain Layer** - 业务逻辑 (Routing/Pricing/Session/Usage)
-- **Adapter Layer** - 适配不同的服务 (HTTP/Tool/MCP)
-- **Data Layer** - SQLite 数据库和 YAML 配置
-
-## 开发状态
-
-**当前版本**: Phase 4 (v0.4.0)
-
-✅ Phase 1 已完成:
-- SQLite 数据库自动引导
-- 配置文件加载 (profiles/routes/pricing/secrets)
-- HTTP 和 Tool 适配器基础框架
-- CLI 命令 (ls/use/stats/edit/doctor/budget)
-- Routing 路由引擎
-- Pricing 价格管理器
-
-✅ Phase 2 已完成:
-- **ToolAdapter 增强** - JSON Lines usage 事件解析，支持参数和流式输出
-- **Tokenizer 估算器** - 智能 token 估算（支持 GPT/Claude/通用模型）
-- **HttpAdapter 增强** - 自动解析 Anthropic/OpenAI/OpenRouter API 的 usage 信息
-- **完整的单元测试** - 所有核心模块测试覆盖
-
-🚀 Phase 3/4 新增:
-- ✅ GitHub Actions CI（编译 + go test）
-- ✅ `boba release` 版本管理（自动 bump + changelog）
-- ✅ 预算跟踪/提醒，支持 `.boba-project.yaml`
-- ✅ 7/30 天趋势分析 + 建议引擎（CLI + 报表）
-- ✅ TUI 仪表板 + 实时提醒
-- ✅ MCP Adapter（面向 MCP Server 的 STDIO Transport）
-- ✅ Git Hooks 集成（post-checkout/merge/commit）
-- ✅ Goreleaser 配置
-
----
-
-# BobaMixer 开发方案 v1
-
-> 核心原则：本地优先、可解释、低侵入、可迭代。
-
----
-
-## 0. 名称与范围
-
-- **名称**：BobaMixer（CLI：`boba`）
-- **目标**：对接多类“代码/AI”CLI 或 HTTP 客户端（Anthropic/OpenRouter、Claude Code、Codex CLI、后续 MCP）
-- **能力**：Profile 管理、智能路由、用量/成本/延迟统计、预算提醒、项目/分支配置继承、TUI 控制台
-- **非目标**：不会做熔断（hard stop）、不会依赖 OS Keychain、不会收集遥测
-
----
-
-## 1. 架构概览
-
-```
-┌─────────────────────────────────────────────┐
-│ TUI Layer (Bubble Tea + Lip Gloss + Glamour)│
-│ 主屏/切换/统计/建议/项目/设置/诊断           │
-└─────────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────────┐
-│ CLI (Cobra)                                 │
-│ use/ls/stats/budget/route/doctor/edit/hooks │
-└─────────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────────┐
-│ Domain & Services                           │
-│ Profiles / Routing / Budget / Usage / Project
-│ Suggestions / Pricing / Tokenizer           │
-└─────────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────────┐
-│ Adapters                                    │
-│ HttpAdapter / ToolAdapter / McpAdapter(后续) │
-│ LogTap / Interceptor / Token Estimator      │
-└─────────────────────────────────────────────┘
-                    ↕
-┌─────────────────────────────────────────────┐
-│ Data Access                                 │
-│ SQLite / YAML 配置 / JSONL 日志              │
-└─────────────────────────────────────────────┘
+2. **Configure your first profile** in `~/.boba/profiles.yaml`:
+```yaml
+default:
+  adapter: http
+  provider: anthropic
+  endpoint: https://api.anthropic.com/v1/messages
+  model: claude-3-5-sonnet-20241022
+  headers:
+    anthropic-version: "2023-06-01"
+    x-api-key: "secret://anthropic_key"
 ```
 
----
+3. **Add your API key** to `~/.boba/secrets.yaml`:
+```yaml
+anthropic_key: sk-ant-your-key-here
+```
 
-## 2. 配置与文件布局（XDG ~`~/.boba`）
+4. **Activate the profile:**
+```bash
+boba use default
+```
 
+5. **Launch TUI dashboard:**
+```bash
+boba
+```
+
+## 📖 Documentation
+
+**📚 [Full Documentation](https://royisme.github.io/BobaMixer/)** - Complete guides in English and Chinese
+
+Quick Links:
+- **[Getting Started](https://royisme.github.io/BobaMixer/docs/getting-started/)** - Installation and first steps
+- **[Configuration](https://royisme.github.io/BobaMixer/docs/configuration/)** - Complete configuration reference
+- **[Adapters](https://royisme.github.io/BobaMixer/docs/adapters/)** - Working with different adapter types
+- **[Routing](https://royisme.github.io/BobaMixer/docs/routing/)** - Routing rules and optimization
+- **[Troubleshooting](https://royisme.github.io/BobaMixer/docs/troubleshooting/)** - Common issues and solutions
+
+Legacy Docs:
+- [Adapter Guide](docs/ADAPTERS.md) | [Routing Cookbook](docs/ROUTING_COOKBOOK.md) | [Operations](docs/OPERATIONS.md) | [FAQ](docs/FAQ.md)
+
+## 🎮 Usage Examples
+
+### View Profiles
+```bash
+# List all configured profiles
+boba ls --profiles
+
+# Activate a profile
+boba use fast-model
+```
+
+### Track Usage
+```bash
+# Today's stats
+boba stats --today
+
+# Last 7 days
+boba stats --7d
+
+# Breakdown by profile
+boba stats --7d --by-profile
+```
+
+### Route Testing
+```bash
+# Test routing with text
+boba route test "Write a function to sort an array"
+
+# Test with file content
+boba route test @prompt.txt
+```
+
+### Budget Management
+```bash
+# Check budget status
+boba budget --status
+
+# View alerts
+boba action
+```
+
+### Generate Reports
+```bash
+# Export to JSON
+boba report --format json --output usage-report.json
+
+# Export to CSV
+boba report --format csv --output usage-report.csv
+```
+
+### Git Hooks
+```bash
+# Install git hooks for project context
+cd your-project
+boba hooks install
+
+# Remove hooks
+boba hooks remove
+```
+
+## ⚙️ Configuration
+
+### Directory Structure
 ```
 ~/.boba/
-  profiles.yaml         # 各模型/工具的连接与参数
-  routes.yaml           # 路由规则与子代理（sub-agents）
-  pricing.yaml          # 本地价格表（可被在线源覆盖）
-  secrets.yaml          # API Key 等敏感项（0600 权限）
-  usage.db              # SQLite 统计库（自动引导建表）
-  logs/
-    boba-YYYYMMDD.jsonl # 结构化运行日志
+├── profiles.yaml    # Profile definitions
+├── routes.yaml      # Routing rules
+├── pricing.yaml     # Model pricing
+├── secrets.yaml     # API keys (0600 permissions)
+├── usage.db         # SQLite database
+├── logs/            # Application logs
+└── pricing.cache.json  # Cached pricing data
 ```
 
-`secrets.yaml` 仅本机使用，建议 `chmod 600`；支持可选的本地对称加密（后续可接入 sops/age，首发不必需）。
-
-### 2.1 profiles.yaml 示例
-
-```yaml
-profiles:
-  work-heavy:
-    name: "Work Heavy Tasks"
-    adapter: "http"
-    provider: "anthropic"
-    endpoint: "https://api.anthropic.com"
-    model: "claude-3-5-sonnet-latest"
-    max_tokens: 4096
-    temperature: 0.7
-    tags: ["work","complex","analysis"]
-    cost_per_1k:
-      input: 0.015
-      output: 0.075
-    env:
-      ANTHROPIC_API_KEY: "secret://anthropic"
-
-  quick-tasks:
-    name: "Quick Tasks"
-    adapter: "http"
-    provider: "openrouter"
-    endpoint: "https://openrouter.ai/api/v1"
-    model: "deepseek/deepseek-chat"
-    max_tokens: 2048
-    temperature: 0.3
-    tags: ["quick","simple","code"]
-    cost_per_1k:
-      input: 0.0005
-      output: 0.002
-    env:
-      OPENROUTER_API_KEY: "secret://openrouter"
-
-  mcp-tools:
-    name: "Local MCP"
-    adapter: "mcp"
-    provider: "local"
-    endpoint: "stdio"
-    params:
-      command: "./scripts/mcp-server"
-      default_tool: "codebase"
-```
-
-### 2.2 secrets.yaml 示例
-
-```yaml
-secrets:
-  anthropic: "sk-ant-***"
-  openrouter: "sk-or-***"
-  deepseek: "sk-ds-***"
-```
-
-`env` 中出现 `secret://name` 时，运行期从 `secrets.yaml` 读取注入环境变量，值不会写入日志。
-
-### 2.3 routes.yaml 示例
-
-```yaml
-sub_agents:
-  code_review:
-    profile: "work-heavy"
-    triggers: ["review","check","audit"]
-    conditions:
-      min_ctx_chars: 3000
-      project_types: ["java","go","ts"]
-
-  quick_fix:
-    profile: "quick-tasks"
-    triggers: ["fix","typo","format"]
-    conditions:
-      max_ctx_chars: 1200
-      time_of_day: ["09:00-18:00"]
-
-rules:
-  - id: "formatting"
-    if: "intent=='format' || text.matches('\\bformat\\b|\\bprettier\\b')"
-    use: "quick-tasks"
-    explain: "格式化类任务优先低成本"
-
-  - id: "deep-analysis"
-    if: "ctx_chars>3000 || task.matches('architecture|review|audit')"
-    use: "work-heavy"
-    fallback: "quick-tasks"
-```
-
-### 2.4 项目级 `.boba-project.yaml`
-
+### Project-Level Config
+Create `.boba-project.yaml` in your repo root:
 ```yaml
 project:
-  name: "codebase-rag"
-  type: ["python","neo4j"]
-  preferred_profiles: ["work-heavy","quick-tasks"]
-
-routing:
-  rules:
-    - if: "task.contains('format')"
-      use: "quick-tasks"
-    - if: "branch.matches('^release/') || pr_size>1000"
-      use: "work-heavy"
+  name: my-app
+  type: [typescript, react]
+  preferred_profiles:
+    - fast-model
+    - cost-optimized
 
 budget:
-  daily_usd: 5.0
-  hard_cap: 50.0
+  daily_usd: 5.00
+  hard_cap: 100.00
 ```
 
-`boba budget --status` 会自动向上搜索 `.boba-project.yaml` 并为项目创建/同步预算记录，可用 `--daily`、`--cap` 快速调整。
-
----
-
-## 3. 统计与 SQLite
-
-- `~/.boba/usage.db`
-- `PRAGMA user_version` 管理 schema（v1）
-
-```sql
-CREATE TABLE IF NOT EXISTS sessions (
-  id           TEXT PRIMARY KEY,
-  started_at   INTEGER NOT NULL,
-  ended_at     INTEGER,
-  project      TEXT,
-  branch       TEXT,
-  profile      TEXT,
-  adapter      TEXT,
-  task_type    TEXT,
-  success      INTEGER,
-  latency_ms   INTEGER,
-  notes        TEXT
-);
-
-CREATE TABLE IF NOT EXISTS usage_records (
-  id             TEXT PRIMARY KEY,
-  session_id     TEXT NOT NULL,
-  ts             INTEGER NOT NULL,
-  input_tokens   INTEGER DEFAULT 0,
-  output_tokens  INTEGER DEFAULT 0,
-  input_cost     REAL DEFAULT 0,
-  output_cost    REAL DEFAULT 0,
-  tool           TEXT,
-  model          TEXT,
-  FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS budgets (
-  id           TEXT PRIMARY KEY,
-  scope        TEXT NOT NULL,
-  target       TEXT,
-  daily_usd    REAL,
-  hard_cap     REAL,
-  period_start INTEGER,
-  period_end   INTEGER,
-  spent_usd    REAL DEFAULT 0
-);
-
-CREATE VIEW IF NOT EXISTS v_daily_summary AS
-SELECT
-  date(ts, 'unixepoch') AS date,
-  SUM(input_tokens + output_tokens) AS total_tokens,
-  SUM(input_cost + output_cost)     AS total_cost
-FROM usage_records
-GROUP BY date;
-```
-
-引导流程：打开/创建 `usage.db` → 若 `user_version=0` 则执行 DDL 并设为 1 → 后续演进使用 `ALTER TABLE` + `user_version` 增量。
-
----
-
-## 4. Adapter 设计
-
-### 4.1 HttpAdapter（首发）
-- 适配 Anthropic/OpenRouter/DeepSeek
-- 若响应无 usage 字段，则用 Tokenizer 估算并标记 `estimate_level`
-- 成本优先在线价格表 → 本地 `pricing.yaml` → `profiles.yaml` 兜底
-
-### 4.2 ToolAdapter（首发之一）
-- 适配 `claude-code`、`codex` 等 CLI
-- 监听 stdout/stderr JSON Lines usage 事件；否则估算 tokens
-
-### 4.3 McpAdapter（后续）
-- MCP 客户端交互，采集 usage，不在首发范围
-
-统一事件（JSON Lines）：
-
-```json
-{"event":"request","session_id":"...","profile":"quick-tasks","tool":"claude-code","model":"...","ts":"..."}
-{"event":"usage","session_id":"...","input_tokens":153,"output_tokens":412,"latency_ms":8312}
-{"event":"result","session_id":"...","success":true}
-```
-
----
-
-## 5. 智能路由与建议
-
-```
-输入 → 特征提取(intent/ctx_chars/project/branch/time/budget_hint)
-     → 规则 DSL 命中（优先级/短路）
-     → 未命中：小比例探索（默认 3%）
-     → 选择 profile/adapter 执行 → 记录 usage/延迟/成功
-     → 汇总出“性价比”与“建议”
-```
-
-- 成本优化建议：对比近 7/30 天相似上下文的单位成功成本与延迟
-- TUI 提供 `[A]应用 / [I]忽略 / [L]稍后`，仅提示不强制
-
----
-
-## 6. 价格表策略
-
+### Routing Rules
+Define in `~/.boba/routes.yaml`:
 ```yaml
-models:
-  "anthropic/claude-3-5-sonnet-latest":
-    input_per_1k: 0.015
-    output_per_1k: 0.075
-  "deepseek/deepseek-chat":
-    input_per_1k: 0.0005
-    output_per_1k: 0.002
-sources:
-  - type: "http-json"
-    url: "https://raw.githubusercontent.com/vantagecraft-dev/boba-mixer-pricing/main/pricing.json"
-    priority: 10
-  - type: "file"
-    path: "~/.boba/pricing.local.json"
-    priority: 5
-refresh:
-  interval_hours: 24
-  on_startup: true
+rules:
+  - id: large-context
+    if: "ctx_chars > 50000"
+    use: high-capacity
+    explain: "Large context requires high-capacity model"
+
+  - id: code-format
+    if: "text.matches('format|prettier|lint')"
+    use: fast-model
+    explain: "Simple formatting task"
+
+  - id: night-mode
+    if: "time_of_day == 'night'"
+    use: cost-optimized
+    explain: "Off-peak hours, use cheaper model"
 ```
 
-优先级：在线 JSON（成功则缓存）> 本地 `pricing.local.json` > `pricing.yaml` > `profiles.yaml` 中 `cost_per_1k`。
+## 🧪 Development
 
----
-
-## 7. TUI 设计
-
-- 导航：Profiles / Routing / Usage / Budget / Projects / Doctor / Settings
-- 主题：浅/深双色，奶茶风
-- 今日仪表板示例：
-
-```
-╭─ BobaMixer · Today ─────────────────────────────────╮
-│ Cost  $2.45   Tokens 45.2k   Sessions 15   P95 3.2s │
-│                                                     │
-│ Cost Trend (7d)  ▂▄█▆▃▂▁                              │
-│ Profile Usage                                      │
-│ ███████░░  work-heavy  (80%)  $1.96   P95 4.1s      │
-│ ██░░░░░░  quick-tasks (20%)  $0.49   P95 1.2s       │
-│                                                     │
-│ 💡 Suggestion: 将“format”任务路由到 quick-tasks，      │
-│   预计节省 ~$0.8/日（置信度 84%）。 [A]应用 [I]忽略     │
-╰─────────────────────────────────────────────────────╯
-```
-
----
-
-## 8. CLI 子命令
-
-```
-boba use <profile>
-boba ls [--profiles|--adapters]
-boba stats [--today|--7d|--30d|--json]
-boba budget [--status] [--daily 5] [--cap 50]
-boba route test "<text|@file>"
-boba doctor
-boba edit profiles|routes|pricing|secrets
-boba hooks install|remove
-boba release --bump patch [--notes "..."]
-
-### 8.1 Git Hooks
-
-- `boba hooks install`：自动在当前 Git 仓库注入 `post-checkout/post-merge/post-commit` 脚本
-- Hook 会调用 `boba hooks track`，将分支/事件记录到 `~/.boba/git-hooks/*.jsonl`
-- `boba hooks remove`：安全删除脚本
-boba release --bump patch [--notes "..."]
-```
-
-数据库自动引导建表，无 `migrate`。
-
----
-
-## 9. 错误处理与可靠性
-
-- HTTP/Tool 失败：指数退避重试（≤2 次）→ 失败则按规则 fallback profile（若有）
-- 价格源不可用：使用缓存 → 本地定价 → profiles 兜底
-- 用量估算等级：`exact|mapped|heuristic`，落库供纠偏
-
----
-
-## 10. 性能指标
-
-- `boba use` ≤ 150ms
-- `stats --7d` ≤ 200ms（索引 `usage_records(ts)`）
-- Adapter 默认直连，仅在不可观测时启用拦截
-
----
-
-## 11. 打包与分发
-
+### Prerequisites
 - Go 1.22+
-- `goreleaser` 输出 macOS/Linux 各架构
-- 可选 Homebrew Tap；Linux 提供 .deb/.rpm
+- SQLite 3
+- Git
 
-### 11.1 版本发布流程
-
-- `VERSION` 文件作为单一真相
-- `boba release --bump patch --notes "..."` 自动更新 VERSION + `CHANGELOG.md`
-- `.goreleaser.yaml` 提供 `goreleaser release --clean` 所需配置
-- GitHub Actions CI 在 PR/Push 上跑 `gofmt`、`go vet`、`go test`
-
----
-
-## 12. 开发计划（8 周）
-
-1. **Phase 1**：SQLite 引导、配置解析、HttpAdapter（1 provider）、`boba use/ls/stats/edit`、TUI 主屏
-2. **Phase 2**：ToolAdapter、Tokenizer 估算、预算提示与趋势、价格源拉取
-3. **Phase 3**：路由 DSL、探索、建议引擎、`route test`
-4. **Phase 4**：Git Hooks/补全、`doctor`、`goreleaser` 发布、文档站
-
----
-
-## 13. 测试策略
-
-- 单元：profiles/routes 解析、cost 计算、token 估算、价格回退
-- 集成：HttpAdapter/ToolAdapter 端到端
-- 金样：路由 DSL 解释
-- 性能：统计查询、TUI 渲染
-- 回归：建议引擎输出稳定性
-
----
-
-## 14. 安全与隐私
-
-- 不使用 OS Keychain；敏感信息仅存 `secrets.yaml`，权限 0600
-- 日志/库不存请求正文，仅元数据
-- `boba purge` 支持导出并删除
-
----
-
-## 15. 参考目录结构
-
-```
-cmp/boba/main.go
-internal/ui/...
-internal/cli/...
-internal/domain/...
-internal/adapters/...
-internal/store/...
-internal/integration/...
-internal/svc/...
-configs/examples/...
-docs/...
+### Build from Source
+```bash
+git clone https://github.com/royisme/BobaMixer.git
+cd BobaMixer
+make build
 ```
 
----
-
-## 16. 开放点
-
-- API Key：配置文件管理
-- 熔断：不实现
-- 价格源：在线拉取接口，若无则使用我们托管静态 JSON，可本地覆盖
-
----
-
-## 17. 首版交付清单
-
-1. 配置模板（profiles/routes/secrets/pricing）
-2. SQLite `bootstrap.go`
-3. HttpAdapter（一个 provider）
-4. `boba use|ls|stats|edit` + TUI 主屏
-5. README Quickstart + Adapter 指南 + Routing Cookbook
+### Run Tests
+```bash
+make test
 ```
+
+### Run Linter
+```bash
+make lint
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linter
+5. Submit a pull request
+
+## 📋 Roadmap
+
+- [x] Phase 0-4: Core infrastructure
+- [x] Phase 5: Routing DSL and suggestions
+- [ ] Phase 6: Remote pricing sources
+- [ ] Phase 7: Enhanced TUI visualizations
+- [ ] Phase 8: Shell completion and advanced git integration
+- [x] Phase 9: Release and documentation
+
+See [docs/roadmap.md](docs/roadmap.md) for details.
+
+## 📜 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) for the TUI
+- Inspired by cost optimization needs in AI development
+- Community feedback and contributions
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/royisme/BobaMixer/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/royisme/BobaMixer/discussions)
+- **Documentation**: [Full Docs](https://royisme.github.io/BobaMixer/)
+
+---
+
+## 中文
+
+**智能AI适配器路由器，具备成本追踪和智能路由功能**
+
+BobaMixer 是一款全面的命令行工具，用于管理多个 AI 提供商、追踪成本并优化您的 AI 工作负载路由。它具有智能路由、实时预算追踪和全面的使用分析功能。
+
+## ✨ 核心功能
+
+### 📊 使用追踪与分析
+- **实时监控** 令牌、成本和延迟
+- **多提供商支持**（Anthropic、OpenAI、OpenRouter、自定义）
+- **历史趋势** 支持 7/30 天分析
+- **会话追踪** 包含项目/分支上下文
+- **估算精度级别**（精确、映射、启发式）
+
+### 🎯 智能路由
+- **基于规则的路由** 支持 DSL 表达式
+- **上下文感知**（文本模式、大小、项目类型、分支、时间）
+- **Epsilon-greedy 探索** 实现自动优化
+- **离线测试** 使用 `boba route test`
+
+### 💰 预算管理
+- **多级预算**（全局、项目、配置文件）
+- **主动警报**（警告和关键阈值）
+- **成本预测** 和支出趋势
+- **不阻断** - 仅警报，从不中断工作流程
+
+### 🤖 建议引擎
+- 基于使用模式的**成本优化建议**
+- 带置信度分数的**配置文件切换建议**
+- **P95 延迟比较**
+- **自动应用** 或手动审核选项
+
+### 🛠️ 适配器
+- **HTTP 适配器**：REST API 提供商（Anthropic、OpenAI 等）
+- **Tool 适配器**：CLI 工具（claude-code、自定义脚本）
+- **MCP 适配器**：模型上下文协议集成
+- **可扩展**：易于添加自定义适配器
+
+### 📈 TUI 仪表板
+- 使用 bubble tea 的**漂亮界面**
+- **实时统计** 和趋势可视化
+- **配置文件切换** 和预算状态
+- **通知流** 用于警报和建议
+
+## 🚀 快速开始
+
+### 安装
+
+**使用 Go：**
+```bash
+go install github.com/royisme/bobamixer/cmd/boba@latest
+```
+
+**使用 Homebrew（macOS/Linux）：**
+```bash
+brew tap royisme/tap
+brew install bobamixer
+```
+
+**下载二进制文件：**
+从 [Releases](https://github.com/royisme/BobaMixer/releases) 下载
+
+### 初始设置
+
+1. **初始化配置：**
+```bash
+boba doctor
+```
+
+这会在 `~/.boba/` 中创建示例配置。
+
+2. **在 `~/.boba/profiles.yaml` 中配置您的第一个配置文件：**
+```yaml
+default:
+  adapter: http
+  provider: anthropic
+  endpoint: https://api.anthropic.com/v1/messages
+  model: claude-3-5-sonnet-20241022
+  headers:
+    anthropic-version: "2023-06-01"
+    x-api-key: "secret://anthropic_key"
+```
+
+3. **将您的 API 密钥添加到 `~/.boba/secrets.yaml`：**
+```yaml
+anthropic_key: sk-ant-your-key-here
+```
+
+4. **激活配置文件：**
+```bash
+boba use default
+```
+
+5. **启动 TUI 仪表板：**
+```bash
+boba
+```
+
+## 📖 文档
+
+**📚 [完整文档](https://royisme.github.io/BobaMixer/)** - 中英文完整指南
+
+快速链接：
+- **[快速入门](https://royisme.github.io/BobaMixer/zh/docs/getting-started/)** - 安装和第一步
+- **[配置](https://royisme.github.io/BobaMixer/zh/docs/configuration/)** - 完整配置参考
+- **[适配器](https://royisme.github.io/BobaMixer/zh/docs/adapters/)** - 使用不同的适配器类型
+- **[路由](https://royisme.github.io/BobaMixer/zh/docs/routing/)** - 路由规则和优化
+- **[故障排除](https://royisme.github.io/BobaMixer/zh/docs/troubleshooting/)** - 常见问题和解决方案
+
+## 🎮 使用示例
+
+### 查看配置文件
+```bash
+# 列出所有配置的配置文件
+boba ls --profiles
+
+# 激活一个配置文件
+boba use fast-model
+```
+
+### 追踪使用情况
+```bash
+# 今天的统计
+boba stats --today
+
+# 最近 7 天
+boba stats --7d
+
+# 按配置文件细分
+boba stats --7d --by-profile
+```
+
+### 路由测试
+```bash
+# 使用文本测试路由
+boba route test "编写一个排序数组的函数"
+
+# 使用文件内容测试
+boba route test @prompt.txt
+```
+
+### 预算管理
+```bash
+# 检查预算状态
+boba budget --status
+
+# 查看警报
+boba action
+```
+
+## ⚙️ 配置
+
+### 目录结构
+```
+~/.boba/
+├── profiles.yaml    # 配置文件定义
+├── routes.yaml      # 路由规则
+├── pricing.yaml     # 模型定价
+├── secrets.yaml     # API 密钥（0600 权限）
+├── usage.db         # SQLite 数据库
+├── logs/            # 应用程序日志
+└── pricing.cache.json  # 缓存的定价数据
+```
+
+### 项目级配置
+在仓库根目录创建 `.boba-project.yaml`：
+```yaml
+project:
+  name: my-app
+  type: [typescript, react]
+  preferred_profiles:
+    - fast-model
+    - cost-optimized
+
+budget:
+  daily_usd: 5.00
+  hard_cap: 100.00
+```
+
+## 🧪 开发
+
+### 前提条件
+- Go 1.22+
+- SQLite 3
+- Git
+
+### 从源代码构建
+```bash
+git clone https://github.com/royisme/BobaMixer.git
+cd BobaMixer
+make build
+```
+
+### 运行测试
+```bash
+make test
+```
+
+### 运行 Linter
+```bash
+make lint
+```
+
+## 🤝 贡献
+
+欢迎贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解指南。
+
+1. Fork 仓库
+2. 创建功能分支
+3. 进行更改
+4. 运行测试和 linter
+5. 提交 pull request
+
+## 📋 路线图
+
+- [x] Phase 0-4: 核心基础设施
+- [x] Phase 5: 路由 DSL 和建议
+- [ ] Phase 6: 远程定价源
+- [ ] Phase 7: 增强的 TUI 可视化
+- [ ] Phase 8: Shell 补全和高级 git 集成
+- [x] Phase 9: 发布和文档
+
+查看 [docs/roadmap.md](docs/roadmap.md) 了解详情。
+
+## 📜 许可证
+
+MIT 许可证 - 详见 [LICENSE](LICENSE) 文件。
+
+## 🙏 致谢
+
+- 使用 [Bubble Tea](https://github.com/charmbracelet/bubbletea) 构建 TUI
+- 受 AI 开发中成本优化需求的启发
+- 社区反馈和贡献
+
+## 📞 支持
+
+- **问题**：[GitHub Issues](https://github.com/royisme/BobaMixer/issues)
+- **讨论**：[GitHub Discussions](https://github.com/royisme/BobaMixer/discussions)
+- **文档**：[完整文档](https://royisme.github.io/BobaMixer/)
+
+---
+
+**Made with ☕ and 🧋 by developers, for developers**

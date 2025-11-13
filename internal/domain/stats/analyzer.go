@@ -1,3 +1,4 @@
+// Package stats provides usage statistics analysis and trend detection.
 package stats
 
 import (
@@ -19,23 +20,23 @@ type DataPoint struct {
 
 // Trend represents usage trend analysis
 type Trend struct {
+	DataPoints []DataPoint // daily data points
+	Summary    Summary     // aggregate summary
 	Period     string      // "7d", "30d", "all"
 	StartDate  string      // YYYY-MM-DD
 	EndDate    string      // YYYY-MM-DD
-	DataPoints []DataPoint // daily data points
-	Summary    Summary     // aggregate summary
 }
 
 // Summary provides aggregate statistics
 type Summary struct {
-	TotalTokens    int
 	TotalCost      float64
-	TotalSessions  int
 	AvgDailyTokens float64
 	AvgDailyCost   float64
 	PeakDayCost    float64
 	PeakDayDate    string
 	Trend          string // "increasing", "decreasing", "stable"
+	TotalTokens    int
+	TotalSessions  int
 }
 
 // ProfileStats represents statistics for a specific profile
@@ -343,11 +344,17 @@ func FormatTokens(tokens int) string {
 }
 
 func parseInt(raw string) int {
-	v, _ := strconv.Atoi(strings.TrimSpace(raw))
+	v, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0
+	}
 	return v
 }
 
 func parseFloat(raw string) float64 {
-	f, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0.0
+	}
 	return f
 }

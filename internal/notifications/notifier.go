@@ -1,3 +1,4 @@
+// Package notifications manages real-time notifications and events for the user.
 package notifications
 
 import (
@@ -11,11 +12,11 @@ import (
 
 // Event represents a realtime notification that can be surfaced to the user.
 type Event struct {
+	Timestamp time.Time
+	Metadata  map[string]string
 	Type      string
 	Title     string
 	Message   string
-	Timestamp time.Time
-	Metadata  map[string]string
 }
 
 // Notifier polls multiple subsystems to produce realtime events.

@@ -1,3 +1,4 @@
+// Package hooks manages git hooks for tracking repository events.
 package hooks
 
 import (
@@ -30,11 +31,12 @@ func (m *Manager) Install(repo string) error {
 		return fmt.Errorf("not a git repository: %w", err)
 	}
 	hooksDir := filepath.Join(repoPath, ".git", "hooks")
-	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+	if err := os.MkdirAll(hooksDir, 0o750); err != nil {
 		return err
 	}
 	helper := filepath.Join(hooksDir, "boba-hook")
-	if err := os.WriteFile(helper, []byte(m.helperScript(repoPath)), 0o755); err != nil {
+	// #nosec G306 -- git hook script needs executable permissions
+	if err := os.WriteFile(helper, []byte(m.helperScript(repoPath)), 0o750); err != nil {
 		return err
 	}
 	for _, name := range []string{"post-checkout", "post-merge", "post-commit"} {
@@ -43,7 +45,8 @@ func (m *Manager) Install(repo string) error {
 			return fmt.Errorf("hook %s already exists", name)
 		}
 		content := fmt.Sprintf("#!/bin/sh\nexec \"%s\" %s \"$@\"\n", helper, name)
-		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		// #nosec G306 -- git hook script needs executable permissions
+		if err := os.WriteFile(path, []byte(content), 0o750); err != nil {
 			return err
 		}
 	}
@@ -58,11 +61,16 @@ func (m *Manager) Remove(repo string) error {
 	}
 	hooksDir := filepath.Join(repoPath, ".git", "hooks")
 	helper := filepath.Join(hooksDir, "boba-hook")
+	//nolint:errcheck // Best effort cleanup
+	// #nosec G104 -- best effort cleanup, error can be ignored
 	os.Remove(helper)
 	for _, name := range []string{"post-checkout", "post-merge", "post-commit"} {
 		path := filepath.Join(hooksDir, name)
+		// #nosec G304 -- path is constructed from git hooks directory and fixed hook names
 		data, err := os.ReadFile(path)
 		if err == nil && strings.Contains(string(data), "boba-hook") {
+			//nolint:errcheck // Best effort cleanup
+			// #nosec G104 -- best effort cleanup, error can be ignored
 			os.Remove(path)
 		}
 	}
@@ -92,11 +100,16 @@ func (m *Manager) Record(event, repo, branch string) error {
 		return err
 	}
 	file := filepath.Join(destDir, fmt.Sprintf("%s.jsonl", slugify(repo)))
+	// #nosec G304 -- file path is constructed from safe directory and slugified repo name
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		//nolint:errcheck // Best effort cleanup
+		// #nosec G104 -- best effort cleanup, error can be ignored
+		f.Close()
+	}()
 	if _, err := f.Write(append(data, '\n')); err != nil {
 		return err
 	}
@@ -116,6 +129,7 @@ boba hooks track --event "$1" --repo "$repo" --branch "$branch" >/dev/null 2>&1 
 }
 
 func existsAndNotOwned(path string) bool {
+	// #nosec G304 -- path is git hook path being validated
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
