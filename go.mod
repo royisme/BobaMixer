@@ -1,3 +1,3 @@
-module github.com/vantagecraft-dev/bobamixer
+module github.com/royisme/bobamixer
 
-go 1.22
+go 1.25.1

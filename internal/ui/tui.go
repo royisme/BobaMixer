@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/config"
 )
 
 // Model represents the TUI state

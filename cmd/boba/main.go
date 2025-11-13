@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/cli"
+	"github.com/royisme/bobamixer/internal/cli"
 )
 
 func main() {

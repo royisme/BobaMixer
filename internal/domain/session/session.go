@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
 // Session represents a single execution session

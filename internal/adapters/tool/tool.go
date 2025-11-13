@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/adapters"
+	"github.com/royisme/bobamixer/internal/adapters"
 )
 
 type Runner struct {

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/adapters"
-	"github.com/vantagecraft-dev/bobamixer/internal/domain/pricing"
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
-	"github.com/vantagecraft-dev/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/adapters"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
+	"github.com/royisme/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
 // Record represents a usage record

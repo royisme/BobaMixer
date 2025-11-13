@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/config"
 )
 
 // Context represents the routing context

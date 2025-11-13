@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
-	"github.com/vantagecraft-dev/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
 func Run(args []string) error {

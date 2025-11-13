@@ -3,7 +3,7 @@ package routing
 import (
 	"testing"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/config"
 )
 
 func TestRoute(t *testing.T) {

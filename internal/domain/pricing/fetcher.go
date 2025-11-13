@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vantagecraft-dev/bobamixer/internal/store/config"
+	"github.com/royisme/bobamixer/internal/store/config"
 )
 
 // ModelPrice represents the cost of a model per 1k tokens
