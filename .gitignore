@@ -45,4 +45,3 @@ docs/.vitepress/cache
 
 # Node
 node_modules/
-package-lock.json
