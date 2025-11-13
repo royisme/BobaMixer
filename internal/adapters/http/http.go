@@ -80,7 +80,8 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 		}, nil
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		//nolint:errcheck // Best effort cleanup
+		resp.Body.Close()
 	}()
 
 	body, err := io.ReadAll(resp.Body)

@@ -2,6 +2,7 @@
 package sqlite
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +32,7 @@ func Open(path string) (*DB, error) {
 
 func (db *DB) ensureFile() error {
 	// #nosec G204 -- db.Path is from safe home directory structure
-	cmd := exec.Command("sqlite3", db.Path, "PRAGMA journal_mode=WAL;")
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, "PRAGMA journal_mode=WAL;")
 	return cmd.Run()
 }
 

@@ -35,6 +35,7 @@ func (m *Manager) Install(repo string) error {
 		return err
 	}
 	helper := filepath.Join(hooksDir, "boba-hook")
+	// #nosec G306 -- git hook script needs executable permissions
 	if err := os.WriteFile(helper, []byte(m.helperScript(repoPath)), 0o750); err != nil {
 		return err
 	}
@@ -44,6 +45,7 @@ func (m *Manager) Install(repo string) error {
 			return fmt.Errorf("hook %s already exists", name)
 		}
 		content := fmt.Sprintf("#!/bin/sh\nexec \"%s\" %s \"$@\"\n", helper, name)
+		// #nosec G306 -- git hook script needs executable permissions
 		if err := os.WriteFile(path, []byte(content), 0o750); err != nil {
 			return err
 		}
@@ -59,13 +61,15 @@ func (m *Manager) Remove(repo string) error {
 	}
 	hooksDir := filepath.Join(repoPath, ".git", "hooks")
 	helper := filepath.Join(hooksDir, "boba-hook")
-	_ = os.Remove(helper)
+	//nolint:errcheck // Best effort cleanup
+	os.Remove(helper)
 	for _, name := range []string{"post-checkout", "post-merge", "post-commit"} {
 		path := filepath.Join(hooksDir, name)
 		// #nosec G304 -- path is constructed from git hooks directory and fixed hook names
 		data, err := os.ReadFile(path)
 		if err == nil && strings.Contains(string(data), "boba-hook") {
-			_ = os.Remove(path)
+			//nolint:errcheck // Best effort cleanup
+			os.Remove(path)
 		}
 	}
 	return nil
@@ -100,7 +104,8 @@ func (m *Manager) Record(event, repo, branch string) error {
 		return err
 	}
 	defer func() {
-		_ = f.Close()
+		//nolint:errcheck // Best effort cleanup
+		f.Close()
 	}()
 	if _, err := f.Write(append(data, '\n')); err != nil {
 		return err

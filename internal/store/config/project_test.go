@@ -9,7 +9,8 @@ import (
 func TestFindProjectConfig(t *testing.T) {
 	dir := t.TempDir()
 	nested := filepath.Join(dir, "a", "b")
-	if err := os.MkdirAll(nested, 0o755); err != nil {
+	// #nosec G301 -- test directory can have standard permissions
+	if err := os.MkdirAll(nested, 0o755); err != nil{
 		t.Fatalf("mkdir: %v", err)
 	}
 	cfgPath := filepath.Join(dir, ".boba-project.yaml")

@@ -171,7 +171,8 @@ func fetchHTTP(url string) (*Table, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = resp.Body.Close()
+		//nolint:errcheck // Best effort cleanup
+		resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {

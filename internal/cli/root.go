@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -258,7 +259,7 @@ func runEdit(home string, args []string) error {
 	}
 	if editor := os.Getenv("EDITOR"); editor != "" {
 		// #nosec G204 -- EDITOR is intentionally user-configurable environment variable
-		cmd := exec.Command(editor, path)
+		cmd := exec.CommandContext(context.Background(), editor, path)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
@@ -689,7 +690,8 @@ func runReport(home string, args []string) error {
 			return err
 		}
 		defer func() {
-			_ = f.Close()
+			//nolint:errcheck // Best effort cleanup
+			f.Close()
 		}()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
@@ -776,6 +778,7 @@ func runRouteTest(home string, args []string) error {
 	if strings.HasPrefix(input, "@") {
 		// Read from file
 		filePath := strings.TrimPrefix(input, "@")
+		// #nosec G304 -- user-provided file path for route testing
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			return fmt.Errorf("read file: %w", err)
@@ -786,20 +789,20 @@ func runRouteTest(home string, args []string) error {
 	}
 
 	// Detect project context
-	cwd, _ := os.Getwd()
+	cwd, _ := os.Getwd() //nolint:errcheck
 	project := ""
 	branch := ""
 	projectTypes := []string{}
 
 	if repoRoot, err := findRepoRoot(cwd); err == nil {
-		projectCfg, _, _ := config.FindProjectConfig(repoRoot)
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot) //nolint:errcheck
 		if projectCfg != nil {
 			project = projectCfg.Project.Name
 			projectTypes = projectCfg.Project.Type
 		}
 
 		// Get git branch
-		cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
 		cmd.Dir = repoRoot
 		if output, err := cmd.Output(); err == nil {
 			branch = strings.TrimSpace(string(output))

@@ -19,7 +19,7 @@ func TestParseYAMLMap(t *testing.T) {
 	if !ok {
 		t.Fatalf("work-heavy not map: %#v", profiles["work-heavy"])
 	}
-	if name := wh["name"].(string); name != "Work" {
+	if name := wh["name"].(string); name != "Work" { //nolint:errcheck
 		t.Fatalf("name=%s", name)
 	}
 	if tokens := intFromAny(wh["max_tokens"]); tokens != 123 {
@@ -40,8 +40,8 @@ func TestParseYAMLListOfMaps(t *testing.T) {
 	if len(rules) != 2 {
 		t.Fatalf("rules len=%d", len(rules))
 	}
-	first := rules[0].(map[string]interface{})
-	if first["id"].(string) != "format" || first["use"].(string) != "quick" {
+	first := rules[0].(map[string]interface{}) //nolint:errcheck
+	if first["id"].(string) != "format" || first["use"].(string) != "quick" { //nolint:errcheck
 		t.Fatalf("unexpected first: %#v", first)
 	}
 	second := rules[1].(map[string]interface{})
