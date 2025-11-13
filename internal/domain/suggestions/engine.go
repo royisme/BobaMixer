@@ -24,20 +24,20 @@ type Suggestion struct {
 	Type        SuggestionType
 	Title       string
 	Description string
-	Impact      string       // Expected impact (e.g., "Save $5/day")
-	Priority    int          // 1-5, where 5 is highest priority
-	ActionItems []string     // Recommended actions
+	Impact      string   // Expected impact (e.g., "Save $5/day")
+	Priority    int      // 1-5, where 5 is highest priority
+	ActionItems []string // Recommended actions
 	Data        SuggestionData
 }
 
 // SuggestionData contains supporting data for suggestions
 type SuggestionData struct {
-	CurrentCost    float64
-	EstimatedCost  float64
-	Savings        float64
-	CurrentProfile string
+	CurrentCost      float64
+	EstimatedCost    float64
+	Savings          float64
+	CurrentProfile   string
 	SuggestedProfile string
-	AffectedDays   int
+	AffectedDays     int
 }
 
 // Engine generates usage optimization suggestions
@@ -160,6 +160,17 @@ func (e *Engine) analyzeProfileUsage(profiles []stats.ProfileStats, trend *stats
 
 	// If one profile dominates costs (>60%), suggest alternatives
 	if mostExpensive.CostPercent > 60 {
+		var suggested string
+		minCost := mostExpensive.TotalCost
+		for _, p := range profiles {
+			if p.ProfileName == mostExpensive.ProfileName {
+				continue
+			}
+			if p.TotalCost < minCost {
+				minCost = p.TotalCost
+				suggested = p.ProfileName
+			}
+		}
 		return &Suggestion{
 			Type:        SuggestionProfileSwitch,
 			Title:       "High Dependency on Expensive Profile",
@@ -172,10 +183,11 @@ func (e *Engine) analyzeProfileUsage(profiles []stats.ProfileStats, trend *stats
 				"Review routing rules to optimize model selection",
 			},
 			Data: SuggestionData{
-				CurrentProfile: mostExpensive.ProfileName,
-				CurrentCost:    mostExpensive.TotalCost,
-				EstimatedCost:  mostExpensive.TotalCost * 0.7,
-				Savings:        mostExpensive.TotalCost * 0.3,
+				CurrentProfile:   mostExpensive.ProfileName,
+				SuggestedProfile: suggested,
+				CurrentCost:      mostExpensive.TotalCost,
+				EstimatedCost:    mostExpensive.TotalCost * 0.7,
+				Savings:          mostExpensive.TotalCost * 0.3,
 			},
 		}
 	}
@@ -218,10 +230,10 @@ func (e *Engine) detectAnomalies(trend *stats.Trend) *Suggestion {
 				"Set up budget alerts to catch spikes early",
 			},
 			Data: SuggestionData{
-				CurrentCost:  totalOutlierCost,
+				CurrentCost:   totalOutlierCost,
 				EstimatedCost: avgCost * float64(len(outliers)),
-				Savings:      totalOutlierCost - avgCost*float64(len(outliers)),
-				AffectedDays: len(outliers),
+				Savings:       totalOutlierCost - avgCost*float64(len(outliers)),
+				AffectedDays:  len(outliers),
 			},
 		}
 	}

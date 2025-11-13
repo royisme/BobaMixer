@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,7 +12,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/stats"
+	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -43,6 +49,10 @@ func Run(args []string) error {
 		return runDoctor(home, args[1:])
 	case "budget":
 		return runBudget(home, args[1:])
+	case "action":
+		return runAction(home, args[1:])
+	case "report":
+		return runReport(home, args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -57,6 +67,8 @@ func printUsage() {
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>")
 	fmt.Println("  boba doctor")
 	fmt.Println("  boba budget [--status]")
+	fmt.Println("  boba action [--auto]")
+	fmt.Println("  boba report [--format json|csv]")
 }
 
 func runLS(home string, args []string) error {
@@ -101,8 +113,7 @@ func runUse(home string, args []string) error {
 	if !ok {
 		return fmt.Errorf("profile %s not found", args[0])
 	}
-	path := filepath.Join(home, "active_profile")
-	if err := os.WriteFile(path, []byte(prof.Key), 0o600); err != nil {
+	if err := config.SaveActiveProfile(home, prof.Key); err != nil {
 		return err
 	}
 	fmt.Printf("active profile set to %s (%s)\n", prof.Key, prof.Model)
@@ -347,4 +358,142 @@ func runBudget(home string, args []string) error {
 	}
 
 	return errors.New("budget: specify --status")
+}
+
+func runAction(home string, args []string) error {
+	flags := flag.NewFlagSet("action", flag.ContinueOnError)
+	auto := flags.Bool("auto", false, "automatically apply actionable suggestions")
+	days := flags.Int("days", 7, "analysis window in days")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	dbPath := filepath.Join(home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return err
+	}
+
+	engine := suggestions.NewEngine(db)
+	suggs, err := engine.GenerateSuggestions(*days)
+	if err != nil {
+		return err
+	}
+	if len(suggs) == 0 {
+		fmt.Println("No suggestions available.")
+		return nil
+	}
+
+	if !*auto {
+		for _, s := range suggs {
+			fmt.Println(s.FormatSuggestion())
+		}
+		return nil
+	}
+
+	tracker := budget.NewTracker(db)
+	profiles, err := config.LoadProfiles(home)
+	if err != nil {
+		return err
+	}
+	app := suggestions.NewApplicator(home, tracker, profiles)
+	applied := 0
+	for _, s := range suggs {
+		if s.Priority < 3 {
+			continue
+		}
+		summary, err := app.Apply(s)
+		if err != nil {
+			fmt.Printf("✗ %s: %v\n", s.Title, err)
+			continue
+		}
+		fmt.Printf("✓ %s -> %s\n", s.Title, summary)
+		applied++
+	}
+	if applied == 0 {
+		fmt.Println("No suggestions were applicable.")
+	}
+	return nil
+}
+
+func runReport(home string, args []string) error {
+	flags := flag.NewFlagSet("report", flag.ContinueOnError)
+	days := flags.Int("days", 7, "number of days to include")
+	format := flags.String("format", "json", "output format: json or csv")
+	output := flags.String("out", "", "output file path")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	dbPath := filepath.Join(home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return err
+	}
+
+	analyzer := stats.NewAnalyzer(db)
+	trend, err := analyzer.GetTrend(*days)
+	if err != nil {
+		return err
+	}
+	profiles, err := analyzer.GetProfileStats(*days)
+	if err != nil {
+		return err
+	}
+	suggs, _ := suggestions.NewEngine(db).GenerateSuggestions(*days)
+
+	fileName := *output
+	if fileName == "" {
+		fileName = fmt.Sprintf("bobamixer-report-%s.%s", time.Now().Format("20060102-1504"), *format)
+	}
+	if !filepath.IsAbs(fileName) {
+		fileName = filepath.Join(home, fileName)
+	}
+	if err := os.MkdirAll(filepath.Dir(fileName), 0o755); err != nil {
+		return err
+	}
+
+	switch strings.ToLower(*format) {
+	case "json":
+		payload := map[string]interface{}{
+			"generated_at": time.Now().Format(time.RFC3339),
+			"days":         *days,
+			"summary":      trend.Summary,
+			"trend":        trend.DataPoints,
+			"profiles":     profiles,
+			"suggestions":  suggs,
+		}
+		data, err := json.MarshalIndent(payload, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(fileName, data, 0o600); err != nil {
+			return err
+		}
+	default:
+		f, err := os.Create(fileName)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		writer := csv.NewWriter(f)
+		defer writer.Flush()
+		writer.Write([]string{"date", "tokens", "cost", "sessions"})
+		for _, dp := range trend.DataPoints {
+			writer.Write([]string{
+				dp.Date,
+				fmt.Sprintf("%d", dp.Tokens),
+				fmt.Sprintf("%.4f", dp.Cost),
+				fmt.Sprintf("%d", dp.Count),
+			})
+		}
+		if err := writer.Error(); err != nil {
+			return err
+		}
+	}
+
+	fmt.Printf("Report exported to %s\n", fileName)
+	return nil
 }

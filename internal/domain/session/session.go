@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -65,30 +67,68 @@ func (s *Session) Save(db *sqlite.DB) error {
 // GetSession retrieves a session by ID
 func GetSession(db *sqlite.DB, id string) (*Session, error) {
 	query := fmt.Sprintf("SELECT id, started_at, ended_at, project, branch, profile, adapter, task_type, success, latency_ms, notes FROM sessions WHERE id='%s';", escape(id))
-	_, err := db.QueryRow(query)
+	row, err := db.QueryRow(query)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse the row (simplified - would need proper parsing in production)
-	s := &Session{ID: id}
-	return s, nil
+	if row == "" {
+		return nil, fmt.Errorf("session %s not found", id)
+	}
+	parts := strings.Split(row, "|")
+	if len(parts) < 11 {
+		return nil, fmt.Errorf("unexpected session row: %s", row)
+	}
+	sess := &Session{ID: parts[0]}
+	sess.StartedAt = parseInt64(parts[1])
+	sess.EndedAt = parseInt64(parts[2])
+	sess.Project = parts[3]
+	sess.Branch = parts[4]
+	sess.Profile = parts[5]
+	sess.Adapter = parts[6]
+	sess.TaskType = parts[7]
+	sess.Success = parts[8] == "1"
+	sess.LatencyMS = parseInt64(parts[9])
+	sess.Notes = parts[10]
+	return sess, nil
 }
 
 // ListRecentSessions returns recent sessions
 func ListRecentSessions(db *sqlite.DB, limit int) ([]*Session, error) {
-	query := fmt.Sprintf("SELECT id, started_at, profile, adapter, success, latency_ms FROM sessions ORDER BY started_at DESC LIMIT %d;", limit)
-	// Simplified - would need proper row parsing
-	_, err := db.QueryRow(query)
+	query := fmt.Sprintf("SELECT id, started_at, ended_at, profile, adapter, success, latency_ms, task_type FROM sessions ORDER BY started_at DESC LIMIT %d;", limit)
+	rows, err := db.QueryRows(query)
 	if err != nil {
 		return nil, err
 	}
-	return []*Session{}, nil
+	sessions := make([]*Session, 0, len(rows))
+	for _, row := range rows {
+		if row == "" {
+			continue
+		}
+		parts := strings.Split(row, "|")
+		if len(parts) < 8 {
+			continue
+		}
+		sess := &Session{ID: parts[0]}
+		sess.StartedAt = parseInt64(parts[1])
+		sess.EndedAt = parseInt64(parts[2])
+		sess.Profile = parts[3]
+		sess.Adapter = parts[4]
+		sess.Success = parts[5] == "1"
+		sess.LatencyMS = parseInt64(parts[6])
+		sess.TaskType = parts[7]
+		sessions = append(sessions, sess)
+	}
+	return sessions, nil
 }
 
 func escape(s string) string {
 	// Simple SQL escape - in production use parameterized queries
 	return s
+}
+
+func parseInt64(raw string) int64 {
+	v, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	return v
 }
 
 func boolToInt(b bool) int {
