@@ -2,6 +2,16 @@ baseURL = "https://royisme.github.io/BobaMixer/"
 title = "BobaMixer Documentation"
 languageCode = "en-us"
 
+# 网站描述 (覆盖主题默认值)
+description = "BobaMixer: Smart AI Adapter Router - 智能AI适配器路由器，支持智能路由、预算追踪和成本优化"
+
+# 覆盖主题的默认SEO信息
+[params.seo]
+  meta_og_title = "BobaMixer: Smart AI Adapter Router"
+  meta_og_description = "BobaMixer: Smart AI Adapter Router with intelligent routing, budget tracking, and cost optimization"
+  meta_twitter_title = "BobaMixer: Smart AI Adapter Router"
+  meta_twitter_description = "BobaMixer: Smart AI Adapter Router with intelligent routing, budget tracking, and cost optimization"
+
 defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = false
 enableMissingTranslationPlaceholders = true

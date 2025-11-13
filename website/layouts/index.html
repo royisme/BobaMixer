@@ -1,0 +1,32 @@
+{{- define "main" }}
+{{- $site := .Site }}
+{{- $params := $site.Params }}
+{{- $docsParams := $params.docs }}
+
+<div class="td-home">
+  <div class="row justify-content-center">
+    <div class="col-12">
+      <div class="jumbotron text-center p-5">
+        <h1 class="display-4">{{ .Site.Title }}</h1>
+        <p class="lead">{{ .Site.Params.description }}</p>
+        <div class="mt-4">
+          <a class="btn btn-primary btn-lg me-3" href="/docs/">
+            {{ i18n "learn_more" | default "Learn More" }} <i class="fas fa-arrow-alt-circle-right ms-2"></i>
+          </a>
+          <a class="btn btn-secondary btn-lg me-3" href="https://github.com/royisme/BobaMixer">
+            {{ i18n "download" | default "Download" }} <i class="fab fa-github ms-2"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="content">
+        {{ .Content }}
+      </div>
+    </div>
+  </div>
+</div>
+{{- end }}
