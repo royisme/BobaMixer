@@ -39,12 +39,29 @@ func (db *DB) Exec(query string) error {
 }
 
 func (db *DB) QueryRow(query string) (string, error) {
-	cmd := exec.Command("sqlite3", db.Path, query)
-	out, err := cmd.Output()
+	rows, err := db.QueryRows(query)
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(out)), nil
+	if len(rows) == 0 {
+		return "", nil
+	}
+	return rows[0], nil
+}
+
+// QueryRows executes a query and returns each row as a raw pipe-delimited string.
+func (db *DB) QueryRows(query string) ([]string, error) {
+	cmd := exec.Command("sqlite3", db.Path, query)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	trimmed := strings.TrimSpace(string(out))
+	if trimmed == "" {
+		return []string{}, nil
+	}
+	parts := strings.Split(trimmed, "\n")
+	return parts, nil
 }
 
 func (db *DB) QueryInt(query string) (int, error) {

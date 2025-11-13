@@ -2,6 +2,8 @@ package budget
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -75,19 +77,35 @@ func (t *Tracker) CreateBudget(scope, target string, dailyUSD, hardCapUSD float6
 // GetBudget retrieves a budget by scope and target
 func (t *Tracker) GetBudget(scope, target string) (*Budget, error) {
 	query := fmt.Sprintf(`
-		SELECT id, scope, target, daily_usd, hard_cap, period_start, period_end, spent_usd
-		FROM budgets WHERE scope='%s' AND target='%s' LIMIT 1;
-	`, scope, escape(target))
+                SELECT id, scope, target, daily_usd, hard_cap, period_start, period_end, spent_usd
+                FROM budgets WHERE scope='%s' AND target='%s' LIMIT 1;
+        `, scope, escape(target))
 
-	_, err := t.db.QueryRow(query)
+	row, err := t.db.QueryRow(query)
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse row (simplified - would need proper parsing)
+	if row == "" {
+		return nil, fmt.Errorf("budget not found")
+	}
+	parts := strings.Split(row, "|")
+	if len(parts) < 8 {
+		return nil, fmt.Errorf("invalid budget row: %s", row)
+	}
+	daily, _ := strconv.ParseFloat(parts[3], 64)
+	hard, _ := strconv.ParseFloat(parts[4], 64)
+	periodStart, _ := strconv.ParseInt(parts[5], 10, 64)
+	periodEnd, _ := strconv.ParseInt(parts[6], 10, 64)
+	spent, _ := strconv.ParseFloat(parts[7], 64)
 	budget := &Budget{
-		Scope:  scope,
-		Target: target,
+		ID:          parts[0],
+		Scope:       parts[1],
+		Target:      parts[2],
+		DailyUSD:    daily,
+		HardCapUSD:  hard,
+		PeriodStart: periodStart,
+		PeriodEnd:   periodEnd,
+		SpentUSD:    spent,
 	}
 
 	return budget, nil
@@ -101,9 +119,17 @@ func (t *Tracker) GetGlobalBudget() (*Budget, error) {
 // UpdateSpending updates the spent amount for a budget
 func (t *Tracker) UpdateSpending(budgetID string, amount float64) error {
 	query := fmt.Sprintf(`
-		UPDATE budgets SET spent_usd = spent_usd + %f WHERE id='%s';
-	`, amount, budgetID)
+                UPDATE budgets SET spent_usd = spent_usd + %f WHERE id='%s';
+        `, amount, budgetID)
 
+	return t.db.Exec(query)
+}
+
+// UpdateLimits updates the daily and hard cap limits for a budget id.
+func (t *Tracker) UpdateLimits(budgetID string, daily, hard float64) error {
+	query := fmt.Sprintf(`
+            UPDATE budgets SET daily_usd = %f, hard_cap = %f WHERE id='%s';
+    `, daily, hard, budgetID)
 	return t.db.Exec(query)
 }
 

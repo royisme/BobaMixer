@@ -2,6 +2,8 @@ package stats
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -38,13 +40,13 @@ type Summary struct {
 
 // ProfileStats represents statistics for a specific profile
 type ProfileStats struct {
-	ProfileName   string
-	TotalTokens   int
-	TotalCost     float64
-	SessionCount  int
-	AvgLatencyMS  float64
-	UsagePercent  float64 // percentage of total usage
-	CostPercent   float64 // percentage of total cost
+	ProfileName  string
+	TotalTokens  int
+	TotalCost    float64
+	SessionCount int
+	AvgLatencyMS float64
+	UsagePercent float64 // percentage of total usage
+	CostPercent  float64 // percentage of total cost
 }
 
 // Analyzer provides statistical analysis
@@ -76,7 +78,6 @@ func (a *Analyzer) GetTrend(days int) (*Trend, error) {
 		ORDER BY date;
 	`, startDateStr)
 
-	// For now, return a simplified trend (would need proper SQL result parsing)
 	trend := &Trend{
 		Period:     fmt.Sprintf("%dd", days),
 		StartDate:  startDateStr,
@@ -85,11 +86,49 @@ func (a *Analyzer) GetTrend(days int) (*Trend, error) {
 		Summary:    Summary{},
 	}
 
-	// Execute query and parse results
-	// This is simplified - in production would need proper row iteration
-	_, err := a.db.QueryRow(query)
+	rows, err := a.db.QueryRows(query)
 	if err != nil {
-		return trend, nil // Return empty trend on error
+		return trend, err
+	}
+	var totalTokens int
+	var totalCost float64
+	var totalSessions int
+	var peakCost float64
+	var peakDate string
+	for _, row := range rows {
+		parts := strings.Split(row, "|")
+		if len(parts) < 4 {
+			continue
+		}
+		tokens := parseInt(parts[1])
+		cost := parseFloat(parts[2])
+		sessions := parseInt(parts[3])
+		trend.DataPoints = append(trend.DataPoints, DataPoint{
+			Date:   parts[0],
+			Tokens: tokens,
+			Cost:   cost,
+			Count:  sessions,
+		})
+		totalTokens += tokens
+		totalCost += cost
+		totalSessions += sessions
+		if cost > peakCost {
+			peakCost = cost
+			peakDate = parts[0]
+		}
+	}
+	if len(trend.DataPoints) > 0 {
+		daysCount := float64(len(trend.DataPoints))
+		trend.Summary = Summary{
+			TotalTokens:    totalTokens,
+			TotalCost:      totalCost,
+			TotalSessions:  totalSessions,
+			AvgDailyTokens: float64(totalTokens) / daysCount,
+			AvgDailyCost:   totalCost / daysCount,
+			PeakDayCost:    peakCost,
+			PeakDayDate:    peakDate,
+			Trend:          DetectTrend(trend.DataPoints),
+		}
 	}
 
 	return trend, nil
@@ -111,16 +150,17 @@ func (a *Analyzer) GetTodayStats() (*DataPoint, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Parse result (simplified)
-	dataPoint := &DataPoint{
-		Date: time.Now().Format("2006-01-02"),
+	parts := strings.Split(row, "|")
+	if len(parts) < 4 {
+		return nil, fmt.Errorf("unexpected row: %s", row)
 	}
-
-	// In production, would properly parse the row
-	_, _ = row, dataPoint
-
-	return dataPoint, nil
+	dp := &DataPoint{
+		Date:   parts[0],
+		Tokens: parseInt(parts[1]),
+		Cost:   parseFloat(parts[2]),
+		Count:  parseInt(parts[3]),
+	}
+	return dp, nil
 }
 
 // GetProfileStats retrieves statistics grouped by profile
@@ -141,13 +181,41 @@ func (a *Analyzer) GetProfileStats(days int) ([]ProfileStats, error) {
 		ORDER BY cost DESC;
 	`, startDate)
 
-	// Simplified return - would need proper parsing
-	_, err := a.db.QueryRow(query)
+	rows, err := a.db.QueryRows(query)
 	if err != nil {
-		return []ProfileStats{}, nil
+		return nil, err
 	}
-
-	return []ProfileStats{}, nil
+	stats := make([]ProfileStats, 0, len(rows))
+	var totalTokens float64
+	var totalCost float64
+	for _, row := range rows {
+		parts := strings.Split(row, "|")
+		if len(parts) < 5 {
+			continue
+		}
+		tokens := parseInt(parts[1])
+		cost := parseFloat(parts[2])
+		sessions := parseInt(parts[3])
+		avgLatency := parseFloat(parts[4])
+		stats = append(stats, ProfileStats{
+			ProfileName:  parts[0],
+			TotalTokens:  tokens,
+			TotalCost:    cost,
+			SessionCount: sessions,
+			AvgLatencyMS: avgLatency,
+		})
+		totalTokens += float64(tokens)
+		totalCost += cost
+	}
+	for i := range stats {
+		if totalTokens > 0 {
+			stats[i].UsagePercent = float64(stats[i].TotalTokens) / totalTokens * 100
+		}
+		if totalCost > 0 {
+			stats[i].CostPercent = stats[i].TotalCost / totalCost * 100
+		}
+	}
+	return stats, nil
 }
 
 // ComparePeriods compares two time periods
@@ -272,4 +340,14 @@ func FormatTokens(tokens int) string {
 		return fmt.Sprintf("%.1fK", float64(tokens)/1000)
 	}
 	return fmt.Sprintf("%d", tokens)
+}
+
+func parseInt(raw string) int {
+	v, _ := strconv.Atoi(strings.TrimSpace(raw))
+	return v
+}
+
+func parseFloat(raw string) float64 {
+	f, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	return f
 }

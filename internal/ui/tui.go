@@ -9,7 +9,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/session"
 	"github.com/royisme/bobamixer/internal/domain/stats"
+	"github.com/royisme/bobamixer/internal/domain/suggestions"
+	"github.com/royisme/bobamixer/internal/notifications"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -22,6 +25,7 @@ const (
 	ViewProfiles
 	ViewBudget
 	ViewTrends
+	ViewSessions
 )
 
 // Model represents the TUI state
@@ -41,16 +45,20 @@ type Model struct {
 	trend7d       *stats.Trend
 	budgetStatus  *budget.Status
 	lastUpdate    time.Time
+	sessionList   []*session.Session
+	notifier      *notifications.Notifier
+	notifications []notifications.Event
+	flashMessage  string
 	err           error
 }
 
 // Colors and styles
 var (
-	primaryColor   = lipgloss.Color("#7C3AED")
-	successColor   = lipgloss.Color("#10B981")
-	warningColor   = lipgloss.Color("#F59E0B")
-	dangerColor    = lipgloss.Color("#EF4444")
-	mutedColor     = lipgloss.Color("#6B7280")
+	primaryColor    = lipgloss.Color("#7C3AED")
+	successColor    = lipgloss.Color("#10B981")
+	warningColor    = lipgloss.Color("#F59E0B")
+	dangerColor     = lipgloss.Color("#EF4444")
+	mutedColor      = lipgloss.Color("#6B7280")
 	backgroundColor = lipgloss.Color("#1F2937")
 
 	titleStyle = lipgloss.NewStyle().
@@ -93,10 +101,11 @@ var (
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(
-		m.loadData,
-		tea.EnterAltScreen,
-	)
+	cmds := []tea.Cmd{m.loadData, tea.EnterAltScreen}
+	if m.notifier != nil {
+		cmds = append(cmds, m.watchNotifications())
+	}
+	return tea.Batch(cmds...)
 }
 
 // Update handles messages
@@ -143,6 +152,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.budgetStatus = msg.budgetStatus
 		m.lastUpdate = time.Now()
 		m.err = msg.err
+		m.sessionList = msg.sessions
+
+	case notificationMsg:
+		if msg.err != nil {
+			m.err = msg.err
+		} else if len(msg.events) > 0 {
+			m.notifications = append(m.notifications, msg.events...)
+			latest := msg.events[len(msg.events)-1]
+			m.flashMessage = latest.Title
+		}
+		return m, m.watchNotifications()
+
+	case errMsg:
+		m.err = msg.err
 	}
 
 	return m, nil
@@ -169,6 +192,8 @@ func (m Model) View() string {
 		content = m.renderBudget()
 	case ViewTrends:
 		content = m.renderTrends()
+	case ViewSessions:
+		content = m.renderSessions()
 	}
 
 	// Footer
@@ -198,7 +223,7 @@ func (m Model) renderHeader() string {
 	}
 
 	// View mode indicator
-	viewNames := []string{"Dashboard", "Profiles", "Budget", "Trends"}
+	viewNames := []string{"Dashboard", "Profiles", "Budget", "Trends", "Sessions"}
 	viewIndicator := fmt.Sprintf("[%s]", viewNames[m.viewMode])
 
 	return lipgloss.JoinHorizontal(
@@ -375,6 +400,28 @@ func (m Model) renderTrends() string {
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
+func (m Model) renderSessions() string {
+	if len(m.sessionList) == 0 {
+		return helpStyle.Render("No sessions recorded yet.")
+	}
+
+	lines := []string{headerStyle.Render("Recent Sessions"), ""}
+	for _, sess := range m.sessionList {
+		started := time.Unix(sess.StartedAt, 0).Format("01-02 15:04")
+		status := successColor.Render("✓")
+		if !sess.Success {
+			status = dangerColor.Render("✗")
+		}
+		dur := fmt.Sprintf("%dms", sess.LatencyMS)
+		lines = append(lines,
+			fmt.Sprintf("%s  %-12s %-10s %-8s %s", started, sess.Profile, sess.Adapter, dur, status),
+		)
+	}
+	lines = append(lines, "")
+	lines = append(lines, helpStyle.Render("Tab: Switch view  r: Refresh"))
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
 func (m Model) renderStatsBox(title string, lines []string) string {
 	content := []string{
 		headerStyle.Render(title),
@@ -409,7 +456,7 @@ func (m Model) renderBudgetStatusBox() string {
 	bar := m.renderProgressBar(dailyPercent, 20)
 
 	lines := []string{
-		fmt.Sprintf("%s Budget: %.0f%%", statusIcon, dailyPercent),
+		statusStyle.Render(fmt.Sprintf("%s Budget: %.0f%%", statusIcon, dailyPercent)),
 		bar,
 		fmt.Sprintf("%s / %s daily",
 			stats.FormatCurrency(m.budgetStatus.CurrentSpent),
@@ -450,6 +497,10 @@ func (m Model) renderFooter() string {
 		parts = append(parts, dangerColor.Render("Error: "+m.err.Error()))
 	}
 
+	if m.flashMessage != "" {
+		parts = append(parts, successColor.Render(m.flashMessage))
+	}
+
 	if !m.lastUpdate.IsZero() {
 		parts = append(parts, helpStyle.Render(
 			fmt.Sprintf("Last updated: %s", m.lastUpdate.Format("15:04:05")),
@@ -466,7 +517,17 @@ type dataLoadedMsg struct {
 	todayStats   *stats.DataPoint
 	trend7d      *stats.Trend
 	budgetStatus *budget.Status
+	sessions     []*session.Session
 	err          error
+}
+
+type notificationMsg struct {
+	events []notifications.Event
+	err    error
+}
+
+type errMsg struct {
+	err error
 }
 
 func (m Model) loadData() tea.Msg {
@@ -496,18 +557,24 @@ func (m Model) loadData() tea.Msg {
 		}
 	}
 
+	if sessions, err := session.ListRecentSessions(m.db, 10); err == nil {
+		msg.sessions = sessions
+	}
+
 	return msg
 }
 
 func (m Model) saveActiveProfile() tea.Msg {
-	// TODO: Save active profile to file
+	if err := config.SaveActiveProfile(m.home, m.activeProfile); err != nil {
+		return errMsg{err: err}
+	}
 	return nil
 }
 
 // Run starts the TUI
 func Run(home string) error {
 	// Open database
-	dbPath := filepath.Join(home, ".bobamixer", "usage.db")
+	dbPath := filepath.Join(home, "usage.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -538,6 +605,9 @@ func Run(home string) error {
 	}
 
 	// Initialize model
+	tracker := budget.NewTracker(db)
+	suggEngine := suggestions.NewEngine(db)
+
 	m := Model{
 		home:          home,
 		activeProfile: activeProfile,
@@ -546,8 +616,9 @@ func Run(home string) error {
 		selectedIdx:   selectedIdx,
 		viewMode:      ViewDashboard,
 		db:            db,
-		budgetTracker: budget.NewTracker(db),
+		budgetTracker: tracker,
 		statsAnalyzer: stats.NewAnalyzer(db),
+		notifier:      notifications.NewNotifier(tracker, suggEngine, nil),
 	}
 
 	// Run the program
@@ -557,6 +628,19 @@ func Run(home string) error {
 }
 
 func getActiveProfile(home string) string {
-	// TODO: Read from active_profile file
-	return ""
+	prof, err := config.LoadActiveProfile(home)
+	if err != nil {
+		return ""
+	}
+	return prof
+}
+
+func (m Model) watchNotifications() tea.Cmd {
+	if m.notifier == nil {
+		return nil
+	}
+	return tea.Tick(5*time.Second, func(time.Time) tea.Msg {
+		events, err := m.notifier.Poll()
+		return notificationMsg{events: events, err: err}
+	})
 }

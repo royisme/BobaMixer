@@ -160,6 +160,32 @@ func TestGetGlobalBudget(t *testing.T) {
 	}
 }
 
+func TestUpdateLimits(t *testing.T) {
+	tempDir := t.TempDir()
+	db, err := sqlite.Open(filepath.Join(tempDir, "test.db"))
+	if err != nil {
+		t.Fatalf("failed to open db: %v", err)
+	}
+
+	tracker := NewTracker(db)
+	budget, err := tracker.CreateBudget("global", "", 10, 100)
+	if err != nil {
+		t.Fatalf("CreateBudget: %v", err)
+	}
+
+	if err := tracker.UpdateLimits(budget.ID, 20, 200); err != nil {
+		t.Fatalf("UpdateLimits: %v", err)
+	}
+
+	updated, err := tracker.GetGlobalBudget()
+	if err != nil {
+		t.Fatalf("GetGlobalBudget: %v", err)
+	}
+	if updated.DailyUSD != 20 || updated.HardCapUSD != 200 {
+		t.Fatalf("limits not updated: %+v", updated)
+	}
+}
+
 func TestCheckBudget(t *testing.T) {
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
