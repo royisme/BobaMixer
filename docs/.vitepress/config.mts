@@ -13,41 +13,50 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Home', link: '/' },
-          { text: 'Docs', link: '/en/getting-started' },
-          { text: 'GitHub', link: 'https://github.com/royisme/BobaMixer' }
+          { text: 'Guide', link: '/guide/getting-started' },
+          { text: 'Features', link: '/features/adapters' },
+          { text: 'Reference', link: '/reference/cli' }
         ],
-        sidebar: {
-          '/en/': [
-            {
-              text: 'Getting Started',
-              items: [
-                { text: 'Quick Start', link: '/en/getting-started' },
-                { text: 'Installation', link: '/QUICKSTART' }
-              ]
-            },
-            {
-              text: 'Documentation',
-              items: [
-                { text: 'Configuration', link: '/en/configuration' },
-                { text: 'Adapters', link: '/ADAPTERS' },
-                { text: 'Routing Cookbook', link: '/ROUTING_COOKBOOK' },
-                { text: 'Operations', link: '/OPERATIONS' },
-                { text: 'FAQ', link: '/FAQ' },
-                { text: 'Quick Reference', link: '/QUICK_REFERENCE' }
-              ]
-            }
-          ]
-        },
+        sidebar: [
+          {
+            text: 'Guide',
+            collapsed: false,
+            items: [
+              { text: 'Getting Started', link: '/guide/getting-started' },
+              { text: 'Installation', link: '/guide/installation' },
+              { text: 'Configuration', link: '/guide/configuration' }
+            ]
+          },
+          {
+            text: 'Features',
+            collapsed: false,
+            items: [
+              { text: 'Adapters', link: '/features/adapters' },
+              { text: 'Intelligent Routing', link: '/features/routing' },
+              { text: 'Budget Management', link: '/features/budgets' },
+              { text: 'Analytics & Stats', link: '/features/analytics' }
+            ]
+          },
+          {
+            text: 'Reference',
+            collapsed: false,
+            items: [
+              { text: 'CLI Commands', link: '/reference/cli' },
+              { text: 'Configuration Files', link: '/reference/config-files' }
+            ]
+          },
+          {
+            text: 'Advanced',
+            collapsed: false,
+            items: [
+              { text: 'Operations', link: '/advanced/operations' },
+              { text: 'Troubleshooting', link: '/advanced/troubleshooting' }
+            ]
+          }
+        ],
         editLink: {
           pattern: 'https://github.com/royisme/BobaMixer/edit/main/docs/:path',
           text: 'Edit this page on GitHub'
-        },
-        lastUpdated: {
-          text: 'Last updated',
-          formatOptions: {
-            dateStyle: 'short',
-            timeStyle: 'short'
-          }
         }
       }
     },
@@ -58,41 +67,50 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '首页', link: '/zh/' },
-          { text: '文档', link: '/zh/getting-started' },
-          { text: 'GitHub', link: 'https://github.com/royisme/BobaMixer' }
+          { text: '指南', link: '/zh/guide/getting-started' },
+          { text: '功能', link: '/zh/features/adapters' },
+          { text: '参考', link: '/zh/reference/cli' }
         ],
-        sidebar: {
-          '/zh/': [
-            {
-              text: '快速开始',
-              items: [
-                { text: '快速上手', link: '/zh/getting-started' },
-                { text: '安装指南', link: '/QUICKSTART' }
-              ]
-            },
-            {
-              text: '文档',
-              items: [
-                { text: '配置指南', link: '/zh/configuration' },
-                { text: '适配器', link: '/ADAPTERS' },
-                { text: '路由手册', link: '/ROUTING_COOKBOOK' },
-                { text: '运维操作', link: '/OPERATIONS' },
-                { text: '常见问题', link: '/FAQ' },
-                { text: '快速参考', link: '/QUICK_REFERENCE' }
-              ]
-            }
-          ]
-        },
+        sidebar: [
+          {
+            text: '指南',
+            collapsed: false,
+            items: [
+              { text: '快速开始', link: '/zh/guide/getting-started' },
+              { text: '安装', link: '/zh/guide/installation' },
+              { text: '配置', link: '/zh/guide/configuration' }
+            ]
+          },
+          {
+            text: '功能',
+            collapsed: false,
+            items: [
+              { text: '适配器', link: '/zh/features/adapters' },
+              { text: '智能路由', link: '/zh/features/routing' },
+              { text: '预算管理', link: '/zh/features/budgets' },
+              { text: '分析统计', link: '/zh/features/analytics' }
+            ]
+          },
+          {
+            text: '参考',
+            collapsed: false,
+            items: [
+              { text: 'CLI 命令', link: '/zh/reference/cli' },
+              { text: '配置文件', link: '/zh/reference/config-files' }
+            ]
+          },
+          {
+            text: '高级',
+            collapsed: false,
+            items: [
+              { text: '运维操作', link: '/zh/advanced/operations' },
+              { text: '故障排除', link: '/zh/advanced/troubleshooting' }
+            ]
+          }
+        ],
         editLink: {
           pattern: 'https://github.com/royisme/BobaMixer/edit/main/docs/:path',
           text: '在 GitHub 上编辑此页'
-        },
-        lastUpdated: {
-          text: '最后更新',
-          formatOptions: {
-            dateStyle: 'short',
-            timeStyle: 'short'
-          }
         },
         docFooter: {
           prev: '上一页',
@@ -103,9 +121,7 @@ export default defineConfig({
         },
         returnToTopLabel: '回到顶部',
         sidebarMenuLabel: '菜单',
-        darkModeSwitchLabel: '主题',
-        lightModeSwitchTitle: '切换到浅色模式',
-        darkModeSwitchTitle: '切换到深色模式'
+        darkModeSwitchLabel: '主题'
       }
     }
   },
@@ -122,7 +138,6 @@ export default defineConfig({
 
   lastUpdated: true,
   cleanUrls: true,
-  ignoreDeadLinks: true,
 
   head: [
     ['link', { rel: 'icon', href: '/BobaMixer/favicon.ico' }],
