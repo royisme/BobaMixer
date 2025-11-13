@@ -265,17 +265,6 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 4. Run tests and linter
 5. Submit a pull request
 
-## 📋 Roadmap
-
-- [x] Phase 0-4: Core infrastructure
-- [x] Phase 5: Routing DSL and suggestions
-- [ ] Phase 6: Remote pricing sources
-- [ ] Phase 7: Enhanced TUI visualizations
-- [ ] Phase 8: Shell completion and advanced git integration
-- [x] Phase 9: Release and documentation
-
-See [docs/roadmap.md](docs/roadmap.md) for details.
-
 ## 📜 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
@@ -507,17 +496,6 @@ make lint
 3. 进行更改
 4. 运行测试和 linter
 5. 提交 pull request
-
-## 📋 路线图
-
-- [x] Phase 0-4: 核心基础设施
-- [x] Phase 5: 路由 DSL 和建议
-- [ ] Phase 6: 远程定价源
-- [ ] Phase 7: 增强的 TUI 可视化
-- [ ] Phase 8: Shell 补全和高级 git 集成
-- [x] Phase 9: 发布和文档
-
-查看 [docs/roadmap.md](docs/roadmap.md) 了解详情。
 
 ## 📜 许可证
 

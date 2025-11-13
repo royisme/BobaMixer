@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'website/**'
-      - '.github/workflows/docs.yml'
+      - "website/**"
+      - ".github/workflows/docs.yml"
   pull_request:
     paths:
-      - 'website/**'
+      - "website/**"
   workflow_dispatch:
 
 permissions:
@@ -30,34 +30,42 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HUGO_VERSION: 0.152.2
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
           fetch-depth: 0
 
+      # Hugo Extended 二进制
       - name: Setup Hugo
         run: |
-          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb \
-          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+          wget -O ${{ runner.temp }}/hugo.deb \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
+          sudo dpkg -i ${{ runner.temp }}/hugo.deb
+          hugo version
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      # Hugo Modules 需要 Go（Lotus Docs README 的要求）
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: '20'
+          go-version: "1.22" # >= 1.21 即可
 
-      - name: Setup Docsy theme
-        working-directory: .
-        run: |
-          cd website
-          mkdir -p themes
-          git clone --depth 1 https://github.com/google/docsy.git themes/docsy
-          cd themes/docsy
-          npm install
+      # 缓存 Hugo modules & Go module 缓存，加快 CI
+      - name: Cache Hugo modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/hugo_modules
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-hugomod-${{ hashFiles('website/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-hugomod-
 
-      - name: Install Node dependencies
-        run: npm install -D autoprefixer postcss-cli postcss
+      # 确保 Lotus Docs 等 Hugo modules 已下载
+      - name: Download Hugo modules
+        run: hugo mod tidy
 
       - name: Build with Hugo
         env:

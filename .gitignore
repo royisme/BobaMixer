@@ -37,7 +37,8 @@ go.work.sum
 .works/
 AGENTS.md
 CLAUDE.md
-
+.serena/
+.claude/
 # Hugo
 website/public/
 website/resources/_gen/
