@@ -1,0 +1,105 @@
+baseURL = "https://royisme.github.io/BobaMixer/"
+title = "BobaMixer Documentation"
+theme = "docsy"
+
+# Language settings
+defaultContentLanguage = "en"
+defaultContentLanguageInSubdir = false
+enableMissingTranslationPlaceholders = true
+
+# Multilingual configuration
+[languages]
+  [languages.en]
+    languageName = "English"
+    contentDir = "content/en"
+    weight = 1
+    [languages.en.params]
+      description = "A smart AI adapter router with cost tracking and intelligent routing"
+
+  [languages.zh]
+    languageName = "简体中文"
+    contentDir = "content/zh"
+    weight = 2
+    [languages.zh.params]
+      description = "智能AI适配器路由器，具备成本跟踪和智能路由功能"
+
+# Hugo module configuration
+[module]
+  proxy = "direct"
+  [[module.imports]]
+    path = "github.com/google/docsy"
+    disable = false
+  [[module.imports]]
+    path = "github.com/google/docsy/dependencies"
+    disable = false
+
+# Markup settings
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+  [markup.highlight]
+    style = "tango"
+
+# Site parameters
+[params]
+  copyright = "BobaMixer Contributors"
+  privacy_policy = ""
+
+  # Repository
+  github_repo = "https://github.com/royisme/BobaMixer"
+  github_project_repo = "https://github.com/royisme/BobaMixer"
+
+  # User interface configuration
+  [params.ui]
+    sidebar_menu_compact = true
+    breadcrumb_disable = false
+    sidebar_search_disable = false
+    navbar_logo = true
+    footer_about_disable = false
+
+    [params.ui.feedback]
+      enable = true
+      yes = 'Glad to hear it! Please <a href="https://github.com/royisme/BobaMixer/issues/new">tell us how we can improve</a>.'
+      no = 'Sorry to hear that. Please <a href="https://github.com/royisme/BobaMixer/issues/new">tell us how we can improve</a>.'
+
+  # Links
+  [[params.links.user]]
+    name = "GitHub"
+    url = "https://github.com/royisme/BobaMixer"
+    icon = "fab fa-github"
+    desc = "Development takes place here!"
+
+  [[params.links.user]]
+    name = "User mailing list"
+    url = "https://github.com/royisme/BobaMixer/discussions"
+    icon = "fa fa-envelope"
+    desc = "Discussion and help from your fellow users"
+
+  [[params.links.developer]]
+    name = "GitHub"
+    url = "https://github.com/royisme/BobaMixer"
+    icon = "fab fa-github"
+    desc = "Development takes place here!"
+
+  [[params.links.developer]]
+    name = "Slack"
+    url = "https://github.com/royisme/BobaMixer/discussions"
+    icon = "fab fa-slack"
+    desc = "Chat with other project developers"
+
+# Menu configuration
+[[menu.main]]
+  name = "Documentation"
+  weight = 10
+  url = "/docs/"
+
+[[menu.main]]
+  name = "Blog"
+  weight = 20
+  url = "/blog/"
+
+[[menu.main]]
+  name = "GitHub"
+  weight = 30
+  url = "https://github.com/royisme/BobaMixer"
