@@ -1,117 +1,62 @@
-# golangci-lint configuration
-# Optimized for Go TUI projects
+# golangci-lint v2 configuration
 version: "2"
 
 run:
   timeout: 5m
   tests: true
-  modules-download-mode: readonly
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: true
-
-  govet:
-    enable-all: true
-    disable:
-      - shadow # Too many false positives in TUI code
-
-  gocyclo:
-    min-complexity: 15
-
-  dupl:
-    threshold: 100
-
-  goconst:
-    min-len: 3
-    min-occurrences: 3
-
-  misspell:
-    locale: US
-
-  lll:
-    line-length: 120
-
-  unparam:
-    check-exported: false
-
-  nakedret:
-    max-func-lines: 30
-
-  prealloc:
-    simple: true
-    range-loops: true
-    for-loops: true
-
-  revive:
-    enable-all-rules: false
-    rules:
-      - name: exported
-        disabled: true # TUI projects often have unexported types
-
-  staticcheck:
-    checks: ["all"]
 
 linters:
   enable:
     - errcheck      # Check for unchecked errors
     - govet         # Vet examines Go source code
     - ineffassign   # Detect ineffectual assignments
-    - staticcheck   # Advanced Go linter (includes gosimple and stylecheck)
+    - staticcheck   # Advanced Go linter
     - unused        # Check for unused code
     - gocyclo       # Cyclomatic complexity
     - goconst       # Find repeated strings
     - misspell      # Fix commonly misspelled words
     - unparam       # Find unused parameters
     - nakedret      # Detect naked returns
-    - prealloc      # Find slice declarations that could be preallocated
-    - copyloopvar   # Check for pointer to loop variable (replaces exportloopref)
+    - copyloopvar   # Check for pointer to loop variable
     - gosec         # Security checks
     - bodyclose     # Check HTTP response body is closed
-    - noctx         # Detect sending HTTP request without context
-    - rowserrcheck  # Check sql.Rows.Err is checked
+    - noctx         # HTTP request without context
+    - rowserrcheck  # Check sql.Rows.Err
     - sqlclosecheck # Check sql.DB is closed
-    - unconvert     # Remove unnecessary type conversions
-    - whitespace    # Check for unnecessary whitespace
 
   disable:
-    - funlen        # TUI code often has long functions for UI rendering
-    - gocognit      # Cognitive complexity - too strict for TUI
-    - nestif        # Deep nesting is common in TUI event handlers
-    - godox         # Allow TODO/FIXME comments
-    - wsl           # Whitespace linter - too opinionated
-    - nlreturn      # Not relevant for our style
-    - exhaustruct   # Too strict for TUI projects
-    - varnamelen    # Variable name length - too strict
-    - ireturn       # Accept interfaces, return concrete types - too strict
+    - funlen
+    - gocognit
+    - nestif
+    - godox
+    - wsl
+    - nlreturn
+    - exhaustruct
+    - varnamelen
+    - ireturn
 
-  fast: false
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+    gocyclo:
+      min-complexity: 15
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    misspell:
+      locale: US
+    unparam:
+      check-exported: false
+    nakedret:
+      max-func-lines: 30
+    staticcheck:
+      checks: ["all"]
 
 issues:
-  exclude-use-default: false
-  max-issues-per-linter: 0
+  max-per-linter: 0
   max-same-issues: 0
-  
-  exclude-rules:
-    # Exclude some linters from test files
-    - path: _test\.go
-      linters:
-        - errcheck
-        - dupl
-        - gosec
-        - goconst
-
-    # Allow long lines in generated code
-    - path: third_party/
-      linters:
-        - lll
-        - unused
-
-output:
-  formats:
-    colored-line-number:
-      path: stdout
-  print-issued-lines: true
-  print-linter-name: true
-  sort-results: true
