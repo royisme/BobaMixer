@@ -1,3 +1,4 @@
+// Package cli provides the command-line interface for BobaMixer.
 package cli
 
 import (
@@ -153,7 +154,10 @@ func runStats(home string, args []string) error {
 		if err != nil {
 			return err
 		}
-		sessions, _ := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		sessions, err := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		if err != nil {
+			return err
+		}
 
 		fmt.Println("Today's Usage")
 		fmt.Println("=============")
@@ -248,6 +252,7 @@ func runEdit(home string, args []string) error {
 		}
 	}
 	if editor := os.Getenv("EDITOR"); editor != "" {
+		// #nosec G204 -- EDITOR is intentionally user-configurable environment variable
 		cmd := exec.Command(editor, path)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
@@ -258,7 +263,7 @@ func runEdit(home string, args []string) error {
 	return nil
 }
 
-func runDoctor(home string, args []string) error {
+func runDoctor(home string, _ []string) error {
 	fmt.Println("BobaMixer Doctor")
 	fmt.Println("================")
 	fmt.Println()
@@ -639,7 +644,10 @@ func runReport(home string, args []string) error {
 	if err != nil {
 		return err
 	}
-	suggs, _ := suggestions.NewEngine(db).GenerateSuggestions(*days)
+	suggs, err := suggestions.NewEngine(db).GenerateSuggestions(*days)
+	if err != nil {
+		return err
+	}
 
 	fileName := *output
 	if fileName == "" {
@@ -648,7 +656,7 @@ func runReport(home string, args []string) error {
 	if !filepath.IsAbs(fileName) {
 		fileName = filepath.Join(home, fileName)
 	}
-	if err := os.MkdirAll(filepath.Dir(fileName), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fileName), 0o750); err != nil {
 		return err
 	}
 
@@ -670,11 +678,14 @@ func runReport(home string, args []string) error {
 			return err
 		}
 	default:
+		// #nosec G304 -- fileName is constructed from validated user input and home directory
 		f, err := os.Create(fileName)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() {
+			_ = f.Close()
+		}()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
 		if err := writer.Write([]string{"date", "tokens", "cost", "sessions"}); err != nil {

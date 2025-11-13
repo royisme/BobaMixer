@@ -1,3 +1,4 @@
+// Package ui provides the terminal user interface for BobaMixer.
 package ui
 
 import (

@@ -1,3 +1,4 @@
+// Package routing provides request routing logic based on context and rules.
 package routing
 
 import (

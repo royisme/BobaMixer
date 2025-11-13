@@ -1,3 +1,4 @@
+// Package adapters defines the common interface for executing requests through various providers.
 package adapters
 
 import "context"

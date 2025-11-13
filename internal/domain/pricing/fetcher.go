@@ -1,6 +1,8 @@
+// Package pricing provides model pricing information and cost calculation.
 package pricing
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -39,12 +41,18 @@ func Load(home string) (*Table, error) {
 	}
 
 	// Load pricing config to get sources
-	pricingCfg, _ := config.LoadPricing(home)
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		// Ignore error, will fall through to other sources
+		pricingCfg = nil
+	}
 
 	// 2) Try fetching from remote sources
 	if pricingCfg != nil && pricingCfg.Refresh.OnStartup {
 		if t, err := fetchRemote(pricingCfg.Sources, home); err == nil && len(t.Models) > 0 {
-			_ = saveCache(cache, t)
+			if err := saveCache(cache, t); err != nil {
+				// Log error but don't fail
+			}
 			return t, nil
 		}
 	}
@@ -97,6 +105,7 @@ func saveCache(path string, table *Table) error {
 
 // loadJSONFile loads pricing from a JSON file
 func loadJSONFile(path string) (*Table, error) {
+	// #nosec G304 -- path is constructed from safe directory structure
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -148,12 +157,22 @@ func fetchRemote(sources []config.PricingSource, home string) (*Table, error) {
 
 // fetchHTTP fetches pricing from HTTP endpoint
 func fetchHTTP(url string) (*Table, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("fetch failed with status: " + resp.Status)

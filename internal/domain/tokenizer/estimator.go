@@ -1,3 +1,4 @@
+// Package tokenizer provides token estimation for various language models.
 package tokenizer
 
 import (
@@ -155,7 +156,7 @@ func (e *Estimator) EstimatePair(input, output string) (inputTokens, outputToken
 	return e.Estimate(input), e.Estimate(output)
 }
 
-// EstimateWithConfidence returns estimation with confidence level
+// Confidence represents the confidence level of a token estimation
 type Confidence string
 
 const (

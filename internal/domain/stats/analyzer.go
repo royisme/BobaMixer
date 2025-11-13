@@ -1,3 +1,4 @@
+// Package stats provides usage statistics analysis and trend detection.
 package stats
 
 import (
@@ -343,11 +344,17 @@ func FormatTokens(tokens int) string {
 }
 
 func parseInt(raw string) int {
-	v, _ := strconv.Atoi(strings.TrimSpace(raw))
+	v, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return 0
+	}
 	return v
 }
 
 func parseFloat(raw string) float64 {
-	f, _ := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	f, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil {
+		return 0.0
+	}
 	return f
 }

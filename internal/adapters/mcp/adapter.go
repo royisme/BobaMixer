@@ -1,3 +1,4 @@
+// Package mcp provides an adapter for Model Context Protocol (MCP) integrations.
 package mcp
 
 import (
@@ -95,6 +96,7 @@ func (t *StdIOTransport) Call(ctx context.Context, payload []byte) ([]byte, erro
 	if t == nil || t.Command == "" {
 		return nil, errors.New("command not configured")
 	}
+	// #nosec G204 -- Command and Args are from MCP configuration, not direct user input
 	cmd := exec.CommandContext(ctx, t.Command, t.Args...)
 	cmd.Stdin = bytes.NewReader(payload)
 	var out bytes.Buffer

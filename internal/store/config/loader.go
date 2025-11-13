@@ -1,3 +1,4 @@
+// Package config manages configuration loading, validation and storage.
 package config
 
 import (
@@ -94,7 +95,10 @@ func LoadProfiles(home string) (Profiles, error) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		node, _ := raw[key].(map[string]interface{})
+		node, ok := raw[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
 		prof := Profile{Key: key, Env: map[string]string{}, Params: map[string]string{}}
 		prof.Name = stringValue(node["name"])
 		prof.Adapter = stringValue(node["adapter"])
@@ -232,6 +236,7 @@ func LoadPricing(home string) (*PricingTable, error) {
 }
 
 func readFileIfExists(path string) ([]byte, error) {
+	// #nosec G304 -- path is from safe home directory structure
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

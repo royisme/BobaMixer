@@ -1,3 +1,4 @@
+// Package suggestions provides intelligent recommendations for optimizing usage and costs.
 package suggestions
 
 import (

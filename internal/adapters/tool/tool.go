@@ -1,3 +1,4 @@
+// Package tooladapter provides an adapter for executing external command-line tools.
 package tooladapter
 
 import (
@@ -41,6 +42,7 @@ func (r *Runner) Name() string { return r.name }
 
 func (r *Runner) Execute(ctx context.Context, req adapters.Request) (adapters.Result, error) {
 	// Build command with args
+	// #nosec G204 -- bin and args are from tool configuration, not direct user input
 	cmd := exec.CommandContext(ctx, r.bin, r.args...)
 
 	// Set environment
@@ -134,6 +136,7 @@ func (r *Runner) tryParseJSONLines(data []byte) (*UsageEvent, bool) {
 
 // ExecuteStreaming executes the tool with streaming output
 func (r *Runner) ExecuteStreaming(ctx context.Context, req adapters.Request, outWriter, errWriter io.Writer) (adapters.Result, error) {
+	// #nosec G204 -- bin and args are from tool configuration, not direct user input
 	cmd := exec.CommandContext(ctx, r.bin, r.args...)
 	cmd.Env = append(os.Environ(), r.env...)
 

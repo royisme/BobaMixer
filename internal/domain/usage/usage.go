@@ -1,3 +1,4 @@
+// Package usage manages usage records and tracking for API calls.
 package usage
 
 import (
@@ -117,7 +118,9 @@ func GetPeriodStats(db *sqlite.DB, days int) (*Stats, error) {
 	}
 
 	stats := &Stats{}
-	fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions)
+	if _, err := fmt.Sscanf(row, "%d|%f|%d", &stats.TotalTokens, &stats.TotalCost, &stats.Sessions); err != nil {
+		return &Stats{}, nil
+	}
 
 	return stats, nil
 }

@@ -92,11 +92,26 @@ func (t *Tracker) GetBudget(scope, target string) (*Budget, error) {
 	if len(parts) < 8 {
 		return nil, fmt.Errorf("invalid budget row: %s", row)
 	}
-	daily, _ := strconv.ParseFloat(parts[3], 64)
-	hard, _ := strconv.ParseFloat(parts[4], 64)
-	periodStart, _ := strconv.ParseInt(parts[5], 10, 64)
-	periodEnd, _ := strconv.ParseInt(parts[6], 10, 64)
-	spent, _ := strconv.ParseFloat(parts[7], 64)
+	daily, err := strconv.ParseFloat(parts[3], 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse daily: %w", err)
+	}
+	hard, err := strconv.ParseFloat(parts[4], 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse hard cap: %w", err)
+	}
+	periodStart, err := strconv.ParseInt(parts[5], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse period start: %w", err)
+	}
+	periodEnd, err := strconv.ParseInt(parts[6], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse period end: %w", err)
+	}
+	spent, err := strconv.ParseFloat(parts[7], 64)
+	if err != nil {
+		return nil, fmt.Errorf("parse spent: %w", err)
+	}
 	budget := &Budget{
 		ID:          parts[0],
 		Scope:       parts[1],
@@ -257,7 +272,10 @@ func (t *Tracker) CheckBudget(scope, target string, plannedAmount float64) (bool
 
 	// Check hard cap
 	if status.HardCap > 0 {
-		totalSpent, _ := t.getPeriodSpending(scope, target, status.Budget.PeriodStart, status.Budget.PeriodEnd)
+		totalSpent, err := t.getPeriodSpending(scope, target, status.Budget.PeriodStart, status.Budget.PeriodEnd)
+		if err != nil {
+			return false, "", err
+		}
 		projectedTotal := totalSpent + plannedAmount
 		if projectedTotal > status.HardCap {
 			msg := fmt.Sprintf("Would exceed hard cap: $%.4f / $%.2f",

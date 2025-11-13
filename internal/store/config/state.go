@@ -12,6 +12,7 @@ const activeProfileFilename = "active_profile"
 // LoadActiveProfile returns the currently persisted profile key.
 func LoadActiveProfile(home string) (string, error) {
 	path := filepath.Join(home, activeProfileFilename)
+	// #nosec G304 -- path is constructed from home directory and constant filename
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

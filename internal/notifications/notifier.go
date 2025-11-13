@@ -1,3 +1,4 @@
+// Package notifications manages real-time notifications and events for the user.
 package notifications
 
 import (

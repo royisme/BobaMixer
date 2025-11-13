@@ -326,7 +326,7 @@ func (s *Suggestion) GetPriority() string {
 	}
 }
 
-// TypeToString converts SuggestionType to string
+// String converts SuggestionType to string
 func (t SuggestionType) String() string {
 	switch t {
 	case SuggestionCostOptimization:

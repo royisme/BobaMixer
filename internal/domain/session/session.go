@@ -1,3 +1,4 @@
+// Package session manages execution sessions and their lifecycle.
 package session
 
 import (
@@ -130,7 +131,10 @@ func escape(s string) string {
 }
 
 func parseInt64(raw string) int64 {
-	v, _ := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	v, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil {
+		return 0
+	}
 	return v
 }
 

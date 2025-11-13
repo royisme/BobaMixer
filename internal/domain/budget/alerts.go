@@ -1,3 +1,4 @@
+// Package budget provides budget tracking and alerting functionality for API usage costs.
 package budget
 
 import (
@@ -148,7 +149,6 @@ func (am *AlertManager) checkThreshold(
 				current, limit,
 			)
 		}
-
 	} else if percent >= am.config.WarningPercent {
 		alert = &Alert{
 			Level:      AlertLevelWarning,
@@ -267,7 +267,7 @@ func (alert *Alert) GetSuggestion() string {
 	}
 }
 
-// LevelToString converts AlertLevel to string
+// String converts AlertLevel to string
 func (level AlertLevel) String() string {
 	switch level {
 	case AlertLevelCritical:

@@ -1,3 +1,4 @@
+// Package httpadapter provides HTTP-based adapter implementation for API providers.
 package httpadapter
 
 import (
@@ -78,9 +79,18 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 			Usage:   adapters.Usage{Estimate: adapters.EstimateHeuristic, LatencyMS: latencyMS},
 		}, nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return adapters.Result{
+			Success: false,
+			Error:   fmt.Sprintf("read response: %v", err),
+			Usage:   adapters.Usage{Estimate: adapters.EstimateHeuristic, LatencyMS: latencyMS},
+		}, nil
+	}
 
 	// Try to parse usage from response
 	usage := c.parseUsage(body)
