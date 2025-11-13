@@ -1,10 +1,4 @@
----
-title: "快速入门"
-linkTitle: "快速入门"
-weight: 1
-description: >
-  学习如何首次安装和配置 BobaMixer。
----
+# 快速上手
 
 ## 前提条件
 
@@ -187,10 +181,10 @@ boba completion fish | source
 
 现在您已经安装并配置了 BobaMixer：
 
-1. **[设置路由规则](/docs/routing/)** 以基于上下文自动选择配置文件
-2. **[配置预算](/docs/configuration/budgets/)** 以追踪和限制支出
-3. **[添加更多提供商](/docs/adapters/)** 以优化成本
-4. **[探索 TUI](/docs/user-guide/tui/)** 以进行可视化分析
+1. [设置路由规则](/ROUTING_COOKBOOK) 以基于上下文自动选择配置文件
+2. [配置预算](/zh/configuration#预算控制配置) 以追踪和限制支出
+3. [添加更多提供商](/ADAPTERS) 以优化成本
+4. 探索 TUI 以进行可视化分析
 
 ## 常见问题
 
@@ -231,5 +225,5 @@ boba doctor
 如果您需要帮助：
 
 - 运行 `boba help` 查看命令参考
-- 访问我们的[故障排除指南](/docs/troubleshooting/)
+- 访问我们的[常见问题](/FAQ)
 - 在 [GitHub](https://github.com/royisme/BobaMixer/issues) 上提出问题

@@ -39,12 +39,10 @@ AGENTS.md
 CLAUDE.md
 .serena/
 .claude/
-# Hugo
-website/public/
-website/resources/_gen/
-website/.hugo_build.lock
-website/themes/
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache
 
 # Node
-website/node_modules/
-website/package-lock.json
+node_modules/
+package-lock.json
