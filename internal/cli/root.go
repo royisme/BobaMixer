@@ -39,6 +39,10 @@ func Run(args []string) error {
 		return runStats(home, args[1:])
 	case "edit":
 		return runEdit(home, args[1:])
+	case "doctor":
+		return runDoctor(home, args[1:])
+	case "budget":
+		return runBudget(home, args[1:])
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -51,6 +55,8 @@ func printUsage() {
 	fmt.Println("  boba use <profile>")
 	fmt.Println("  boba stats --today")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>")
+	fmt.Println("  boba doctor")
+	fmt.Println("  boba budget [--status]")
 }
 
 func runLS(home string, args []string) error {
@@ -159,4 +165,112 @@ func runEdit(home string, args []string) error {
 	}
 	fmt.Println(path)
 	return nil
+}
+
+func runDoctor(home string, args []string) error {
+	fmt.Println("BobaMixer Doctor")
+	fmt.Println("================")
+	fmt.Println()
+
+	// Check home directory
+	fmt.Printf("✓ Home directory: %s\n", home)
+	if info, err := os.Stat(home); err == nil {
+		fmt.Printf("  Permissions: %04o\n", info.Mode().Perm())
+	}
+
+	// Check profiles.yaml
+	profsPath := filepath.Join(home, "profiles.yaml")
+	if _, err := os.Stat(profsPath); err == nil {
+		profs, err := config.LoadProfiles(home)
+		if err != nil {
+			fmt.Printf("✗ profiles.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ profiles.yaml: %d profiles\n", len(profs))
+		}
+	} else {
+		fmt.Println("✗ profiles.yaml: not found")
+	}
+
+	// Check secrets.yaml permissions
+	secretsPath := filepath.Join(home, "secrets.yaml")
+	if info, err := os.Stat(secretsPath); err == nil {
+		mode := info.Mode().Perm()
+		if mode == 0600 {
+			fmt.Printf("✓ secrets.yaml: permissions OK (%04o)\n", mode)
+		} else {
+			fmt.Printf("⚠ secrets.yaml: insecure permissions (%04o), should be 0600\n", mode)
+		}
+	} else {
+		fmt.Println("⚠ secrets.yaml: not found")
+	}
+
+	// Check routes.yaml
+	routesPath := filepath.Join(home, "routes.yaml")
+	if _, err := os.Stat(routesPath); err == nil {
+		routes, err := config.LoadRoutes(home)
+		if err != nil {
+			fmt.Printf("✗ routes.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ routes.yaml: %d rules, %d sub-agents\n", len(routes.Rules), len(routes.SubAgents))
+		}
+	} else {
+		fmt.Println("⚠ routes.yaml: not found (optional)")
+	}
+
+	// Check pricing.yaml
+	pricingPath := filepath.Join(home, "pricing.yaml")
+	if _, err := os.Stat(pricingPath); err == nil {
+		pricing, err := config.LoadPricing(home)
+		if err != nil {
+			fmt.Printf("✗ pricing.yaml: invalid (%v)\n", err)
+		} else {
+			fmt.Printf("✓ pricing.yaml: %d models\n", len(pricing.Models))
+		}
+	} else {
+		fmt.Println("⚠ pricing.yaml: not found (optional)")
+	}
+
+	// Check database
+	dbPath := filepath.Join(home, "usage.db")
+	if _, err := os.Stat(dbPath); err == nil {
+		db, err := sqlite.Open(dbPath)
+		if err != nil {
+			fmt.Printf("✗ usage.db: cannot open (%v)\n", err)
+		} else {
+			fmt.Println("✓ usage.db: OK")
+			// Try to query version
+			if version, err := db.QueryInt("PRAGMA user_version;"); err == nil {
+				fmt.Printf("  Schema version: %d\n", version)
+			}
+		}
+	} else {
+		fmt.Println("⚠ usage.db: will be created on first use")
+	}
+
+	fmt.Println()
+	fmt.Println("Diagnosis complete.")
+	return nil
+}
+
+func runBudget(home string, args []string) error {
+	flags := flag.NewFlagSet("budget", flag.ContinueOnError)
+	status := flags.Bool("status", false, "show budget status")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	if *status {
+		// TODO: Implement budget tracking
+		fmt.Println("Budget Status")
+		fmt.Println("=============")
+		fmt.Println()
+		fmt.Println("Daily budget: Not configured")
+		fmt.Println("Hard cap: Not configured")
+		fmt.Println()
+		fmt.Println("To configure budgets, edit .boba-project.yaml in your project root")
+		return nil
+	}
+
+	return errors.New("budget: specify --status")
 }
