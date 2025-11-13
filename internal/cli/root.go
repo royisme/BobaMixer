@@ -677,14 +677,18 @@ func runReport(home string, args []string) error {
 		defer f.Close()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
-		writer.Write([]string{"date", "tokens", "cost", "sessions"})
+		if err := writer.Write([]string{"date", "tokens", "cost", "sessions"}); err != nil {
+			return err
+		}
 		for _, dp := range trend.DataPoints {
-			writer.Write([]string{
+			if err := writer.Write([]string{
 				dp.Date,
 				fmt.Sprintf("%d", dp.Tokens),
 				fmt.Sprintf("%.4f", dp.Cost),
 				fmt.Sprintf("%d", dp.Count),
-			})
+			}); err != nil {
+				return err
+			}
 		}
 		if err := writer.Error(); err != nil {
 			return err

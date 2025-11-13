@@ -54,12 +54,11 @@ type Model struct {
 
 // Colors and styles
 var (
-	primaryColor    = lipgloss.Color("#7C3AED")
-	successColor    = lipgloss.Color("#10B981")
-	warningColor    = lipgloss.Color("#F59E0B")
-	dangerColor     = lipgloss.Color("#EF4444")
-	mutedColor      = lipgloss.Color("#6B7280")
-	backgroundColor = lipgloss.Color("#1F2937")
+	primaryColor = lipgloss.Color("#7C3AED")
+	successColor = lipgloss.Color("#10B981")
+	warningColor = lipgloss.Color("#F59E0B")
+	dangerColor  = lipgloss.Color("#EF4444")
+	mutedColor   = lipgloss.Color("#6B7280")
 
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).

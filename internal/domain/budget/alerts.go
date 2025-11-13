@@ -108,9 +108,7 @@ func (am *AlertManager) CheckBudgetAlerts(scope, target string) []Alert {
 	}
 
 	// Add to history
-	for _, alert := range alerts {
-		am.history = append(am.history, alert)
-	}
+	am.history = append(am.history, alerts...)
 
 	return alerts
 }

@@ -17,7 +17,7 @@ func TestNewTracker(t *testing.T) {
 
 	tracker := NewTracker(db)
 	if tracker == nil {
-		t.Error("NewTracker returned nil")
+		t.Fatal("NewTracker returned nil")
 	}
 	if tracker.db != db {
 		t.Error("tracker db not set correctly")
@@ -224,6 +224,10 @@ func TestCheckBudget(t *testing.T) {
 
 	if !allowed {
 		t.Error("should allow spending when budget doesn't exist")
+	}
+
+	if warning != "" {
+		t.Errorf("unexpected warning for non-existent budget: %s", warning)
 	}
 }
 
