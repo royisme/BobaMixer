@@ -1,3 +1,12 @@
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v0.1.0...v1.0.0) (2025-11-13)
+
+
+### Features
+
+* add complete release workflow with goreleaser and conventional commits ([3471f32](https://github.com/royisme/BobaMixer/commit/3471f32ba9ec6ca76357f84bd358f05e0935c0b4))
+
+
+
 # Changelog
 
 All notable changes to BobaMixer will be documented in this file.
