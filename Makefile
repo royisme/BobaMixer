@@ -5,6 +5,10 @@ BINARY_NAME=boba
 GO=go
 GOFLAGS=-v
 LDFLAGS=-s -w
+VERSION?=$(shell git describe --tags --always --dirty --abbrev=8 2>/dev/null || echo "dev")
+COMMIT?=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
+DATE?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+BUILD_FLAGS=-ldflags "-X github.com/royisme/BobaMixer/internal/version.Version=$(VERSION) -X github.com/royisme/BobaMixer/internal/version.Commit=$(COMMIT) -X github.com/royisme/BobaMixer/internal/version.Date=$(DATE)"
 BUILD_DIR=dist
 COVERAGE_FILE=coverage.out
 
@@ -20,20 +24,20 @@ help: ## Show this help message
 build: ## Build the binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
-	$(GO) build $(GOFLAGS) -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/boba
+	$(GO) build $(GOFLAGS) -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/boba
 
 build-all: ## Build for all platforms
 	@echo "Building for all platforms..."
 	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/boba
-	GOOS=linux GOARCH=arm64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/boba
-	GOOS=darwin GOARCH=amd64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/boba
-	GOOS=darwin GOARCH=arm64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/boba
-	GOOS=windows GOARCH=amd64 $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/boba
+	GOOS=linux GOARCH=amd64 $(GO) build -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/boba
+	GOOS=linux GOARCH=arm64 $(GO) build -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/boba
+	GOOS=darwin GOARCH=amd64 $(GO) build -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/boba
+	GOOS=darwin GOARCH=arm64 $(GO) build -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/boba
+	GOOS=windows GOARCH=amd64 $(GO) build -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/boba
 
 install: ## Install the binary to GOPATH/bin
 	@echo "Installing $(BINARY_NAME)..."
-	$(GO) install -trimpath -ldflags="$(LDFLAGS)" ./cmd/boba
+	$(GO) install -trimpath $(BUILD_FLAGS) ./cmd/boba
 
 test: ## Run tests
 	@echo "Running tests..."
@@ -119,3 +123,23 @@ ci: ## Run CI checks locally
 	@$(MAKE) test-coverage
 	@$(MAKE) build
 	@echo "All CI checks passed!"
+
+# Release targets
+tag: ## Create and push a new version tag
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make tag VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Creating tag $(VERSION)..."
+	@git tag -a $(VERSION) -m "Release $(VERSION)"
+	@git push origin $(VERSION)
+	@echo "Tag $(VERSION) pushed successfully!"
+
+release-patch: ## Create patch release (vX.Y.Z+1)
+	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1"."$$2"."$$3+1}')
+
+release-minor: ## Create minor release (vX.Y+1.0)
+	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1"."$$2+1".0"}')
+
+release-major: ## Create major release (vX+1.0.0)
+	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1+1".0.0"}')

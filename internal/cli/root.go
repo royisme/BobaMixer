@@ -21,9 +21,9 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
-	"github.com/royisme/bobamixer/internal/domain/version"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/version"
 )
 
 const (
@@ -70,6 +70,8 @@ func Run(args []string) error {
 		return runRelease(args[1:])
 	case "route":
 		return runRoute(home, args[1:])
+	case "version":
+		return runVersion()
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -88,6 +90,8 @@ func printUsage() {
 	fmt.Println("  boba report [--format json|csv]")
 	fmt.Println("  boba route test <text|@file>")
 	fmt.Println("  boba hooks install|remove|track")
+	fmt.Println("  boba version")
+	fmt.Println("  boba release [major|minor|patch]")
 }
 
 func runLS(home string, args []string) error {
@@ -136,6 +140,12 @@ func runUse(home string, args []string) error {
 		return err
 	}
 	fmt.Printf("active profile set to %s (%s)\n", prof.Key, prof.Model)
+	return nil
+}
+
+func runVersion() error {
+	v := version.GetVersionInfo()
+	fmt.Println(v.String())
 	return nil
 }
 
@@ -537,40 +547,13 @@ func findRepoRootFromArgs(args []string) (string, error) {
 
 func runRelease(args []string) error {
 	flags := flag.NewFlagSet("release", flag.ContinueOnError)
-	bump := flags.String("bump", "patch", "bump type: major|minor|patch")
-	prerelease := flags.String("prerelease", "", "prerelease identifier")
-	notes := flags.String("notes", "", "changelog notes")
-	dry := flags.Bool("dry-run", false, "do not write changes")
-	repo := flags.String("repo", "", "repo root override")
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	root := *repo
-	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		root, err = findRepoRoot(cwd)
-		if err != nil {
-			return err
-		}
-	}
-	mgr := version.NewManager(root)
-	if *dry {
-		next, err := mgr.Plan(*bump, *prerelease)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Next version: %s\n", next)
-		return nil
-	}
-	next, err := mgr.Bump(*bump, *prerelease, *notes)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Version bumped to %s\n", next)
+	fmt.Println("Release management is now handled through GitHub Actions")
+	fmt.Println("Use: git tag v1.0.0 && git push origin v1.0.0")
+	fmt.Println("Or use make targets: make release-patch, make release-minor, make release-major")
 	return nil
 }
 
@@ -758,7 +741,7 @@ func runRoute(home string, args []string) error {
 }
 
 //nolint:gocyclo // Complex route testing with multiple output formats and conditions
-func runRouteTest(home string, args []string) error{
+func runRouteTest(home string, args []string) error {
 	flags := flag.NewFlagSet("route test", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {

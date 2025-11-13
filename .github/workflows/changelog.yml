@@ -1,0 +1,128 @@
+name: Update Changelog
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # Generate changelog for main branch
+  update-main:
+    name: Update Changelog (Main)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Install conventional-changelog CLI
+          npm install -g conventional-changelog-cli conventional-commits-detector conventional-recommended-bump
+
+          # Generate changelog since last release
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            npx conventional-changelog -p angular -i CHANGELOG.md -s
+          else
+            npx conventional-changelog -p angular -i CHANGELOG.md -s --first-release
+          fi
+
+          # Check if changelog was modified
+          if git diff --quiet CHANGELOG.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changelog
+        if: steps.changelog.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "docs: update changelog [skip ci]"
+          git push
+
+  # Preview changelog for pull requests
+  preview-pr:
+    name: Preview Changelog (PR)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog preview
+        run: |
+          # Install conventional-changelog CLI
+          npm install -g conventional-changelog-cli
+
+          # Generate changelog for this PR
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          PR_BRANCH_BASE=${{ github.event.pull_request.base.ref }}
+
+          # Get changes since base branch
+          git checkout $PR_BRANCH_BASE
+          if [ -n "$LAST_TAG" ]; then
+            npx conventional-changelog -p angular -i CHANGELOG_TMP.md -s --first-release
+          else
+            npx conventional-changelog -p angular -i CHANGELOG_TMP.md -s
+          fi
+
+          # Generate changelog for PR
+          git checkout ${{ github.head_ref }}
+          git merge-base $PR_BRANCH_BASE HEAD | xargs -I {} git log --pretty=format:'%h %s' {}..HEAD > PR_COMMITS.txt
+
+          echo "## 📋 Changelog Preview" > CHANGELOG_PR.md
+          echo "" >> CHANGELOG_PR.md
+          echo "Changes that will be included in the next release:" >> CHANGELOG_PR.md
+          echo "" >> CHANGELOG_PR.md
+
+          # Categorize commits
+          echo "### 🚀 Features" >> CHANGELOG_PR.md
+          git log ${{ github.event.pull_request.base.sha }}..HEAD --grep='^feat' --pretty=format'- %s' >> CHANGELOG_PR.md || echo "None" >> CHANGELOG_PR.md
+
+          echo "" >> CHANGELOG_PR.md
+          echo "### 🐛 Bug Fixes" >> CHANGELOG_PR.md
+          git log ${{ github.event.pull_request.base.sha }}..HEAD --grep='^fix' --pretty=format'- %s' >> CHANGELOG_PR.md || echo "None" >> CHANGELOG_PR.md
+
+          echo "" >> CHANGELOG_PR.md
+          echo "### 🔧 Improvements" >> CHANGELOG_PR.md
+          git log ${{ github.event.pull_request.base.sha }}..HEAD --grep='^refactor\|^perf\|^style' --pretty=format'- %s' >> CHANGELOG_PR.md || echo "None" >> CHANGELOG_PR.md
+
+          echo "" >> CHANGELOG_PR.md
+          echo "### 📚 Documentation" >> CHANGELOG_PR.md
+          git log ${{ github.event.pull_request.base.sha }}..HEAD --grep='^docs' --pretty=format'- %s' >> CHANGELOG_PR.md || echo "None" >> CHANGELOG_PR.md
+
+      - name: Comment PR with changelog preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              const changelog = fs.readFileSync('CHANGELOG_PR.md', 'utf8');
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: changelog
+              });
+            } catch (error) {
+              console.log('No changelog to comment');
+            }

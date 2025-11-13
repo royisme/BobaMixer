@@ -5,58 +5,72 @@ All notable changes to BobaMixer will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2025-11-13
+## [Unreleased]
 
-### Added
-- **Phase 0-4 Complete**: Core infrastructure and adapters
-  - CLI commands: `ls`, `use`, `stats`, `edit`, `doctor`, `budget`, `hooks`, `action`, `report`
-  - Configuration system with profiles, routes, pricing, and secrets
-  - SQLite database for usage tracking
-  - HTTP adapter for API providers (Anthropic, OpenRouter, etc.)
-  - Tool adapter for CLI tools
-  - TUI dashboard with usage statistics and trends
+### 🚀 Features
+- *Feature descriptions here*
 
-- **Phase 5**: Routing DSL and Suggestion Engine
-  - `boba route test` command for offline route evaluation
-  - Epsilon-greedy exploration (3% default rate)
-  - Rule-based routing with context matching
-  - Suggestion engine with confidence scores
-  - Support for intent, text patterns, context size, project types, branches, time of day
+### 🐛 Bug Fixes  
+- *Bug fix descriptions here*
 
-- **Budget & Cost Tracking**
-  - Budget alerts and monitoring
-  - Daily and hard cap limits
-  - Cost trend analysis (7/30 days)
-  - Profile-based spending breakdown
+### 🔧 Improvements
+- *Improvement descriptions here*
 
-- **Git Integration**
-  - Hook management (`boba hooks install/remove/track`)
-  - Project-level configuration discovery
-  - Branch-aware routing
+### 📚 Documentation
+- *Documentation changes here*
 
-- **Documentation**
-  - Comprehensive README
-  - Quick Reference Guide
-  - Adapter Development Guide
-  - Routing Cookbook
-  - Operations Guide (backup/cleanup)
-  - FAQ
+### ⚠️ Breaking Changes
+- *Breaking change descriptions here*
 
-- **Release Infrastructure**
-  - GoReleaser configuration
-  - Multi-platform builds (macOS/Linux, amd64/arm64)
-  - Automated changelog generation
-  - Semantic versioning
+---
 
-### Security
-- Strict file permissions for secrets.yaml (0600)
-- #nosec annotations for justified security exceptions
-- No API keys or request content stored in logs or database
+## [1.0.0] - 2024-11-13
 
-### Fixed
-- All golangci-lint errors resolved
-- Package documentation added to all packages
-- Error handling improved across codebase
-- File permissions hardened
+### 🚀 Features
+- **Intelligent AI Routing**: Automatic provider selection based on context, cost, and performance
+- **Multi-Provider Support**: Unified interface for OpenAI, Anthropic Claude, and local models
+- **Budget Management**: Multi-level budget tracking (global, project, profile) with real-time alerts
+- **Usage Analytics**: Comprehensive token count, cost tracking, and performance metrics
+- **Project Awareness**: Git integration for automatic project and branch context detection
+- **TUI Dashboard**: Beautiful terminal UI for real-time monitoring and analytics
+- **Cost Optimization**: Intelligent suggestions for reducing AI costs
+- **MCP Support**: Model Context Protocol integration for advanced AI workflows
 
-[0.1.0]: https://github.com/royisme/BobaMixer/releases/tag/v0.1.0
+### 🛠️ Configuration
+- YAML-based configuration system with profiles, routes, and secrets
+- Dynamic routing rules with DSL-based matching
+- Project-specific configuration overrides
+- Secure API key management with file permissions
+
+### 📚 Documentation
+- Comprehensive user documentation with getting started guide
+- Configuration reference with practical examples
+- API documentation and command reference
+
+### 🔧 Technical
+- Clean architecture with domain-driven design
+- SQLite database for usage tracking
+- Comprehensive test coverage
+- Multi-platform binary distribution
+
+### 🎯 Use Cases
+- **Developers**: Intelligent code analysis and optimization suggestions
+- **Teams**: Budget management and usage analytics across organizations
+- **Cost-Conscious Users**: Automatic routing to most cost-effective providers
+- **Power Users**: Advanced configuration and customization options
+
+---
+
+## Version Guide
+
+### Version Format
+- **Major**: Breaking changes (X.0.0)
+- **Minor**: New features (X.Y.0)  
+- **Patch**: Bug fixes (X.Y.Z)
+
+### Release Types
+- **Stable**: Production-ready releases
+- **Pre-release**: Alpha/beta for testing (e.g., 1.2.0-beta.1)
+
+### Upgrade Guide
+Major releases will include migration guides in the documentation.

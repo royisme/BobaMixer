@@ -1,269 +1,236 @@
 # Contributing to BobaMixer
 
-Thank you for your interest in contributing to BobaMixer! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to BobaMixer! This document provides guidelines for contributing to the project.
 
-## Development Setup
+## 📋 Table of Contents
 
-### Prerequisites
+- [Development Setup](#development-setup)
+- [Code Style](#code-style)
+- [Commit Message Format](#commit-message-format)
+- [Pull Request Process](#pull-request-process)
+- [Release Process](#release-process)
 
-- Go 1.25.4 or later
-- Git
-- Make (optional but recommended)
+## 🛠️ Development Setup
 
-### Initial Setup
-
-1. **Clone the repository**
+1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/royisme/BobaMixer.git
+   git clone https://github.com/yourusername/BobaMixer.git
    cd BobaMixer
    ```
 
 2. **Install dependencies**
    ```bash
    make deps
-   # or
-   go mod download
    ```
 
-3. **Install Git hooks**
+3. **Set up development tools**
    ```bash
-   make hooks
-   # or manually:
-   chmod +x .githooks/pre-commit
-   git config core.hooksPath .githooks
+   make dev
    ```
 
-4. **Verify setup**
+4. **Run tests**
    ```bash
    make test
-   make build
    ```
 
-## Development Workflow
+## 📝 Code Style
 
-### Quick Start
+### Go Code Style
 
-The fastest way to get started:
-```bash
-make dev    # Sets up everything (dependencies + git hooks)
-make run    # Run the application
-```
-
-### Building
+We use `golangci-lint` for code formatting and linting:
 
 ```bash
-# Build for current platform
-make build
-
-# Build for all platforms
-make build-all
-
-# Install to GOPATH/bin
-make install
-```
-
-### Testing
-
-```bash
-# Run tests
-make test
-
-# Run tests with coverage
-make test-coverage
-
-# Generate HTML coverage report
-make coverage
-```
-
-### Code Quality
-
-```bash
-# Format code
 make fmt
-
-# Run linters
 make lint
-
-# Run fast linting (for quick checks)
-make lint-fast
-
-# Run all checks (format, vet, lint, test)
-make check
 ```
 
-### Pre-commit Hook
+### Documentation
 
-The pre-commit hook automatically:
-- Formats all staged Go files with `gofmt`
-- Runs `go vet` on changed packages
-- Blocks commits with unformatted code
+- Write clear, concise documentation
+- Use markdown for all documentation
+- Update docs when adding new features
 
-If you need to bypass the hook (not recommended):
-```bash
-git commit --no-verify
+## 💬 Commit Message Format
+
+We follow [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+### Format
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
 ```
 
-## Code Style
+### Types
 
-### Formatting
+- **feat**: New feature
+- **fix**: Bug fix  
+- **docs**: Documentation changes
+- **style**: Code formatting (no functional changes)
+- **refactor**: Code refactoring
+- **test**: Test additions/modifications
+- **chore**: Build process, dependency updates
+- **perf**: Performance improvements
 
-- All Go code must be formatted with `gofmt`
-- The pre-commit hook enforces this automatically
-- Run `make fmt` before committing
+### Examples
 
-### Linting
+#### New Feature
+```
+feat(routing): add intelligent epsilon-greedy exploration
 
-- We use `golangci-lint` with a custom configuration
-- Configuration is in `.golangci.yml`
-- Run `make lint` to check for issues
-- All linting issues must be resolved before merging
+Implement epsilon-greedy algorithm for intelligent routing decisions
+to balance exploration vs exploitation when selecting AI providers.
 
-### Best Practices
+- Add epsilon parameter with default 0.1
+- Implement exploration strategy with random selection
+- Add metrics tracking for exploration effectiveness
 
-1. **Error Handling**: Always check and handle errors
-   ```go
-   if err != nil {
-       return fmt.Errorf("operation failed: %w", err)
-   }
-   ```
-
-2. **Testing**: Write tests for new functionality
-   ```bash
-   make test
-   ```
-
-3. **Documentation**: Add comments for exported functions
-   ```go
-   // ProcessData processes the input data and returns the result.
-   func ProcessData(input string) (string, error) {
-       // ...
-   }
-   ```
-
-4. **Commit Messages**: Use clear, descriptive commit messages
-   ```
-   Add user authentication feature
-   
-   - Implement login/logout functionality
-   - Add session management
-   - Update UI for auth flow
-   ```
-
-## CI/CD
-
-### Continuous Integration
-
-Our CI pipeline runs on every push and pull request:
-
-1. **Lint & Format** - Fast checks that fail early
-   - Code formatting verification
-   - `go vet` analysis
-   - `golangci-lint` checks
-
-2. **Test** - Comprehensive testing
-   - Unit tests with race detection
-   - Coverage reporting
-
-3. **Build** - Multi-platform builds
-   - Linux (amd64, arm64)
-   - macOS (amd64, arm64)
-   - Windows (amd64)
-
-### Running CI Locally
-
-Before pushing, run all CI checks locally:
-```bash
-make ci
+Closes #123
 ```
 
-This runs the same checks as the CI pipeline.
+#### Bug Fix
+```
+fix(config): resolve profile loading issue in Windows
 
-## Pull Request Process
+Fixed bug where profiles.yaml couldn't be loaded on Windows systems
+due to incorrect path handling. Use filepath.Join() for cross-platform
+compatibility.
+
+Fixes #456
+```
+
+#### Breaking Changes
+```
+feat(api): redesign configuration schema v2
+
+BREAKING CHANGE: Configuration format has changed from v1 to v2.
+Old configurations are no longer supported. Migration guide is
+provided in docs/configuration/migration.md.
+
+- New profiles.yaml structure
+- Enhanced routing rules
+- Better validation
+
+Migration script available: `boba migrate --from-v1`
+```
+
+## 🔄 Pull Request Process
 
 1. **Create a feature branch**
    ```bash
-   git checkout -b feature/my-feature
+   git checkout -b feature/intelligent-routing
    ```
 
 2. **Make your changes**
-   - Write code
-   - Add tests
+   - Follow the commit message format
+   - Add tests for new functionality
    - Update documentation
 
-3. **Run checks locally**
+3. **Run tests and checks**
    ```bash
    make check
    ```
 
-4. **Commit your changes**
+4. **Create Pull Request**
+   - Use descriptive title
+   - Link related issues
+   - Include screenshots if applicable
+   - Request review from maintainers
+
+5. **Address feedback**
+   - Respond to reviewer comments
+   - Make requested changes
+   - Push updates to your branch
+
+## 🚀 Release Process
+
+We use automated releases based on conventional commits:
+
+### Automated Versioning
+
+- **feat** → Minor version bump (X.Y.0)
+- **fix** → Patch version bump (X.Y.Z)
+- **BREAKING CHANGE** → Major version bump (X.0.0)
+
+### Creating a Release
+
+1. **Merge changes to main**
    ```bash
-   git add .
-   git commit -m "Add my feature"
+   git checkout main
+   git pull origin main
+   git merge feature/your-feature
+   git push origin main
    ```
-   The pre-commit hook will run automatically.
 
-5. **Push and create PR**
+2. **Create release tag** (optional, goreleaser can auto-create)
    ```bash
-   git push origin feature/my-feature
+   # Goreleaser will create this automatically
+   # Or manually: git tag v1.2.3
+   # git push origin v1.2.3
    ```
 
-6. **Wait for CI**
-   - All CI checks must pass
-   - Address any review comments
+3. **Release artifacts are automatically created**
+   - GitHub Release with changelog
+   - Binary builds for all platforms
+   - Homebrew formula update
+   - Documentation deployment
 
-## Common Issues
+### Release Checklist
 
-### golangci-lint not found
+Before creating a release, ensure:
 
-Install golangci-lint:
-```bash
-# macOS/Linux
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+- [ ] All tests pass
+- [ ] Documentation is updated
+- [ ] CHANGELOG.md is current
+- [ ] Version number is appropriate
+- [ ] Breaking changes are documented
+- [ ] Security review is complete (if needed)
 
-# Or use go install
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-```
+## 📊 Tracking Changes
 
-### Pre-commit hook not running
+Every significant change should be documented:
 
-Ensure the hook is installed:
-```bash
-make hooks
-```
+### Features
+- What problem does this solve?
+- How does it work?
+- Examples and usage
 
-Verify configuration:
-```bash
-git config core.hooksPath
-# Should output: .githooks
-```
+### Bug Fixes  
+- What was the issue?
+- Root cause analysis
+- How it was fixed
 
-### Tests failing
+### Breaking Changes
+- What changed and why
+- Migration guide
+- Deprecation timeline
 
-Run tests with verbose output:
-```bash
-go test -v ./...
-```
+## 🐛 Reporting Issues
 
-## Makefile Commands
+When reporting issues, please include:
 
-Run `make help` to see all available commands:
+1. **Environment information**
+   - BobaMixer version
+   - Operating system
+   - Go version
 
-```bash
-make help
-```
+2. **Steps to reproduce**
+   - Minimal reproduction case
+   - Expected vs actual behavior
 
-Available commands:
-- `build` - Build the binary
-- `test` - Run tests
-- `lint` - Run linters
-- `fmt` - Format code
-- `check` - Run all checks
-- `clean` - Clean build artifacts
-- `help` - Show help message
+3. **Additional context**
+   - Configuration files
+   - Error messages
+   - Logs
 
-## Questions?
+## 💬 Getting Help
 
-If you have any questions or need help, please:
-- Open an issue
-- Check existing documentation
-- Ask in pull request comments
+- Create an issue for bugs or feature requests
+- Start a discussion for questions
+- Check existing issues and documentation
+
+## 📄 License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.

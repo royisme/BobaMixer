@@ -1,0 +1,19 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type should be one of the following:
+# * feat (new feature)
+# * fix (bug fix)
+# * docs (documentation)
+# * style (formatting, missing semi colons, etc; no code change)
+# * refactor (refactoring production code)
+# * test (adding tests, refactoring test; no production code change)
+# * chore (updating build tasks, package manager configs, etc; no production code change)
+#
+# Scope: The area of the codebase affected (e.g., config, routing, docs)
+# Subject: Short description (imperative tone, no period)
+# Body: Detailed explanation of what changed and why
+# Footer: Breaking changes, issue references, etc.
