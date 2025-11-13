@@ -45,7 +45,7 @@ func NewRouter(routes *config.RoutesConfig) *Router {
 		epsilonRate:   0.03, // 3% default exploration rate
 		enableExplore: true,
 		// #nosec G404 -- weak RNG acceptable for epsilon-greedy exploration
-		rng:           rand.New(rand.NewSource(time.Now().UnixNano())),
+		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

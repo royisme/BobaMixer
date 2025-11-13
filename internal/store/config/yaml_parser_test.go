@@ -40,7 +40,7 @@ func TestParseYAMLListOfMaps(t *testing.T) {
 	if len(rules) != 2 {
 		t.Fatalf("rules len=%d", len(rules))
 	}
-	first := rules[0].(map[string]interface{}) //nolint:errcheck
+	first := rules[0].(map[string]interface{})                                //nolint:errcheck
 	if first["id"].(string) != "format" || first["use"].(string) != "quick" { //nolint:errcheck
 		t.Fatalf("unexpected first: %#v", first)
 	}
