@@ -12,13 +12,13 @@ import (
 
 // Context represents the routing context
 type Context struct {
+	ProjectType []string
 	Intent      string
 	Text        string
-	CtxChars    int
 	Project     string
 	Branch      string
-	ProjectType []string
 	TimeOfDay   string
+	CtxChars    int
 }
 
 // Decision represents a routing decision
@@ -33,9 +33,9 @@ type Decision struct {
 // Router handles profile routing based on rules
 type Router struct {
 	routes        *config.RoutesConfig
+	rng           *rand.Rand
 	epsilonRate   float64
 	enableExplore bool
-	rng           *rand.Rand
 }
 
 // NewRouter creates a new router
@@ -142,6 +142,7 @@ func (r *Router) collectAllProfiles() []string {
 }
 
 // matchRule checks if a rule matches the context
+//nolint:gocyclo // Complex rule matching with multiple conditions and operators
 func (r *Router) matchRule(rule config.RouteRule, ctx Context) bool {
 	if rule.If == "" {
 		return false

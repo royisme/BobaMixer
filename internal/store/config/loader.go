@@ -10,6 +10,11 @@ import (
 )
 
 type Profile struct {
+	Temperature float64
+	Tags        []string
+	CostPer1K   Cost
+	Env         map[string]string
+	Params      map[string]string
 	Key         string
 	Name        string
 	Adapter     string
@@ -17,11 +22,6 @@ type Profile struct {
 	Endpoint    string
 	Model       string
 	MaxTokens   int
-	Temperature float64
-	Tags        []string
-	CostPer1K   Cost
-	Env         map[string]string
-	Params      map[string]string
 }
 
 type Cost struct {
@@ -39,9 +39,9 @@ type RoutesConfig struct {
 }
 
 type SubAgent struct {
-	Profile    string
 	Triggers   []string
 	Conditions map[string]interface{}
+	Profile    string
 }
 
 type RouteRule struct {

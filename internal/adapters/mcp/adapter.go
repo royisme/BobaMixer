@@ -110,7 +110,7 @@ func (t *StdIOTransport) Call(ctx context.Context, payload []byte) ([]byte, erro
 
 type responseEnvelope struct {
 	Output       string `json:"output"`
+	Error        string `json:"error"`
 	InputTokens  int    `json:"input_tokens"`
 	OutputTokens int    `json:"output_tokens"`
-	Error        string `json:"error"`
 }

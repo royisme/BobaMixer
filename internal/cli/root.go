@@ -26,6 +26,12 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	scopeGlobal  = "global"
+	scopeProject = "project"
+)
+
+//nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
 	home, err := config.ResolveHome()
 	if err != nil {
@@ -421,13 +427,13 @@ func resolveBudgetScope(scopeOpt, target string) (string, string, *config.Projec
 			if targetName == "" {
 				targetName = filepath.Base(filepath.Dir(path))
 			}
-			return "project", targetName, cfg, nil
+			return scopeProject, targetName, cfg, nil
 		}
-		return "global", "", nil, nil
+		return scopeGlobal, "", nil, nil
 	}
 	switch scopeOpt {
-	case "global":
-		return "global", "", nil, nil
+	case scopeGlobal:
+		return scopeGlobal, "", nil, nil
 	case "project":
 		if target == "" {
 			return "", "", nil, errors.New("--target required for project scope")
@@ -625,6 +631,7 @@ func runAction(home string, args []string) error {
 	return nil
 }
 
+//nolint:gocyclo // Complex report generation with multiple output formats and filters
 func runReport(home string, args []string) error {
 	flags := flag.NewFlagSet("report", flag.ContinueOnError)
 	days := flags.Int("days", 7, "number of days to include")
@@ -690,7 +697,7 @@ func runReport(home string, args []string) error {
 			return err
 		}
 		defer func() {
-			//nolint:errcheck // Best effort cleanup
+			//nolint:errcheck,gosec // Best effort cleanup, error irrelevant in defer
 			f.Close()
 		}()
 		writer := csv.NewWriter(f)
@@ -750,7 +757,8 @@ func runRoute(home string, args []string) error {
 	}
 }
 
-func runRouteTest(home string, args []string) error {
+//nolint:gocyclo // Complex route testing with multiple output formats and conditions
+func runRouteTest(home string, args []string) error{
 	flags := flag.NewFlagSet("route test", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {

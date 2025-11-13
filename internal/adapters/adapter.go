@@ -12,26 +12,26 @@ const (
 )
 
 type Request struct {
+	Metadata  map[string]string
 	SessionID string
 	Profile   string
 	Tool      string
 	Model     string
 	Payload   []byte
-	Metadata  map[string]string
 }
 
 type Usage struct {
+	Estimate     EstimateLevel
+	LatencyMS    int64
 	InputTokens  int
 	OutputTokens int
-	LatencyMS    int64
-	Estimate     EstimateLevel
 }
 
 type Result struct {
-	Success bool
-	Output  []byte
-	Error   string
 	Usage   Usage
+	Error   string
+	Output  []byte
+	Success bool
 }
 
 type Adapter interface {

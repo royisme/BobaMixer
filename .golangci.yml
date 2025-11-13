@@ -43,6 +43,7 @@ linters:
       enable-all: true
       disable:
         - shadow
+        - fieldalignment
     gocyclo:
       min-complexity: 15
     goconst:

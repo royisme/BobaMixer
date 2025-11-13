@@ -11,9 +11,9 @@ func TestResolveEnv(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
 		env      map[string]string
 		expected map[string]string
+		name     string
 	}{
 		{
 			name: "resolve secret references",

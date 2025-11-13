@@ -197,11 +197,12 @@ func (t *Tracker) GetStatus(scope, target string) (*Status, error) {
 // getTodaySpending calculates spending for today
 func (t *Tracker) getTodaySpending(scope, target string) (float64, error) {
 	var whereClause string
-	if scope == "global" {
+	switch scope {
+	case scopeGlobal:
 		whereClause = ""
-	} else if scope == "profile" {
+	case scopeProfile:
 		whereClause = fmt.Sprintf(" AND profile='%s'", escape(target))
-	} else if scope == "project" {
+	case scopeProject:
 		whereClause = fmt.Sprintf(" AND project='%s'", escape(target))
 	}
 
@@ -226,11 +227,12 @@ func (t *Tracker) getTodaySpending(scope, target string) (float64, error) {
 // getPeriodSpending calculates spending for a time period
 func (t *Tracker) getPeriodSpending(scope, target string, start, end int64) (float64, error) {
 	var whereClause string
-	if scope == "global" {
+	switch scope {
+	case scopeGlobal:
 		whereClause = ""
-	} else if scope == "profile" {
+	case scopeProfile:
 		whereClause = fmt.Sprintf(" AND profile='%s'", escape(target))
-	} else if scope == "project" {
+	case scopeProject:
 		whereClause = fmt.Sprintf(" AND project='%s'", escape(target))
 	}
 
