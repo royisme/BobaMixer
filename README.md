@@ -26,6 +26,8 @@ boba stats --today
 boba doctor
 ```
 
+`params.command` + `endpoint: stdio` 会驱动 MCP Adapter 通过 STDIN/STDOUT 调用自定义 server。
+
 ## 功能特性
 
 - ✅ **Profile 管理** - 配置多个 AI 模型和工具，轻松切换
@@ -46,7 +48,7 @@ BobaMixer 采用分层架构设计：
 
 ## 开发状态
 
-**当前版本**: Phase 2 (v0.2.0)
+**当前版本**: Phase 4 (v0.4.0)
 
 ✅ Phase 1 已完成:
 - SQLite 数据库自动引导
@@ -62,16 +64,15 @@ BobaMixer 采用分层架构设计：
 - **HttpAdapter 增强** - 自动解析 Anthropic/OpenAI/OpenRouter API 的 usage 信息
 - **完整的单元测试** - 所有核心模块测试覆盖
 
-🚧 Phase 3 计划:
-- 预算跟踪和提醒功能
-- 统计趋势分析（7天/30天）
-- TUI 主界面完善（Bubble Tea）
-- 建议引擎
-
-📋 Phase 4 计划:
-- MCP 适配器支持
-- Git Hooks 集成
-- Goreleaser 发布配置
+🚀 Phase 3/4 新增:
+- ✅ GitHub Actions CI（编译 + go test）
+- ✅ `boba release` 版本管理（自动 bump + changelog）
+- ✅ 预算跟踪/提醒，支持 `.boba-project.yaml`
+- ✅ 7/30 天趋势分析 + 建议引擎（CLI + 报表）
+- ✅ TUI 仪表板 + 实时提醒
+- ✅ MCP Adapter（面向 MCP Server 的 STDIO Transport）
+- ✅ Git Hooks 集成（post-checkout/merge/commit）
+- ✅ Goreleaser 配置
 
 ---
 
@@ -171,6 +172,15 @@ profiles:
       output: 0.002
     env:
       OPENROUTER_API_KEY: "secret://openrouter"
+
+  mcp-tools:
+    name: "Local MCP"
+    adapter: "mcp"
+    provider: "local"
+    endpoint: "stdio"
+    params:
+      command: "./scripts/mcp-server"
+      default_tool: "codebase"
 ```
 
 ### 2.2 secrets.yaml 示例
@@ -233,6 +243,8 @@ budget:
   daily_usd: 5.0
   hard_cap: 50.0
 ```
+
+`boba budget --status` 会自动向上搜索 `.boba-project.yaml` 并为项目创建/同步预算记录，可用 `--daily`、`--cap` 快速调整。
 
 ---
 
@@ -386,11 +398,19 @@ refresh:
 boba use <profile>
 boba ls [--profiles|--adapters]
 boba stats [--today|--7d|--30d|--json]
-boba budget [--set daily 5] [--status]
+boba budget [--status] [--daily 5] [--cap 50]
 boba route test "<text|@file>"
 boba doctor
 boba edit profiles|routes|pricing|secrets
 boba hooks install|remove
+boba release --bump patch [--notes "..."]
+
+### 8.1 Git Hooks
+
+- `boba hooks install`：自动在当前 Git 仓库注入 `post-checkout/post-merge/post-commit` 脚本
+- Hook 会调用 `boba hooks track`，将分支/事件记录到 `~/.boba/git-hooks/*.jsonl`
+- `boba hooks remove`：安全删除脚本
+boba release --bump patch [--notes "..."]
 ```
 
 数据库自动引导建表，无 `migrate`。
@@ -418,6 +438,13 @@ boba hooks install|remove
 - Go 1.22+
 - `goreleaser` 输出 macOS/Linux 各架构
 - 可选 Homebrew Tap；Linux 提供 .deb/.rpm
+
+### 11.1 版本发布流程
+
+- `VERSION` 文件作为单一真相
+- `boba release --bump patch --notes "..."` 自动更新 VERSION + `CHANGELOG.md`
+- `.goreleaser.yaml` 提供 `goreleaser release --clean` 所需配置
+- GitHub Actions CI 在 PR/Push 上跑 `gofmt`、`go vet`、`go test`
 
 ---
 

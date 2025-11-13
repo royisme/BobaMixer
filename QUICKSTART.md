@@ -93,7 +93,17 @@ boba doctor
 ### View Budget Status
 
 ```bash
+# Inspect project-level budget (auto-detect .boba-project.yaml)
 boba budget --status
+
+# Update limits on the fly
+boba budget --daily 5 --cap 50
+```
+
+### Install Git Hooks (optional)
+
+```bash
+boba hooks install
 ```
 
 ## Configuration Files

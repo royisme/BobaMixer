@@ -151,6 +151,7 @@ func (t *Tracker) GetStatus(scope, target string) (*Status, error) {
 	if err != nil {
 		return nil, err
 	}
+	budget.SpentUSD = totalSpent
 
 	now := time.Now()
 	periodEnd := time.Unix(budget.PeriodEnd, 0)

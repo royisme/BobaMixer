@@ -1,0 +1,28 @@
+project_name: bobamixer
+builds:
+  - main: ./cmd/boba
+    id: bobamixer
+    binary: boba
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+checksum:
+  name_template: "checksums.txt"
+
+archives:
+  - format: tar.gz
+    builds: [bobamixer]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .OS }}_{{ .Arch }}"
+
+changelog:
+  use: git
+  filters:
+    exclude:
+      - '^docs'
+      - '^test'
+
+release:
+  draft: false
+  prerelease: auto
