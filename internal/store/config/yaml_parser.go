@@ -45,8 +45,8 @@ func parseYAML(data []byte) (map[string]interface{}, error) {
 }
 
 type yamlLine struct {
-	indent int
 	text   string
+	indent int
 }
 
 func tokenizeYAML(raw string) []yamlLine {

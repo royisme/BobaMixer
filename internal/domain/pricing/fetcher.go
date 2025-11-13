@@ -50,7 +50,7 @@ func Load(home string) (*Table, error) {
 	// 2) Try fetching from remote sources
 	if pricingCfg != nil && pricingCfg.Refresh.OnStartup {
 		if t, err := fetchRemote(pricingCfg.Sources, home); err == nil && len(t.Models) > 0 {
-			//nolint:errcheck // saveCache is best effort, failure doesn't affect functionality
+			//nolint:errcheck,gosec // saveCache is best effort, failure doesn't affect functionality
 			saveCache(cache, t)
 			return t, nil
 		}
@@ -170,7 +170,7 @@ func fetchHTTP(url string) (*Table, error) {
 		return nil, err
 	}
 	defer func() {
-		//nolint:errcheck // Best effort cleanup, error irrelevant in defer
+		//nolint:errcheck,gosec // Best effort cleanup, error irrelevant in defer
 		resp.Body.Close()
 	}()
 

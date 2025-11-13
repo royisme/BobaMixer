@@ -697,7 +697,7 @@ func runReport(home string, args []string) error {
 			return err
 		}
 		defer func() {
-			//nolint:errcheck // Best effort cleanup, error irrelevant in defer
+			//nolint:errcheck,gosec // Best effort cleanup, error irrelevant in defer
 			f.Close()
 		}()
 		writer := csv.NewWriter(f)
