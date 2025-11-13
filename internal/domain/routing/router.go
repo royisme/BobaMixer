@@ -142,6 +142,7 @@ func (r *Router) collectAllProfiles() []string {
 }
 
 // matchRule checks if a rule matches the context
+//nolint:gocyclo // Complex rule matching with multiple conditions and operators
 func (r *Router) matchRule(rule config.RouteRule, ctx Context) bool {
 	if rule.If == "" {
 		return false

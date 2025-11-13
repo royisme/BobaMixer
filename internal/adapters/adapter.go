@@ -12,25 +12,25 @@ const (
 )
 
 type Request struct {
-	Payload   []byte
 	Metadata  map[string]string
 	SessionID string
 	Profile   string
 	Tool      string
 	Model     string
+	Payload   []byte
 }
 
 type Usage struct {
+	Estimate     EstimateLevel
 	LatencyMS    int64
 	InputTokens  int
 	OutputTokens int
-	Estimate     EstimateLevel
 }
 
 type Result struct {
-	Output  []byte
 	Usage   Usage
 	Error   string
+	Output  []byte
 	Success bool
 }
 

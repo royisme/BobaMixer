@@ -145,6 +145,7 @@ func parseMap(tokens []yamlToken, idx int, indent int) (map[string]interface{}, 
 	return result, idx, nil
 }
 
+//nolint:gocyclo // Complex YAML parsing with multiple token types and nesting
 func parseList(tokens []yamlToken, idx int, indent int) ([]interface{}, int, error) {
 	var items []interface{}
 	for idx < len(tokens) {

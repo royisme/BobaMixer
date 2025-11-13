@@ -109,6 +109,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update handles messages
+//nolint:gocyclo // Complex TUI event handling with multiple message types and view modes
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:

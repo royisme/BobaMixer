@@ -31,6 +31,7 @@ const (
 	scopeProject = "project"
 )
 
+//nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
 	home, err := config.ResolveHome()
 	if err != nil {
@@ -630,6 +631,7 @@ func runAction(home string, args []string) error {
 	return nil
 }
 
+//nolint:gocyclo // Complex report generation with multiple output formats and filters
 func runReport(home string, args []string) error {
 	flags := flag.NewFlagSet("report", flag.ContinueOnError)
 	days := flags.Int("days", 7, "number of days to include")
@@ -695,7 +697,8 @@ func runReport(home string, args []string) error {
 			return err
 		}
 		defer func() {
-			_ = f.Close() // Best effort cleanup
+			//nolint:errcheck // Best effort cleanup, error irrelevant in defer
+			f.Close()
 		}()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()
@@ -754,7 +757,8 @@ func runRoute(home string, args []string) error {
 	}
 }
 
-func runRouteTest(home string, args []string) error {
+//nolint:gocyclo // Complex route testing with multiple output formats and conditions
+func runRouteTest(home string, args []string) error{
 	flags := flag.NewFlagSet("route test", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {

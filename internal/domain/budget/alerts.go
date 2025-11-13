@@ -34,7 +34,6 @@ type Alert struct {
 	Target     string // project name or profile name
 	Level      AlertLevel
 }
-}
 
 // AlertConfig represents alert configuration
 type AlertConfig struct {
@@ -230,11 +229,12 @@ func (alert *Alert) FormatAlert() string {
 	}
 
 	var scopeInfo string
-	if alert.Scope == scopeProfile {
+	switch alert.Scope {
+	case scopeProfile:
 		scopeInfo = fmt.Sprintf("Profile: %s", alert.Target)
-	} else if alert.Scope == scopeProject {
+	case scopeProject:
 		scopeInfo = fmt.Sprintf("Project: %s", alert.Target)
-	} else {
+	default:
 		scopeInfo = "Global Budget"
 	}
 
