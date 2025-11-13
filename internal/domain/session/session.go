@@ -65,7 +65,7 @@ func (s *Session) Save(db *sqlite.DB) error {
 // GetSession retrieves a session by ID
 func GetSession(db *sqlite.DB, id string) (*Session, error) {
 	query := fmt.Sprintf("SELECT id, started_at, ended_at, project, branch, profile, adapter, task_type, success, latency_ms, notes FROM sessions WHERE id='%s';", escape(id))
-	row, err := db.QueryRow(query)
+	_, err := db.QueryRow(query)
 	if err != nil {
 		return nil, err
 	}

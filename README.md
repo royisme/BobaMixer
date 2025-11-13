@@ -13,7 +13,7 @@
 
 ```bash
 # 安装
-go install github.com/vantagecraft-dev/bobamixer/cmd/boba@latest
+go install github.com/royisme/bobamixer/cmd/boba@latest
 
 # 设置配置
 mkdir -p ~/.boba/logs
@@ -46,23 +46,29 @@ BobaMixer 采用分层架构设计：
 
 ## 开发状态
 
-**当前版本**: Phase 1 (v0.1.0)
+**当前版本**: Phase 2 (v0.2.0)
 
-✅ 已完成:
+✅ Phase 1 已完成:
 - SQLite 数据库自动引导
 - 配置文件加载 (profiles/routes/pricing/secrets)
-- HTTP 和 Tool 适配器框架
+- HTTP 和 Tool 适配器基础框架
 - CLI 命令 (ls/use/stats/edit/doctor/budget)
 - Routing 路由引擎
 - Pricing 价格管理器
-- 单元测试
 
-🚧 进行中:
-- TUI 主界面完善
-- Tokenizer 估算器
+✅ Phase 2 已完成:
+- **ToolAdapter 增强** - JSON Lines usage 事件解析，支持参数和流式输出
+- **Tokenizer 估算器** - 智能 token 估算（支持 GPT/Claude/通用模型）
+- **HttpAdapter 增强** - 自动解析 Anthropic/OpenAI/OpenRouter API 的 usage 信息
+- **完整的单元测试** - 所有核心模块测试覆盖
+
+🚧 Phase 3 计划:
+- 预算跟踪和提醒功能
+- 统计趋势分析（7天/30天）
+- TUI 主界面完善（Bubble Tea）
 - 建议引擎
 
-📋 计划中:
+📋 Phase 4 计划:
 - MCP 适配器支持
 - Git Hooks 集成
 - Goreleaser 发布配置
