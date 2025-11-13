@@ -35,6 +35,8 @@ go.work.sum
 .idea/
 .vscode/
 .works/
+AGENTS.md
+CLAUDE.md
 
 # Hugo
 website/public/
