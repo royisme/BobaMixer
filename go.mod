@@ -1,6 +1,6 @@
 module github.com/royisme/bobamixer
 
-go 1.25.1
+go 1.25.4
 
 require (
 	github.com/charmbracelet/bubbletea v0.25.0

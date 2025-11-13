@@ -30,9 +30,9 @@ type Alert struct {
 
 // AlertConfig represents alert configuration
 type AlertConfig struct {
-	EnableDaily    bool
-	EnableCap      bool
-	WarningPercent float64 // Percentage to trigger warning (e.g., 80)
+	EnableDaily     bool
+	EnableCap       bool
+	WarningPercent  float64 // Percentage to trigger warning (e.g., 80)
 	CriticalPercent float64 // Percentage to trigger critical (e.g., 100)
 }
 

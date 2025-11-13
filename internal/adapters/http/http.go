@@ -24,11 +24,11 @@ type Client struct {
 // UsageResponse represents common usage response structure
 type UsageResponse struct {
 	Usage struct {
-		InputTokens       int `json:"input_tokens"`
-		OutputTokens      int `json:"output_tokens"`
-		PromptTokens      int `json:"prompt_tokens"`       // OpenAI format
-		CompletionTokens  int `json:"completion_tokens"`   // OpenAI format
-		TotalTokens       int `json:"total_tokens"`
+		InputTokens      int `json:"input_tokens"`
+		OutputTokens     int `json:"output_tokens"`
+		PromptTokens     int `json:"prompt_tokens"`     // OpenAI format
+		CompletionTokens int `json:"completion_tokens"` // OpenAI format
+		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
 }
 

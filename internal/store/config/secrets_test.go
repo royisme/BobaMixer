@@ -6,7 +6,7 @@ import (
 
 func TestResolveEnv(t *testing.T) {
 	secrets := Secrets{
-		"anthropic": "sk-ant-test-key",
+		"anthropic":  "sk-ant-test-key",
 		"openrouter": "sk-or-test-key",
 	}
 

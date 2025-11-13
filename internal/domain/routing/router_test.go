@@ -33,11 +33,11 @@ func TestRoute(t *testing.T) {
 	router := NewRouter(routes)
 
 	tests := []struct {
-		name           string
-		ctx            Context
-		activeProfile  string
+		name            string
+		ctx             Context
+		activeProfile   string
 		expectedProfile string
-		expectedRuleID string
+		expectedRuleID  string
 	}{
 		{
 			name: "match intent format",
@@ -45,9 +45,9 @@ func TestRoute(t *testing.T) {
 				Intent: "format",
 				Text:   "format this code",
 			},
-			activeProfile:  "default",
+			activeProfile:   "default",
 			expectedProfile: "quick-tasks",
-			expectedRuleID: "formatting",
+			expectedRuleID:  "formatting",
 		},
 		{
 			name: "match large context",
@@ -55,9 +55,9 @@ func TestRoute(t *testing.T) {
 				Intent:   "analyze",
 				CtxChars: 5000,
 			},
-			activeProfile:  "default",
+			activeProfile:   "default",
 			expectedProfile: "work-heavy",
-			expectedRuleID: "large-context",
+			expectedRuleID:  "large-context",
 		},
 		{
 			name: "match text pattern",
@@ -65,9 +65,9 @@ func TestRoute(t *testing.T) {
 				Intent: "task",
 				Text:   "please review this PR",
 			},
-			activeProfile:  "default",
+			activeProfile:   "default",
 			expectedProfile: "work-heavy",
-			expectedRuleID: "text-match",
+			expectedRuleID:  "text-match",
 		},
 		{
 			name: "no match uses active profile",
@@ -76,9 +76,9 @@ func TestRoute(t *testing.T) {
 				CtxChars: 100,
 				Text:     "simple task",
 			},
-			activeProfile:  "default",
+			activeProfile:   "default",
 			expectedProfile: "default",
-			expectedRuleID: "",
+			expectedRuleID:  "",
 		},
 	}
 
