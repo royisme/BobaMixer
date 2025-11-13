@@ -155,7 +155,7 @@ func TestGetGlobalBudget(t *testing.T) {
 		t.Fatalf("GetGlobalBudget failed: %v", err)
 	}
 
-	if budget.Scope != "global" {
+	if budget.Scope != scopeGlobal {
 		t.Errorf("Scope = %s, want global", budget.Scope)
 	}
 }

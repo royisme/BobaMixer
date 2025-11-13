@@ -15,11 +15,11 @@ import (
 )
 
 type Client struct {
+	headers    map[string]string
+	httpClient *http.Client
 	name       string
 	provider   string // anthropic, openai, openrouter, etc.
 	endpoint   string
-	headers    map[string]string
-	httpClient *http.Client
 }
 
 // UsageResponse represents common usage response structure
@@ -80,8 +80,7 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 		}, nil
 	}
 	defer func() {
-		//nolint:errcheck // Best effort cleanup
-		resp.Body.Close()
+		_ = resp.Body.Close() // Best effort cleanup
 	}()
 
 	body, err := io.ReadAll(resp.Body)

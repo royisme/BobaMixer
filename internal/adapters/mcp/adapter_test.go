@@ -10,8 +10,8 @@ import (
 )
 
 type fakeTransport struct {
-	payload []byte
 	resp    responseEnvelope
+	payload []byte
 }
 
 func (f *fakeTransport) Call(ctx context.Context, payload []byte) ([]byte, error) {

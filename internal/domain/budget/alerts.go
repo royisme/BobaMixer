@@ -16,17 +16,24 @@ const (
 	AlertLevelCritical
 )
 
+const (
+	scopeGlobal  = "global"
+	scopeProfile = "profile"
+	scopeProject = "project"
+)
+
 // Alert represents a budget alert/notification
 type Alert struct {
-	Level      AlertLevel
-	Title      string
-	Message    string
 	Timestamp  time.Time
-	Scope      string  // "global", "project", "profile"
-	Target     string  // project name or profile name
 	CurrentUSD float64 // current spending
 	LimitUSD   float64 // budget limit that was exceeded
 	Percent    float64 // percentage of budget used
+	Title      string
+	Message    string
+	Scope      string // "global", "project", "profile"
+	Target     string // project name or profile name
+	Level      AlertLevel
+}
 }
 
 // AlertConfig represents alert configuration
@@ -223,9 +230,9 @@ func (alert *Alert) FormatAlert() string {
 	}
 
 	var scopeInfo string
-	if alert.Scope == "profile" {
+	if alert.Scope == scopeProfile {
 		scopeInfo = fmt.Sprintf("Profile: %s", alert.Target)
-	} else if alert.Scope == "project" {
+	} else if alert.Scope == scopeProject {
 		scopeInfo = fmt.Sprintf("Project: %s", alert.Target)
 	} else {
 		scopeInfo = "Global Budget"

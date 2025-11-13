@@ -15,15 +15,15 @@ import (
 
 // Record represents a usage record
 type Record struct {
-	ID           string
-	SessionID    string
 	Timestamp    int64
-	InputTokens  int
-	OutputTokens int
 	InputCost    float64
 	OutputCost   float64
+	ID           string
+	SessionID    string
 	Tool         string
 	Model        string
+	InputTokens  int
+	OutputTokens int
 }
 
 // NewRecord creates a new usage record

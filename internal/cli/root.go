@@ -26,6 +26,11 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	scopeGlobal  = "global"
+	scopeProject = "project"
+)
+
 func Run(args []string) error {
 	home, err := config.ResolveHome()
 	if err != nil {
@@ -421,13 +426,13 @@ func resolveBudgetScope(scopeOpt, target string) (string, string, *config.Projec
 			if targetName == "" {
 				targetName = filepath.Base(filepath.Dir(path))
 			}
-			return "project", targetName, cfg, nil
+			return scopeProject, targetName, cfg, nil
 		}
-		return "global", "", nil, nil
+		return scopeGlobal, "", nil, nil
 	}
 	switch scopeOpt {
-	case "global":
-		return "global", "", nil, nil
+	case scopeGlobal:
+		return scopeGlobal, "", nil, nil
 	case "project":
 		if target == "" {
 			return "", "", nil, errors.New("--target required for project scope")
@@ -690,8 +695,7 @@ func runReport(home string, args []string) error {
 			return err
 		}
 		defer func() {
-			//nolint:errcheck // Best effort cleanup
-			f.Close()
+			_ = f.Close() // Best effort cleanup
 		}()
 		writer := csv.NewWriter(f)
 		defer writer.Flush()

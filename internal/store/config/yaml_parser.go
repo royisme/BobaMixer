@@ -14,11 +14,16 @@ const (
 	tokenList
 )
 
+const (
+	boolTrue  = "true"
+	boolFalse = "false"
+)
+
 type yamlToken struct {
-	kind      yamlTokenKind
-	indent    int
 	key       string
 	value     string
+	kind      yamlTokenKind
+	indent    int
 	hasValue  bool
 	inlineMap bool
 }
@@ -234,8 +239,8 @@ func parseScalar(raw string) interface{} {
 	if strings.HasPrefix(raw, "\"") && strings.HasSuffix(raw, "\"") && len(raw) >= 2 {
 		return strings.Trim(raw, "\"")
 	}
-	if raw == "true" || raw == "false" {
-		return raw == "true"
+	if raw == boolTrue || raw == boolFalse {
+		return raw == boolTrue
 	}
 	if strings.Contains(raw, ".") {
 		if f, err := strconv.ParseFloat(raw, 64); err == nil {

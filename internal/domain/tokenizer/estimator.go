@@ -166,8 +166,8 @@ const (
 )
 
 type Estimation struct {
-	Tokens     int
 	Confidence Confidence
+	Tokens     int
 }
 
 // EstimateWithConfidence provides estimation with confidence level

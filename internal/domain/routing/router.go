@@ -12,13 +12,13 @@ import (
 
 // Context represents the routing context
 type Context struct {
+	ProjectType []string
 	Intent      string
 	Text        string
-	CtxChars    int
 	Project     string
 	Branch      string
-	ProjectType []string
 	TimeOfDay   string
+	CtxChars    int
 }
 
 // Decision represents a routing decision
@@ -33,9 +33,9 @@ type Decision struct {
 // Router handles profile routing based on rules
 type Router struct {
 	routes        *config.RoutesConfig
+	rng           *rand.Rand
 	epsilonRate   float64
 	enableExplore bool
-	rng           *rand.Rand
 }
 
 // NewRouter creates a new router

@@ -370,13 +370,13 @@ func TestAlertGetSuggestion(t *testing.T) {
 
 func TestAlertLevelString(t *testing.T) {
 	tests := []struct {
-		level AlertLevel
 		want  string
+		level AlertLevel
 	}{
-		{AlertLevelCritical, "critical"},
-		{AlertLevelWarning, "warning"},
-		{AlertLevelInfo, "info"},
-		{AlertLevelNone, "none"},
+		{level: AlertLevelCritical, want: "critical"},
+		{level: AlertLevelWarning, want: "warning"},
+		{level: AlertLevelInfo, want: "info"},
+		{level: AlertLevelNone, want: "none"},
 	}
 
 	for _, tt := range tests {

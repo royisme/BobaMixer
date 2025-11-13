@@ -8,8 +8,8 @@ import (
 
 // ProjectConfig represents the optional .boba-project.yaml file.
 type ProjectConfig struct {
-	Project ProjectInfo     `yaml:"project"`
 	Budget  *BudgetSettings `yaml:"budget"`
+	Project ProjectInfo     `yaml:"project"`
 }
 
 // ProjectInfo describes repository metadata.

@@ -20,23 +20,23 @@ type DataPoint struct {
 
 // Trend represents usage trend analysis
 type Trend struct {
+	DataPoints []DataPoint // daily data points
+	Summary    Summary     // aggregate summary
 	Period     string      // "7d", "30d", "all"
 	StartDate  string      // YYYY-MM-DD
 	EndDate    string      // YYYY-MM-DD
-	DataPoints []DataPoint // daily data points
-	Summary    Summary     // aggregate summary
 }
 
 // Summary provides aggregate statistics
 type Summary struct {
-	TotalTokens    int
 	TotalCost      float64
-	TotalSessions  int
 	AvgDailyTokens float64
 	AvgDailyCost   float64
 	PeakDayCost    float64
 	PeakDayDate    string
 	Trend          string // "increasing", "decreasing", "stable"
+	TotalTokens    int
+	TotalSessions  int
 }
 
 // ProfileStats represents statistics for a specific profile
