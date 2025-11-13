@@ -1,0 +1,19 @@
+models:
+  "anthropic/claude-3-5-sonnet-latest":
+    input_per_1k: 0.015
+    output_per_1k: 0.075
+  "deepseek/deepseek-chat":
+    input_per_1k: 0.0005
+    output_per_1k: 0.002
+
+sources:
+  - type: "http-json"
+    url: "https://raw.githubusercontent.com/vantagecraft-dev/boba-mixer-pricing/main/pricing.json"
+    priority: 10
+  - type: "file"
+    path: "~/.boba/pricing.local.json"
+    priority: 5
+
+refresh:
+  interval_hours: 24
+  on_startup: true

@@ -1,0 +1,25 @@
+sub_agents:
+  code_review:
+    profile: "work-heavy"
+    triggers: ["review","check","audit"]
+    conditions:
+      min_ctx_chars: 3000
+      project_types: ["java","go","ts"]
+
+  quick_fix:
+    profile: "quick-tasks"
+    triggers: ["fix","typo","format"]
+    conditions:
+      max_ctx_chars: 1200
+      time_of_day: ["09:00-18:00"]
+
+rules:
+  - id: "formatting"
+    if: "intent=='format' || text.matches('\\bformat\\b|\\bprettier\\b')"
+    use: "quick-tasks"
+    explain: "格式化类任务优先低成本"
+
+  - id: "deep-analysis"
+    if: "ctx_chars>3000 || task.matches('architecture|review|audit')"
+    use: "work-heavy"
+    fallback: "quick-tasks"

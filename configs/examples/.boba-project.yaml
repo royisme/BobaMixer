@@ -1,0 +1,15 @@
+project:
+  name: "codebase-rag"
+  type: ["python","neo4j"]
+  preferred_profiles: ["work-heavy","quick-tasks"]
+
+routing:
+  rules:
+    - if: "task.contains('format')"
+      use: "quick-tasks"
+    - if: "branch.matches('^release/') || pr_size>1000"
+      use: "work-heavy"
+
+budget:
+  daily_usd: 5.0
+  hard_cap: 50.0
