@@ -20,6 +20,7 @@ func TestBumpVersion(t *testing.T) {
 	if next != "1.3.0" {
 		t.Fatalf("next=%s", next)
 	}
+	// #nosec G304 -- test file in controlled temp directory
 	data, _ := os.ReadFile(filepath.Join(dir, "VERSION")) //nolint:errcheck
 	if string(data) != "1.3.0\n" {
 		t.Fatalf("version file=%s", string(data))
@@ -36,6 +37,7 @@ func TestBumpVersion(t *testing.T) {
 
 func TestPlanPrerelease(t *testing.T) {
 	dir := t.TempDir()
+	// #nosec G306 -- test file can have readable permissions
 	if err := os.WriteFile(filepath.Join(dir, "VERSION"), []byte("0.1.0\n"), 0o644); err != nil {
 		t.Fatalf("failed to write VERSION file: %v", err)
 	}

@@ -62,6 +62,7 @@ func (m *Manager) Remove(repo string) error {
 	hooksDir := filepath.Join(repoPath, ".git", "hooks")
 	helper := filepath.Join(hooksDir, "boba-hook")
 	//nolint:errcheck // Best effort cleanup
+	// #nosec G104 -- best effort cleanup, error can be ignored
 	os.Remove(helper)
 	for _, name := range []string{"post-checkout", "post-merge", "post-commit"} {
 		path := filepath.Join(hooksDir, name)
@@ -69,6 +70,7 @@ func (m *Manager) Remove(repo string) error {
 		data, err := os.ReadFile(path)
 		if err == nil && strings.Contains(string(data), "boba-hook") {
 			//nolint:errcheck // Best effort cleanup
+			// #nosec G104 -- best effort cleanup, error can be ignored
 			os.Remove(path)
 		}
 	}
@@ -105,6 +107,7 @@ func (m *Manager) Record(event, repo, branch string) error {
 	}
 	defer func() {
 		//nolint:errcheck // Best effort cleanup
+		// #nosec G104 -- best effort cleanup, error can be ignored
 		f.Close()
 	}()
 	if _, err := f.Write(append(data, '\n')); err != nil {

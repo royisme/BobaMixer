@@ -44,8 +44,8 @@ func TestParseYAMLListOfMaps(t *testing.T) {
 	if first["id"].(string) != "format" || first["use"].(string) != "quick" { //nolint:errcheck
 		t.Fatalf("unexpected first: %#v", first)
 	}
-	second := rules[1].(map[string]interface{})
-	if second["fallback"].(string) != "quick" {
+	second := rules[1].(map[string]interface{}) //nolint:errcheck
+	if second["fallback"].(string) != "quick" { //nolint:errcheck
 		t.Fatalf("unexpected second: %#v", second)
 	}
 }

@@ -38,7 +38,7 @@ func (db *DB) ensureFile() error {
 
 func (db *DB) Exec(query string) error {
 	// #nosec G204 -- db.Path is from safe home directory structure
-	cmd := exec.Command("sqlite3", db.Path, query)
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, query)
 	return cmd.Run()
 }
 
@@ -56,7 +56,7 @@ func (db *DB) QueryRow(query string) (string, error) {
 // QueryRows executes a query and returns each row as a raw pipe-delimited string.
 func (db *DB) QueryRows(query string) ([]string, error) {
 	// #nosec G204 -- db.Path is from safe home directory structure
-	cmd := exec.Command("sqlite3", db.Path, query)
+	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, query)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, err

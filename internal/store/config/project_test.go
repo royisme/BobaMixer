@@ -20,6 +20,7 @@ budget:
   daily_usd: 2.5
   hard_cap: 25
 `
+	// #nosec G306 -- test file can have readable permissions
 	if err := os.WriteFile(cfgPath, []byte(yaml), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
