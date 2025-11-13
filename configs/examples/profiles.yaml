@@ -1,0 +1,30 @@
+profiles:
+  work-heavy:
+    name: "Work Heavy Tasks"
+    adapter: "http"
+    provider: "anthropic"
+    endpoint: "https://api.anthropic.com"
+    model: "claude-3-5-sonnet-latest"
+    max_tokens: 4096
+    temperature: 0.7
+    tags: ["work","complex","analysis"]
+    cost_per_1k:
+      input: 0.015
+      output: 0.075
+    env:
+      ANTHROPIC_API_KEY: "secret://anthropic"
+
+  quick-tasks:
+    name: "Quick Tasks"
+    adapter: "http"
+    provider: "openrouter"
+    endpoint: "https://openrouter.ai/api/v1"
+    model: "deepseek/deepseek-chat"
+    max_tokens: 2048
+    temperature: 0.3
+    tags: ["quick","simple","code"]
+    cost_per_1k:
+      input: 0.0005
+      output: 0.002
+    env:
+      OPENROUTER_API_KEY: "secret://openrouter"
