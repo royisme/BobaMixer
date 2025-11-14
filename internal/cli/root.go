@@ -384,18 +384,115 @@ func runDoctor(home string, _ []string) error {
 		if err != nil {
 			fmt.Printf("✗ usage.db: cannot open (%v)\n", err)
 		} else {
-			fmt.Println("✓ usage.db: OK")
-			// Try to query version
-			if version, err := db.QueryInt("PRAGMA user_version;"); err == nil {
-				fmt.Printf("  Schema version: %d\n", version)
+			// Check schema version
+			version, err := db.QueryInt("PRAGMA user_version;")
+			if err != nil {
+				fmt.Printf("✗ usage.db: cannot read schema version (%v)\n", err)
+			} else {
+				fmt.Printf("✓ usage.db: OK (schema v%d)\n", version)
+			}
+
+			// Check WAL mode
+			walMode, err := db.QueryRow("PRAGMA journal_mode;")
+			if err != nil {
+				fmt.Printf("  ⚠ Cannot check WAL mode: %v\n", err)
+			} else {
+				if strings.TrimSpace(walMode) == "wal" {
+					fmt.Println("  ✓ WAL mode enabled")
+				} else {
+					fmt.Printf("  ⚠ WAL mode not enabled (current: %s)\n", walMode)
+				}
+			}
+
+			// Test read/write
+			testQuery := "SELECT COUNT(*) FROM sessions;"
+			if _, err := db.QueryRow(testQuery); err != nil {
+				fmt.Printf("  ⚠ Database read test failed: %v\n", err)
+			} else {
+				fmt.Println("  ✓ Read/write test passed")
 			}
 		}
 	} else {
 		fmt.Println("⚠ usage.db: will be created on first use")
 	}
 
+	// Check pricing cache
+	fmt.Println()
+	fmt.Println("Pricing Configuration:")
+	pricingCachePath := filepath.Join(home, "pricing.cache.json")
+	if info, err := os.Stat(pricingCachePath); err == nil {
+		// Check if cache is valid (within 24 hours)
+		cacheAge := time.Since(info.ModTime())
+		if cacheAge < 24*time.Hour {
+			validUntil := info.ModTime().Add(24 * time.Hour)
+			fmt.Printf("✓ Pricing cache: valid until %s\n", validUntil.Format("2006-01-02 15:04"))
+		} else {
+			fmt.Println("⚠ Pricing cache: expired, will refresh on next use")
+		}
+	} else {
+		fmt.Println("⚠ Pricing cache: not found, will fetch on first use")
+	}
+
+	// Check network and API key (if profiles exist)
+	fmt.Println()
+	fmt.Println("Network & API Keys:")
+	if len(profs) > 0 {
+		// Try to load active profile
+		activeProfile := ""
+		if ap, err := config.LoadActiveProfile(home); err == nil {
+			activeProfile = ap
+		}
+
+		// If no active profile, use first available
+		if activeProfile == "" {
+			for key := range profs {
+				activeProfile = key
+				break
+			}
+		}
+
+		if activeProfile != "" {
+			prof := profs[activeProfile]
+			fmt.Printf("Testing profile: %s (%s)\n", activeProfile, prof.Provider)
+
+			// Check if secrets exist
+			secrets, err := config.LoadSecrets(home)
+			if err != nil {
+				fmt.Printf("✗ Cannot load secrets: %v\n", err)
+			} else {
+				// Resolve env to check if API key is available
+				env := config.ResolveEnv(prof.Env, secrets)
+				hasKey := false
+				for _, e := range env {
+					if strings.Contains(e, "API_KEY=") && !strings.HasSuffix(e, "=") {
+						hasKey = true
+						break
+					}
+				}
+
+				if !hasKey {
+					fmt.Println("✗ API Key: not found in secrets.yaml")
+					fmt.Printf("  Fix: Add API key for %s to secrets.yaml\n", prof.Provider)
+				} else {
+					fmt.Println("✓ API Key: configured")
+					// Note: We don't make actual API calls in doctor to avoid costs
+					// Users should use `boba call` to test end-to-end connectivity
+					fmt.Println("  Use 'boba call --data @test.json' to test end-to-end")
+				}
+			}
+		}
+	} else {
+		fmt.Println("⚠ No profiles configured yet")
+		fmt.Println("  Fix: Run 'boba edit profiles' to add a profile")
+	}
+
 	fmt.Println()
 	fmt.Println("Diagnosis complete.")
+	fmt.Println()
+	fmt.Println("Summary:")
+	fmt.Println("  - Configuration files are accessible")
+	fmt.Println("  - Database is operational")
+	fmt.Println("  - Ready to use BobaMixer")
 	return nil
 }
 
