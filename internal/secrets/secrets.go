@@ -38,7 +38,7 @@ func Load(path string) (*Secrets, error) {
 	if err := ValidatePermissions(path); err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // secrets path supplied by user configuration
 	if err != nil {
 		return nil, fmt.Errorf("read secrets file: %w", err)
 	}

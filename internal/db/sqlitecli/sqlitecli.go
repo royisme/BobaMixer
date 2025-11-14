@@ -192,7 +192,7 @@ func (c *Conn) exec(ctx context.Context, query string) error {
 	if sql == "" {
 		return nil
 	}
-	cmd := exec.CommandContext(ctx, sqlitePath, c.path, sql)
+	cmd := exec.CommandContext(ctx, sqlitePath, c.path, sql) //nolint:gosec // executes sqlite3 binary with validated path
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("sqlite3 exec: %w: %s", err, strings.TrimSpace(string(out)))
@@ -205,7 +205,7 @@ func (c *Conn) query(ctx context.Context, query string) ([]string, [][]string, e
 	if sql == "" {
 		return []string{}, [][]string{}, nil
 	}
-	cmd := exec.CommandContext(ctx, sqlitePath, "-header", "-separator", "|", c.path, sql)
+	cmd := exec.CommandContext(ctx, sqlitePath, "-header", "-separator", "|", c.path, sql) //nolint:gosec // executes sqlite3 binary with validated path
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, nil, fmt.Errorf("sqlite3 query: %w: %s", err, strings.TrimSpace(string(out)))

@@ -19,7 +19,7 @@ func TestValidatePermissions(t *testing.T) {
 		t.Fatalf("ValidatePermissions() unexpected error = %v", err)
 	}
 
-	if err := os.Chmod(path, 0o644); err != nil {
+	if err := os.Chmod(path, 0o644); err != nil { //nolint:gosec // intentionally relax perms to trigger validation error
 		t.Fatalf("Chmod() error = %v", err)
 	}
 

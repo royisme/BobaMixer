@@ -24,7 +24,7 @@ func TestNewLoggerWritesJSONL(t *testing.T) {
 		t.Fatalf("Sync() error = %v", err)
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // test reads file from controlled temp dir
 	if err != nil {
 		t.Fatalf("ReadFile() error = %v", err)
 	}
@@ -56,7 +56,6 @@ func TestSanitizeRedactsSensitiveValues(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 

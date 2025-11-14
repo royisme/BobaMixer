@@ -27,15 +27,15 @@ func TestEnsureUpgradesAddsEstimateLevel(t *testing.T) {
 	ctx := context.Background()
 	database := openTestDB(t)
 
-	_, err := database.Exec(`CREATE TABLE IF NOT EXISTS usage_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )`)
+	_, err := database.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS usage_records (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+session_id TEXT NOT NULL,
+created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)`)
 	if err != nil {
 		t.Fatalf("create table error = %v", err)
 	}
-	if _, err := database.Exec(`PRAGMA user_version = 1`); err != nil {
+	if _, err := database.ExecContext(ctx, `PRAGMA user_version = 1`); err != nil {
 		t.Fatalf("set version error = %v", err)
 	}
 
@@ -69,18 +69,27 @@ func openTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
-	t.Cleanup(func() { _ = database.Close() })
+	t.Cleanup(func() {
+		if err := database.Close(); err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	})
 	return database
 }
 
 func ensureColumnExists(t *testing.T, database *sql.DB, table, column string) {
 	t.Helper()
 
-	rows, err := database.Query(`PRAGMA table_info(` + table + `)`)
+	ctx := context.Background()
+	rows, err := database.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 	if err != nil {
 		t.Fatalf("table_info error = %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			t.Fatalf("Close() error = %v", cerr)
+		}
+	}()
 
 	for rows.Next() {
 		var cid int
@@ -94,17 +103,25 @@ func ensureColumnExists(t *testing.T, database *sql.DB, table, column string) {
 			return
 		}
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows error = %v", err)
+	}
 	t.Fatalf("column %s not found in %s", column, table)
 }
 
 func ensureIndexExists(t *testing.T, database *sql.DB, table, index string) {
 	t.Helper()
 
-	rows, err := database.Query(`PRAGMA index_list(` + table + `)`)
+	ctx := context.Background()
+	rows, err := database.QueryContext(ctx, `PRAGMA index_list(`+table+`)`)
 	if err != nil {
 		t.Fatalf("index_list error = %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			t.Fatalf("Close() error = %v", cerr)
+		}
+	}()
 
 	for rows.Next() {
 		var seq, unique int
@@ -118,13 +135,17 @@ func ensureIndexExists(t *testing.T, database *sql.DB, table, index string) {
 			return
 		}
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows error = %v", err)
+	}
 	t.Fatalf("index %s not found on %s", index, table)
 }
 
 func assertUserVersion(t *testing.T, database *sql.DB, want int) {
 	t.Helper()
 
-	row := database.QueryRow(`PRAGMA user_version`)
+	ctx := context.Background()
+	row := database.QueryRowContext(ctx, `PRAGMA user_version`)
 	var got int
 	if err := row.Scan(&got); err != nil {
 		t.Fatalf("scan error = %v", err)

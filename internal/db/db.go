@@ -4,6 +4,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -159,12 +160,16 @@ func ensureUsageIndex(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
-func columnExists(ctx context.Context, database *sql.DB, table, column string) (bool, error) {
+func columnExists(ctx context.Context, database *sql.DB, table, column string) (_ bool, err error) {
 	rows, err := database.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
 	if err != nil {
 		return false, fmt.Errorf("table_info %s: %w", table, err)
 	}
-	defer rows.Close()
+	defer func() {
+		if cerr := rows.Close(); cerr != nil {
+			err = errors.Join(err, fmt.Errorf("close table_info rows: %w", cerr))
+		}
+	}()
 	for rows.Next() {
 		var cid int
 		var name, ctype string
