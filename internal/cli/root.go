@@ -43,10 +43,18 @@ func Run(args []string) error {
 	if err := os.MkdirAll(filepath.Join(home, "logs"), 0o700); err != nil {
 		return err
 	}
-	if len(args) == 0 {
+
+	// Handle help flag
+	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
 		printUsage()
 		return nil
 	}
+
+	// No arguments: launch TUI dashboard
+	if len(args) == 0 {
+		return runTUI(home)
+	}
+
 	switch args[0] {
 	case "ls":
 		return runLS(home, args[1:])
@@ -66,35 +74,46 @@ func Run(args []string) error {
 		return runAction(home, args[1:])
 	case "report":
 		return runReport(home, args[1:])
-	case "release":
-		return runRelease(args[1:])
 	case "route":
 		return runRoute(home, args[1:])
 	case "version":
 		return runVersion()
-	case "bump":
-		return runBump()
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
 }
 
 func printUsage() {
-	fmt.Println("BobaMixer CLI")
+	fmt.Println("BobaMixer - Smart AI Adapter Router")
+	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  boba ls --profiles")
-	fmt.Println("  boba use <profile>")
-	fmt.Println("  boba stats --today")
-	fmt.Println("  boba edit <profiles|routes|pricing|secrets>")
-	fmt.Println("  boba doctor")
-	fmt.Println("  boba budget [--status]")
-	fmt.Println("  boba action [--auto]")
-	fmt.Println("  boba report [--format json|csv]")
-	fmt.Println("  boba route test <text|@file>")
-	fmt.Println("  boba hooks install|remove|track")
-	fmt.Println("  boba version")
-	fmt.Println("  boba bump [major|minor|patch|auto] [--dry-run]")
-	fmt.Println("  boba release [major|minor|patch]")
+	fmt.Println("  boba                                          Launch TUI dashboard")
+	fmt.Println("  boba --help                                   Show this help")
+	fmt.Println()
+	fmt.Println("Profile Management:")
+	fmt.Println("  boba ls --profiles                            List available profiles")
+	fmt.Println("  boba use <profile>                            Activate a profile")
+	fmt.Println()
+	fmt.Println("Usage & Statistics:")
+	fmt.Println("  boba stats [--today|--7d|--30d] [--by-profile]  Show usage statistics")
+	fmt.Println("  boba report [--format json|csv] [--out file]   Generate usage report")
+	fmt.Println()
+	fmt.Println("Configuration:")
+	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
+	fmt.Println("  boba doctor                                   Run diagnostics")
+	fmt.Println()
+	fmt.Println("Budget & Optimization:")
+	fmt.Println("  boba budget [--status]                        Show budget status")
+	fmt.Println("  boba action [--auto]                          View/apply suggestions")
+	fmt.Println()
+	fmt.Println("Routing:")
+	fmt.Println("  boba route test <text|@file>                 Test routing rules")
+	fmt.Println()
+	fmt.Println("Advanced:")
+	fmt.Println("  boba hooks install|remove|track              Manage git hooks")
+	fmt.Println("  boba version                                  Show version info")
+	fmt.Println()
+	fmt.Println("For more information, visit: https://royisme.github.io/BobaMixer/")
 }
 
 func runLS(home string, args []string) error {
@@ -548,87 +567,22 @@ func findRepoRootFromArgs(args []string) (string, error) {
 	return findRepoRoot(start)
 }
 
-func runRelease(args []string) error {
-	// Simple manual parsing for release flags
-	var auto bool
-	for _, arg := range args {
-		if arg == "--auto" {
-			auto = true
-			break
-		}
-	}
-
-	if auto {
-		// Get current version
-		currentVersion, err := getCurrentVersion()
-		if err != nil {
-			return fmt.Errorf("failed to get current version: %w", err)
-		}
-
-		// Determine next version
-		nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
-		if err != nil {
-			return fmt.Errorf("failed to determine next version: %w", err)
-		}
-
-		// Create and push tag
-		tagName := "v" + nextVersion
-		fmt.Printf("Creating release tag: %s\n", tagName)
-
-		cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to create tag: %w", err)
-		}
-
-		cmd = exec.Command("git", "push", "origin", tagName)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to push tag: %w", err)
-		}
-
-		fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
-		fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
-		return nil
-	}
-
-	// Show help if no specific action requested
-	if !auto {
-		fmt.Println("Release management options:")
-		fmt.Println("  boba release --auto    # Automatically determine version and create release tag")
-		fmt.Println("  boba bump major|minor|patch  # Version bumping")
-		fmt.Println("  git tag v1.0.0 && git push origin v1.0.0  # Manual tag creation")
-		fmt.Println("  make release-patch|minor|major  # Quick release targets")
-		return nil
-	}
-
-	// Get current version
-	currentVersion, err := getCurrentVersion()
-	if err != nil {
-		return fmt.Errorf("failed to get current version: %w", err)
-	}
-
-	// Determine next version
-	nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
-	if err != nil {
-		return fmt.Errorf("failed to determine next version: %w", err)
-	}
-
-	// Create and push tag
-	tagName := "v" + nextVersion
-	fmt.Printf("Creating release tag: %s\n", tagName)
-
-	cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create tag: %w", err)
-	}
-
-	cmd = exec.Command("git", "push", "origin", tagName)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to push tag: %w", err)
-	}
-
-	fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
-	fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
+func runTUI(home string) error {
+	// Import ui package at runtime to avoid circular dependencies
+	// The ui.Run function is already defined in internal/ui/tui.go
+	fmt.Println("Launching TUI dashboard...")
+	fmt.Println("(TUI not yet connected - this is a placeholder)")
+	fmt.Println()
+	fmt.Println("To use BobaMixer:")
+	fmt.Println("  1. Configure profiles: boba edit profiles")
+	fmt.Println("  2. Add API keys: boba edit secrets")
+	fmt.Println("  3. Activate a profile: boba use <profile>")
+	fmt.Println("  4. Run diagnostics: boba doctor")
+	fmt.Println()
+	fmt.Println("For help: boba --help")
 	return nil
+	// TODO: Uncomment when ui package is properly imported
+	// return ui.Run(home)
 }
 
 func runAction(home string, args []string) error {

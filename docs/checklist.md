@@ -12,6 +12,223 @@
 
 ---
 
+## 🚨 核心阻断项（必须优先解决）
+
+以下问题阻碍软件基本可用性和安全性，必须在发布前完成：
+
+### 1. P2-5 TUI 未接入 CLI - **关键用户体验问题**
+**问题：** 无参数运行 `boba` 打印帮助文本，而不是启动 TUI
+**影响：** 用户体验差，已有的精美 TUI 无法被发现
+**实现：**
+- `cmd/boba/main.go` 无参数时调用 `ui.Run()`
+- `boba --help` 或 `boba help` 才打印帮助
+- 首次运行检测，引导配置初始化
+**验收：**
+```bash
+boba              # 直接进入 TUI 仪表盘
+boba --help       # 打印帮助信息
+boba use work     # 切换 profile
+boba              # TUI 自动显示新激活的 profile
+```
+**优先级：** P0 - 用户第一印象
+
+### 2. P1-2 secrets 注入未生效验证 - **安全问题**
+**问题：** 没有验证 secrets.yaml 权限，密钥可能泄露
+**影响：** 安全风险，不符合最佳实践
+**实现：**
+- 执行前调用 `ValidateSecretsPermissions()`
+- 权限不足（≠0600）时阻止执行，提示修复命令
+- `ResolveEnv()` 仅返回用于子进程的环境变量
+- 日志和数据库严禁记录密钥值
+**验收：**
+```bash
+chmod 644 ~/.boba/secrets.yaml
+boba call --profile default --data @test.json
+# 输出：Error: secrets.yaml has insecure permissions (0644)
+#       Fix: chmod 600 ~/.boba/secrets.yaml
+
+# 调试模式下，确认：
+# - 子进程 env 有 ANTHROPIC_API_KEY=***（屏蔽值）
+# - 主进程日志无任何密钥
+# - 数据库中无密钥
+```
+**优先级：** P0 - 安全基线
+
+### 3. P3-1 HTTP 端到端路径缺失 - **核心功能缺失**
+**问题：** 无法通过 CLI 实际调用 AI provider
+**影响：** 软件无法完成基本使用场景
+**实现：**
+- 新增 `svc/exec` 包：BeginSession → Adapter.Execute → PersistUsage → EndSession
+- 新增 `boba call --profile <p> --data @file.json` 命令
+- 完整的使用记录写入数据库
+**验收：**
+```bash
+echo '{"model":"claude-3-5-sonnet","messages":[{"role":"user","content":"hi"}]}' > test.json
+boba call --profile work-heavy --data @test.json
+# 返回 API 响应
+# 检查数据库：
+sqlite3 ~/.boba/usage.db 'SELECT * FROM sessions ORDER BY started_at DESC LIMIT 1;'
+sqlite3 ~/.boba/usage.db 'SELECT * FROM usage_records ORDER BY ts DESC LIMIT 1;'
+boba stats --today  # 显示增长
+```
+**优先级：** P0 - 基本功能
+
+### 4. P3-2 usage 未存 estimate_level - **数据完整性**
+**问题：** 无法区分精确 usage 和估算 usage
+**影响：** 成本分析不准确
+**实现：**
+- Schema 迁移：添加 `estimate_level TEXT NOT NULL CHECK(estimate_level IN ('exact','mapped','heuristic')) DEFAULT 'heuristic'`
+- `svc/exec` 写入时设置正确的 estimate_level
+**验收：**
+```sql
+-- 检查 schema
+sqlite3 ~/.boba/usage.db '.schema usage_records'
+-- 应包含 estimate_level 列
+
+-- 统计分布
+SELECT estimate_level, COUNT(*) FROM usage_records GROUP BY 1;
+-- exact      | 15
+-- heuristic  | 3
+```
+**优先级：** P1 - 数据质量
+
+### 5. P3-3 HTTP 重试缺失 - **可靠性问题**
+**问题：** 临时网络故障导致请求失败
+**影响：** 用户体验差，成本统计不准
+**实现：**
+- HttpAdapter 增加指数退避重试（最多 2 次）
+- 仅对超时和 5xx 重试
+- 4xx 不重试，立即返回错误
+**验收：**
+```bash
+# Mock server 返回 503 -> 503 -> 200
+# 日志应显示：
+# [Attempt 1] 503 Service Unavailable
+# [Retry 1 after 1s] 503 Service Unavailable
+# [Retry 2 after 2s] 200 OK
+
+# Mock server 返回 401
+# 日志应显示：
+# [Attempt 1] 401 Unauthorized - Invalid API key
+# (不重试)
+```
+**优先级：** P1 - 可靠性
+
+### 6. P3-4 / P6-3 boba doctor 不足 - **诊断能力**
+**问题：** doctor 无法检测网络/密钥/价格源问题
+**影响：** 用户遇到问题无法自助排查
+**实现：**
+- 价格源：测试远程 JSON 拉取、解析、缓存回退
+- 网络/密钥：对当前 profile 发测试请求（轻量 POST）
+- DB：读写自检（WAL 模式、user_version）
+**验收：**
+```bash
+boba doctor
+# ✓ Home directory: /home/user/.boba (0700)
+# ✓ profiles.yaml: 3 profiles
+# ✓ secrets.yaml: permissions OK (0600)
+# ✓ routes.yaml: 2 rules, 1 sub-agents
+# ✓ pricing.yaml: 15 models
+# ✓ pricing cache: valid until 2025-11-15 03:00
+# ✓ usage.db: OK (WAL mode, schema v1)
+# ✓ Network: Anthropic API reachable
+# ✓ API Key: Valid (test call succeeded)
+
+# 断网情况：
+# ✗ Network: Cannot reach api.anthropic.com
+#   Fix: Check internet connection or use offline mode
+
+# 密钥错误：
+# ✗ API Key: Invalid or expired (401 Unauthorized)
+#   Fix: Update ~/.boba/secrets.yaml with valid key
+```
+**优先级：** P1 - 用户支持
+
+### 7. P0-3 golangci-lint 版本问题 - **CI/CD 稳定性**
+**问题：** linter 版本不固定，CI 可能随机失败
+**影响：** 开发体验差，PR 无法合并
+**实现：**
+- Makefile 固定 linter 版本 `v1.60.3`
+- README 添加安装命令
+- CI workflow 使用相同版本
+- 设置 `GOTOOLCHAIN=auto`
+**验收：**
+```bash
+make lint  # 本地通过
+# GitHub Actions 通过
+# 两者使用相同 linter 版本
+```
+**优先级：** P1 - 开发体验
+
+### 8. P0-4 日志基线缺失 - **可观测性**
+**问题：** 没有结构化日志，调试困难
+**影响：** 问题排查困难，无法追溯
+**实现：**
+- 引入 `zap` + `lumberjack`
+- 输出到 `~/.boba/logs/boba-YYYYMMDD.jsonl`
+- 10MB × 5 文件滚动
+- 敏感字段屏蔽（API key, 请求正文）
+**验收：**
+```bash
+boba stats --today
+ls -lh ~/.boba/logs/
+# -rw------- 1 user user 1.2M Nov 14 10:30 boba-20251114.jsonl
+
+cat ~/.boba/logs/boba-20251114.jsonl | tail -1 | jq
+# {
+#   "level": "info",
+#   "ts": "2025-11-14T10:30:15.123Z",
+#   "caller": "cli/root.go:155",
+#   "msg": "stats command executed",
+#   "period": "today",
+#   "total_cost": 0.23
+# }
+
+# 确认无敏感信息
+grep -i "sk-ant-" ~/.boba/logs/*.jsonl  # 无结果
+grep -i "api.key" ~/.boba/logs/*.jsonl  # 无结果
+```
+**优先级：** P1 - 可观测性
+
+### 9. 移除 bump/release 命令 - **用户困惑**
+**问题：** 用户工具暴露开发者命令
+**影响：** 用户困惑，可能误操作
+**实现：**
+- 删除 `boba bump` 和 `boba release` 命令
+- 保留 `boba version` 查看版本
+- 移动版本管理到 Makefile
+**验收：**
+```bash
+boba bump     # command not found
+boba release  # command not found
+boba version  # 正常显示版本
+
+# 开发者使用
+make release-auto
+```
+**优先级：** P1 - 用户体验
+
+---
+
+## 实施计划
+
+**第一批（P0 - 立即开始）：**
+1. P2-5: TUI 接入 CLI（最快，最大用户体验提升）
+2. 移除 bump/release 命令（简单，避免用户困惑）
+3. P1-2: secrets 权限验证（安全基线）
+
+**第二批（P1 - 本周完成）：**
+4. P0-4: 日志基线（基础设施）
+5. P3-2: estimate_level（数据模型）
+6. P3-1: boba call 命令（核心功能）
+
+**第三批（P1 - 下周完成）：**
+7. P3-3: HTTP 重试（可靠性）
+8. P3-4: doctor 增强（诊断能力）
+9. P0-3: linter 版本固定（CI 稳定性）
+
+---
+
 ## Phase 0 — 基线与规范
 
 ### P0-1 仓库脚手架就绪
