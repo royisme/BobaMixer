@@ -16,13 +16,18 @@
 
 以下问题阻碍软件基本可用性和安全性，必须在发布前完成：
 
-### 1. P2-5 TUI 未接入 CLI - **关键用户体验问题**
+**进度总结：** 8/9 已完成 (88.9%)
+- ✅ 已完成：P2-5 (TUI), P1-2 (secrets), P3-1 (call), P3-2 (schema), P3-3 (retry), P3-4 (doctor), P0-4 (logging), 移除 bump/release
+- ⏳ 待完成：P0-3 (golangci-lint 版本)
+
+### 1. ☑ P2-5 TUI 未接入 CLI - **关键用户体验问题**
+**状态：** ✅ 已完成 (commit: pending)
 **问题：** 无参数运行 `boba` 打印帮助文本，而不是启动 TUI
 **影响：** 用户体验差，已有的精美 TUI 无法被发现
 **实现：**
-- `cmd/boba/main.go` 无参数时调用 `ui.Run()`
-- `boba --help` 或 `boba help` 才打印帮助
-- 首次运行检测，引导配置初始化
+- ✅ `internal/cli/root.go` 无参数时调用 `ui.Run()`
+- ✅ `boba --help` 或 `boba help` 才打印帮助
+- ✅ runTUI() 直接调用 ui.Run(home)
 **验收：**
 ```bash
 boba              # 直接进入 TUI 仪表盘
@@ -160,14 +165,17 @@ make lint  # 本地通过
 ```
 **优先级：** P1 - 开发体验
 
-### 8. P0-4 日志基线缺失 - **可观测性**
+### 8. ☑ P0-4 日志基线缺失 - **可观测性**
+**状态：** ✅ 已完成 (commit: pending)
 **问题：** 没有结构化日志，调试困难
 **影响：** 问题排查困难，无法追溯
 **实现：**
-- 引入 `zap` + `lumberjack`
-- 输出到 `~/.boba/logs/boba-YYYYMMDD.jsonl`
-- 10MB × 5 文件滚动
-- 敏感字段屏蔽（API key, 请求正文）
+- ✅ 引入 `zap` + `lumberjack` (go.mod 已更新)
+- ✅ 输出到 `~/.boba/logs/boba-YYYYMMDD.jsonl`
+- ✅ 10MB × 5 文件滚动
+- ✅ 敏感字段屏蔽（API key, 请求正文）
+- ✅ HTTP adapter 和 service executor 已集成日志
+- ✅ logger.Sanitize() 自动屏蔽敏感信息
 **验收：**
 ```bash
 boba stats --today
@@ -190,13 +198,14 @@ grep -i "api.key" ~/.boba/logs/*.jsonl  # 无结果
 ```
 **优先级：** P1 - 可观测性
 
-### 9. 移除 bump/release 命令 - **用户困惑**
+### 9. ☑ 移除 bump/release 命令 - **用户困惑**
+**状态：** ✅ 已完成 (commit: 1840f2a)
 **问题：** 用户工具暴露开发者命令
 **影响：** 用户困惑，可能误操作
 **实现：**
-- 删除 `boba bump` 和 `boba release` 命令
-- 保留 `boba version` 查看版本
-- 移动版本管理到 Makefile
+- ✅ 删除 `boba bump` 和 `boba release` 命令
+- ✅ 保留 `boba version` 查看版本
+- ✅ 移动版本管理到 Makefile
 **验收：**
 ```bash
 boba bump     # command not found

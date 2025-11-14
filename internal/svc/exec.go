@@ -10,6 +10,7 @@ import (
 	"github.com/royisme/bobamixer/internal/adapters"
 	httpadapter "github.com/royisme/bobamixer/internal/adapters/http"
 	tooladapter "github.com/royisme/bobamixer/internal/adapters/tool"
+	"github.com/royisme/bobamixer/internal/logger"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -61,27 +62,44 @@ type ExecuteResult struct {
 
 // Execute runs an AI call with full session and usage tracking
 func (e *Executor) Execute(ctx context.Context, req ExecuteRequest) (*ExecuteResult, error) {
+	logger.Info("Executing AI call",
+		logger.String("profile", req.ProfileKey),
+		logger.String("project", req.Project),
+		logger.String("branch", req.Branch),
+		logger.String("task_type", req.TaskType))
+
 	// Load profile
 	profiles, err := config.LoadProfiles(e.home)
 	if err != nil {
+		logger.Error("Failed to load profiles", logger.Err(err))
 		return nil, fmt.Errorf("load profiles: %w", err)
 	}
 
 	profile, ok := profiles[req.ProfileKey]
 	if !ok {
+		logger.Error("Profile not found", logger.String("profile", req.ProfileKey))
 		return nil, fmt.Errorf("profile %s not found", req.ProfileKey)
 	}
 
 	// Create adapter
 	adapter, err := e.createAdapter(profile)
 	if err != nil {
+		logger.Error("Failed to create adapter",
+			logger.String("adapter", profile.Adapter),
+			logger.Err(err))
 		return nil, fmt.Errorf("create adapter: %w", err)
 	}
 
 	// Begin session
 	sessionID := uuid.New().String()
 	startTime := time.Now()
+	logger.Info("Session started",
+		logger.String("session_id", sessionID),
+		logger.String("profile", req.ProfileKey),
+		logger.String("adapter", profile.Adapter))
+
 	if err := e.beginSession(sessionID, req, profile); err != nil {
+		logger.Error("Failed to begin session", logger.Err(err))
 		return nil, fmt.Errorf("begin session: %w", err)
 	}
 
@@ -91,6 +109,9 @@ func (e *Executor) Execute(ctx context.Context, req ExecuteRequest) (*ExecuteRes
 	}
 	result, err := adapter.Execute(ctx, adapterReq)
 	if err != nil {
+		logger.Error("Adapter execution failed",
+			logger.String("session_id", sessionID),
+			logger.Err(err))
 		// End session with error
 		_ = e.endSession(sessionID, false, time.Since(startTime).Milliseconds(), err.Error())
 		return nil, fmt.Errorf("adapter execute: %w", err)
@@ -98,13 +119,28 @@ func (e *Executor) Execute(ctx context.Context, req ExecuteRequest) (*ExecuteRes
 
 	// Persist usage
 	if err := e.persistUsage(sessionID, profile, result.Usage); err != nil {
+		logger.Error("Failed to persist usage",
+			logger.String("session_id", sessionID),
+			logger.Err(err))
 		return nil, fmt.Errorf("persist usage: %w", err)
 	}
 
 	// End session
-	if err := e.endSession(sessionID, result.Success, time.Since(startTime).Milliseconds(), result.Error); err != nil {
+	latency := time.Since(startTime).Milliseconds()
+	if err := e.endSession(sessionID, result.Success, latency, result.Error); err != nil {
+		logger.Error("Failed to end session",
+			logger.String("session_id", sessionID),
+			logger.Err(err))
 		return nil, fmt.Errorf("end session: %w", err)
 	}
+
+	logger.Info("Session completed",
+		logger.String("session_id", sessionID),
+		logger.Bool("success", result.Success),
+		logger.Int64("latency_ms", latency),
+		logger.Int("input_tokens", result.Usage.InputTokens),
+		logger.Int("output_tokens", result.Usage.OutputTokens),
+		logger.String("estimate", string(result.Usage.Estimate)))
 
 	return &ExecuteResult{
 		SessionID: sessionID,

@@ -22,9 +22,11 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
+	"github.com/royisme/bobamixer/internal/logger"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/svc"
+	"github.com/royisme/bobamixer/internal/ui"
 	"github.com/royisme/bobamixer/internal/version"
 )
 
@@ -46,6 +48,14 @@ func Run(args []string) error {
 		return err
 	}
 
+	// Initialize structured logging
+	if err := logger.Init(home); err != nil {
+		return fmt.Errorf("failed to initialize logger: %w", err)
+	}
+	defer logger.Sync()
+
+	logger.Info("BobaMixer CLI started")
+
 	// Handle help flag
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
 		printUsage()
@@ -54,6 +64,7 @@ func Run(args []string) error {
 
 	// No arguments: launch TUI dashboard
 	if len(args) == 0 {
+		logger.Info("Launching TUI dashboard")
 		return runTUI(home)
 	}
 
@@ -672,21 +683,7 @@ func findRepoRootFromArgs(args []string) (string, error) {
 }
 
 func runTUI(home string) error {
-	// Import ui package at runtime to avoid circular dependencies
-	// The ui.Run function is already defined in internal/ui/tui.go
-	fmt.Println("Launching TUI dashboard...")
-	fmt.Println("(TUI not yet connected - this is a placeholder)")
-	fmt.Println()
-	fmt.Println("To use BobaMixer:")
-	fmt.Println("  1. Configure profiles: boba edit profiles")
-	fmt.Println("  2. Add API keys: boba edit secrets")
-	fmt.Println("  3. Activate a profile: boba use <profile>")
-	fmt.Println("  4. Run diagnostics: boba doctor")
-	fmt.Println()
-	fmt.Println("For help: boba --help")
-	return nil
-	// TODO: Uncomment when ui package is properly imported
-	// return ui.Run(home)
+	return ui.Run(home)
 }
 
 func runAction(home string, args []string) error {
