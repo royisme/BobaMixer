@@ -4,6 +4,7 @@ package routing
 import (
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -236,122 +237,155 @@ func matchingParenIndex(expr string, start int) int {
 
 // evaluateSingleCondition evaluates a single condition expression
 func (r *Router) evaluateSingleCondition(expr string, ctx Context) bool {
-
-	// Check for intent equality
-	if strings.Contains(expr, "intent==") {
-		re := regexp.MustCompile(`intent=='([^']+)'`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 && ctx.Intent == matches[1] {
+	for _, handler := range conditionHandlers {
+		if handler(expr, ctx) {
 			return true
 		}
 	}
 
-	// Check for text.matches
-	if strings.Contains(expr, "text.matches") {
-		re := regexp.MustCompile(`text\.matches\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			pattern := regexp.MustCompile(matches[1])
-			if pattern.MatchString(ctx.Text) {
-				return true
-			}
-		}
-	}
+	return false
+}
 
-	// Check for text.contains
-	if strings.Contains(expr, "text.contains") {
-		re := regexp.MustCompile(`text\.contains\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 && strings.Contains(ctx.Text, matches[1]) {
+var conditionHandlers = []func(string, Context) bool{
+	intentEqualsCondition,
+	textMatchesCondition,
+	textContainsCondition,
+	ctxCharsCondition,
+	taskMatchesCondition,
+	branchMatchesCondition,
+	branchEqualsCondition,
+	branchEqualityShortcutCondition,
+	timeOfDayCondition,
+	projectTypeCondition,
+}
+
+var (
+	intentEqualsPattern           = regexp.MustCompile(`intent=='([^']+)'`)
+	textMatchesPattern            = regexp.MustCompile(`text\.matches\('([^']+)'\)`)
+	textContainsPattern           = regexp.MustCompile(`text\.contains\('([^']+)'\)`)
+	ctxCharsPattern               = regexp.MustCompile(`ctx_chars>(\d+)`)
+	taskMatchesPattern            = regexp.MustCompile(`task\.matches\('([^']+)'\)`)
+	branchMatchesPattern          = regexp.MustCompile(`branch\.matches\('([^']+)'\)`)
+	branchEqualsPattern           = regexp.MustCompile(`branch\.equals\('([^']+)'\)`)
+	branchEqualityShortcutPattern = regexp.MustCompile(`branch=='([^']+)'`)
+	timeOfDayPattern              = regexp.MustCompile(`time_of_day\.in\('([^']+)'\)`)
+	projectTypePattern            = regexp.MustCompile(`project_types\.contains\('([^']+)'\)`)
+)
+
+func intentEqualsCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "intent==") {
+		return false
+	}
+	matches := intentEqualsPattern.FindStringSubmatch(expr)
+	return len(matches) > 1 && ctx.Intent == matches[1]
+}
+
+func textMatchesCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "text.matches") {
+		return false
+	}
+	matches := textMatchesPattern.FindStringSubmatch(expr)
+	if len(matches) <= 1 {
+		return false
+	}
+	pattern, err := regexp.Compile(matches[1])
+	if err != nil {
+		return false
+	}
+	return pattern.MatchString(ctx.Text)
+}
+
+func textContainsCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "text.contains") {
+		return false
+	}
+	matches := textContainsPattern.FindStringSubmatch(expr)
+	return len(matches) > 1 && strings.Contains(ctx.Text, matches[1])
+}
+
+func ctxCharsCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "ctx_chars>") {
+		return false
+	}
+	matches := ctxCharsPattern.FindStringSubmatch(expr)
+	if len(matches) <= 1 {
+		return false
+	}
+	threshold, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return false
+	}
+	return ctx.CtxChars > threshold
+}
+
+func taskMatchesCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "task.matches") {
+		return false
+	}
+	matches := taskMatchesPattern.FindStringSubmatch(expr)
+	if len(matches) <= 1 {
+		return false
+	}
+	pattern, err := regexp.Compile(matches[1])
+	if err != nil {
+		return false
+	}
+	return pattern.MatchString(ctx.Intent)
+}
+
+func branchMatchesCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "branch.matches") {
+		return false
+	}
+	matches := branchMatchesPattern.FindStringSubmatch(expr)
+	if len(matches) <= 1 {
+		return false
+	}
+	pattern, err := regexp.Compile(matches[1])
+	if err != nil {
+		return false
+	}
+	return pattern.MatchString(ctx.Branch)
+}
+
+func branchEqualsCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "branch.equals") {
+		return false
+	}
+	matches := branchEqualsPattern.FindStringSubmatch(expr)
+	return len(matches) > 1 && ctx.Branch == matches[1]
+}
+
+func branchEqualityShortcutCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "branch==") {
+		return false
+	}
+	matches := branchEqualityShortcutPattern.FindStringSubmatch(expr)
+	return len(matches) > 1 && ctx.Branch == matches[1]
+}
+
+func timeOfDayCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "time_of_day.in") {
+		return false
+	}
+	matches := timeOfDayPattern.FindStringSubmatch(expr)
+	return len(matches) > 1 && checkTimeRangeString(matches[1])
+}
+
+func projectTypeCondition(expr string, ctx Context) bool {
+	if !strings.Contains(expr, "project_types.contains") {
+		return false
+	}
+	matches := projectTypePattern.FindStringSubmatch(expr)
+	if len(matches) <= 1 {
+		return false
+	}
+	targetType := matches[1]
+	for _, pt := range ctx.ProjectType {
+		if pt == targetType {
 			return true
 		}
 	}
-
-	// Check for ctx_chars comparison
-	if strings.Contains(expr, "ctx_chars>") {
-		re := regexp.MustCompile(`ctx_chars>(\d+)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			var threshold int
-			if _, err := regexp.MatchString(`\d+`, matches[1]); err == nil {
-				// Parse threshold
-				threshold = 0
-				for _, c := range matches[1] {
-					threshold = threshold*10 + int(c-'0')
-				}
-				if ctx.CtxChars > threshold {
-					return true
-				}
-			}
-		}
-	}
-
-	// Check for task.matches
-	if strings.Contains(expr, "task.matches") {
-		re := regexp.MustCompile(`task\.matches\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			pattern := regexp.MustCompile(matches[1])
-			if pattern.MatchString(ctx.Intent) {
-				return true
-			}
-		}
-	}
-
-	// Check for branch.matches
-	if strings.Contains(expr, "branch.matches") {
-		re := regexp.MustCompile(`branch\.matches\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			pattern := regexp.MustCompile(matches[1])
-			if pattern.MatchString(ctx.Branch) {
-				return true
-			}
-		}
-	}
-
-	// Check for branch.equals or branch=='value'
-	if strings.Contains(expr, "branch.equals") {
-		re := regexp.MustCompile(`branch\.equals\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 && ctx.Branch == matches[1] {
-			return true
-		}
-	}
-	if strings.Contains(expr, "branch==") {
-		re := regexp.MustCompile(`branch=='([^']+)'`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 && ctx.Branch == matches[1] {
-			return true
-		}
-	}
-
-	// Check for time_of_day.in('HH:MM-HH:MM')
-	if strings.Contains(expr, "time_of_day.in") {
-		re := regexp.MustCompile(`time_of_day\.in\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			// Parse the time range
-			if checkTimeRangeString(matches[1]) {
-				return true
-			}
-		}
-	}
-
-	// Check for project_types.contains('type')
-	if strings.Contains(expr, "project_types.contains") {
-		re := regexp.MustCompile(`project_types\.contains\('([^']+)'\)`)
-		matches := re.FindStringSubmatch(expr)
-		if len(matches) > 1 {
-			targetType := matches[1]
-			for _, pt := range ctx.ProjectType {
-				if pt == targetType {
-					return true
-				}
-			}
-		}
-	}
-
 	return false
 }
 

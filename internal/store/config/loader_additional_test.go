@@ -70,10 +70,13 @@ type stringerType struct{}
 
 func (stringerType) String() string { return "stringer" }
 
-func TestHelperConversions(t *testing.T) {
+func TestStringValueConversion(t *testing.T) {
 	if got := stringValue(stringerType{}); got != "stringer" {
 		t.Fatalf("stringValue stringer = %s", got)
 	}
+}
+
+func TestIntAndFloatConversions(t *testing.T) {
 	if got := intValue(float64(2)); got != 2 {
 		t.Fatalf("intValue float64 = %d", got)
 	}
@@ -86,12 +89,18 @@ func TestHelperConversions(t *testing.T) {
 	if got := floatValue(nil); got != 0 {
 		t.Fatalf("floatValue nil = %f", got)
 	}
+}
+
+func TestBoolValueConversion(t *testing.T) {
 	if !boolValue("true") || boolValue("false") {
 		t.Fatalf("boolValue string parsing failed")
 	}
 	if boolValue(123) {
 		t.Fatalf("boolValue default should be false")
 	}
+}
+
+func TestStringSliceConversion(t *testing.T) {
 	slice := stringSlice([]interface{}{1, "two"})
 	if len(slice) != 2 || slice[0] != "1" || slice[1] != "two" {
 		t.Fatalf("stringSlice mixed = %#v", slice)
@@ -102,8 +111,17 @@ func TestHelperConversions(t *testing.T) {
 	if asStrings := stringSlice([]string{"one", "two"}); len(asStrings) != 2 {
 		t.Fatalf("stringSlice []string = %#v", asStrings)
 	}
-	if m := toMap(map[string]interface{}{"k": "v"}); m["k"].(string) != "v" {
-		t.Fatalf("toMap returned %#v", m)
+}
+
+func TestToMapConversion(t *testing.T) {
+	if m := toMap(map[string]interface{}{"k": "v"}); m != nil {
+		value, ok := m["k"].(string)
+		if !ok {
+			t.Fatalf("expected string value, got %#v", m["k"])
+		}
+		if value != "v" {
+			t.Fatalf("unexpected value: %s", value)
+		}
 	}
 	if toMap(nil) != nil {
 		t.Fatalf("toMap nil should return nil")

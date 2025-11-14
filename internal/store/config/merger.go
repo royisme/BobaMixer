@@ -1,6 +1,10 @@
 // Package config provides configuration merging capabilities
 package config
 
+import "fmt"
+
+const defaultProfileKey = "default"
+
 // MergedConfig represents the final configuration after applying all overrides
 // Priority order: Session > Branch > Project > Global
 type MergedConfig struct {
@@ -40,7 +44,10 @@ func (m *ConfigMerger) Merge(project, branch string, sessionOverrides map[string
 	// 1. Load global configuration (base layer)
 	activeProfile, err := LoadActiveProfile(m.home)
 	if err != nil {
-		activeProfile = "default"
+		return nil, fmt.Errorf("load active profile: %w", err)
+	}
+	if activeProfile == "" {
+		activeProfile = defaultProfileKey
 	}
 	merged.ActiveProfile = activeProfile
 	merged.Overrides = append(merged.Overrides, "global")
@@ -65,7 +72,7 @@ func (m *ConfigMerger) Merge(project, branch string, sessionOverrides map[string
 	}
 
 	// 4. Apply session overrides (highest priority)
-	if sessionOverrides != nil && len(sessionOverrides) > 0 {
+	if len(sessionOverrides) > 0 {
 		if profile, ok := sessionOverrides["profile"].(string); ok {
 			merged.ActiveProfile = profile
 		}
@@ -80,9 +87,12 @@ func (m *ConfigMerger) GetEffectiveProfile(project, branch string, sessionProfil
 	overrides := []string{}
 
 	// Start with global
-	activeProfile, _ := LoadActiveProfile(m.home)
+	activeProfile, err := LoadActiveProfile(m.home)
+	if err != nil {
+		activeProfile = defaultProfileKey
+	}
 	if activeProfile == "" {
-		activeProfile = "default"
+		activeProfile = defaultProfileKey
 	}
 	overrides = append(overrides, "global:"+activeProfile)
 

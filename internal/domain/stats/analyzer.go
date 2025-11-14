@@ -10,6 +10,8 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const trendStable = "stable"
+
 // DataPoint represents a single data point in a time series
 type DataPoint struct {
 	Date   string  // YYYY-MM-DD
@@ -298,7 +300,7 @@ func GetSparkline(dataPoints []DataPoint) string {
 // DetectTrend analyzes data points and detects trend direction
 func DetectTrend(dataPoints []DataPoint) string {
 	if len(dataPoints) < 2 {
-		return "stable"
+		return trendStable
 	}
 
 	// Simple linear trend detection
@@ -325,7 +327,7 @@ func DetectTrend(dataPoints []DataPoint) string {
 		return "decreasing"
 	}
 
-	return "stable"
+	return trendStable
 }
 
 // FormatCurrency formats a float as USD currency

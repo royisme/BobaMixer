@@ -362,11 +362,26 @@ func (t *Tracker) GetAllBudgets() ([]*Budget, error) {
 			continue
 		}
 
-		daily, _ := strconv.ParseFloat(parts[3], 64)
-		hard, _ := strconv.ParseFloat(parts[4], 64)
-		periodStart, _ := strconv.ParseInt(parts[5], 10, 64)
-		periodEnd, _ := strconv.ParseInt(parts[6], 10, 64)
-		spent, _ := strconv.ParseFloat(parts[7], 64)
+		daily, err := strconv.ParseFloat(parts[3], 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse daily limit for budget %s: %w", parts[0], err)
+		}
+		hard, err := strconv.ParseFloat(parts[4], 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse hard cap for budget %s: %w", parts[0], err)
+		}
+		periodStart, err := strconv.ParseInt(parts[5], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse period start for budget %s: %w", parts[0], err)
+		}
+		periodEnd, err := strconv.ParseInt(parts[6], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse period end for budget %s: %w", parts[0], err)
+		}
+		spent, err := strconv.ParseFloat(parts[7], 64)
+		if err != nil {
+			return nil, fmt.Errorf("parse spent for budget %s: %w", parts[0], err)
+		}
 
 		budget := &Budget{
 			ID:          parts[0],

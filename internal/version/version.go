@@ -7,11 +7,13 @@ import (
 )
 
 // Version information
+const defaultVersion = "dev"
+
 var (
-	Version = "dev"     // Version is set during build
-	Commit  = "unknown" // Commit hash is set during build
-	Date    = "unknown" // Build date is set during build
-	BuiltBy = "unknown" // Builder information
+	Version = defaultVersion // Version is set during build
+	Commit  = "unknown"      // Commit hash is set during build
+	Date    = "unknown"      // Build date is set during build
+	BuiltBy = "unknown"      // Builder information
 )
 
 // VersionInfo holds all version information
@@ -40,7 +42,7 @@ func GetVersionInfo() VersionInfo {
 func (v VersionInfo) String() string {
 	version := v.Version
 	if version == "" {
-		version = "dev"
+		version = defaultVersion
 	}
 	commit := v.Commit
 	if commit == "" {
@@ -54,7 +56,7 @@ func (v VersionInfo) String() string {
 		build = "unknown"
 	}
 	meta := "release"
-	if version == "dev" {
+	if version == defaultVersion {
 		meta = "development"
 	}
 	return fmt.Sprintf("BobaMixer %s %s (commit: %s, built: %s, os/arch: %s/%s)",
@@ -74,7 +76,7 @@ Go Version:  %s`,
 
 // IsDev returns true if this is a development version
 func (v VersionInfo) IsDev() bool {
-	return v.Version == "dev" || v.Version == ""
+	return v.Version == defaultVersion || v.Version == ""
 }
 
 // IsRelease returns true if this is a release version (not dev)
