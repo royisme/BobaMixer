@@ -11,6 +11,7 @@ import (
 	"github.com/royisme/bobamixer/internal/tool"
 )
 
+//nolint:gocyclo // Test function with multiple subtests is acceptable
 func TestRun(t *testing.T) {
 	t.Run("successful command execution", func(t *testing.T) {
 		// Given: simple echo command
@@ -115,7 +116,7 @@ func TestRun(t *testing.T) {
 		// Given: command with specific working directory
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test.txt")
-		if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil {
+		if err := os.WriteFile(testFile, []byte("content"), 0644); err != nil { //nolint:gosec // G306: test file permissions
 			t.Fatalf("failed to create test file: %v", err)
 		}
 
@@ -217,7 +218,7 @@ func TestJSONLUsageParsing(t *testing.T) {
 echo 'Some output'
 echo '{"event":"usage","input_tokens":100,"output_tokens":200,"latency_ms":50}'
 `
-		if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
+		if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: test script needs execute permission
 			t.Fatalf("failed to create script: %v", err)
 		}
 

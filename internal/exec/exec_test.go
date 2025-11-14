@@ -21,6 +21,7 @@ func setupTestDB(t *testing.T) *sqlite.DB {
 	return database
 }
 
+//nolint:gocyclo // Test function with multiple subtests is acceptable
 func TestSessionLifecycle(t *testing.T) {
 	t.Run("complete session lifecycle", func(t *testing.T) {
 		// Given: initialized database
@@ -116,11 +117,14 @@ func TestSessionLifecycle(t *testing.T) {
 		ctx := context.Background()
 
 		meta := exec.SessionMeta{Source: "test"}
-		sessionID, _ := exec.BeginSession(ctx, database, meta)
+		sessionID, err := exec.BeginSession(ctx, database, meta)
+		if err != nil {
+			t.Fatalf("BeginSession failed: %v", err)
+		}
 
 		// Simulate failure scenario
 		// When: EndSession is called with success=false
-		err := exec.EndSession(ctx, database, sessionID, false, "simulated failure")
+		err = exec.EndSession(ctx, database, sessionID, false, "simulated failure")
 
 		// Then: no error and session is properly closed
 		if err != nil {
@@ -146,7 +150,10 @@ func TestRecordUsage(t *testing.T) {
 		ctx := context.Background()
 
 		meta := exec.SessionMeta{Source: "test"}
-		sessionID, _ := exec.BeginSession(ctx, database, meta)
+		sessionID, err := exec.BeginSession(ctx, database, meta)
+		if err != nil {
+			t.Fatalf("BeginSession failed: %v", err)
+		}
 
 		// When: RecordUsage with exact estimate
 		usage := exec.Usage{
@@ -157,7 +164,7 @@ func TestRecordUsage(t *testing.T) {
 			Model:        "claude-sonnet-4",
 			Estimate:     "exact",
 		}
-		err := exec.RecordUsage(ctx, database, sessionID, usage)
+		err = exec.RecordUsage(ctx, database, sessionID, usage)
 
 		// Then: usage is recorded correctly
 		if err != nil {
@@ -180,7 +187,10 @@ func TestRecordUsage(t *testing.T) {
 		ctx := context.Background()
 
 		meta := exec.SessionMeta{Source: "test"}
-		sessionID, _ := exec.BeginSession(ctx, database, meta)
+		sessionID, err := exec.BeginSession(ctx, database, meta)
+		if err != nil {
+			t.Fatalf("BeginSession failed: %v", err)
+		}
 
 		// When: RecordUsage multiple times
 		for i := 0; i < 3; i++ {

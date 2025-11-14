@@ -79,6 +79,7 @@ func TestInitHome(t *testing.T) {
 	})
 }
 
+//nolint:gocyclo // Test function with multiple subtests is acceptable
 func TestSaveAndLoad(t *testing.T) {
 	t.Run("saves and loads settings correctly", func(t *testing.T) {
 		// Given: initialized home directory
@@ -132,7 +133,7 @@ func TestSaveAndLoad(t *testing.T) {
 		// Given: home directory without settings file
 		tmpDir := t.TempDir()
 		home := filepath.Join(tmpDir, ".boba")
-		if err := os.MkdirAll(home, 0755); err != nil {
+		if err := os.MkdirAll(home, 0755); err != nil { //nolint:gosec // G301: test file permissions
 			t.Fatalf("failed to create home: %v", err)
 		}
 

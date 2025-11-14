@@ -127,6 +127,7 @@ func TestCompile(t *testing.T) {
 	})
 }
 
+//nolint:gocyclo // Test function with multiple subtests is acceptable
 func TestMatch(t *testing.T) {
 	t.Run("matches intent condition", func(t *testing.T) {
 		// Given: engine with intent-based rule
@@ -138,7 +139,10 @@ func TestMatch(t *testing.T) {
 				Explain: "Formatting tasks use quick profile",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match with intent=format
 		ctx := context.Background()
@@ -176,7 +180,10 @@ func TestMatch(t *testing.T) {
 				Explain: "Small context uses fast model",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match with CtxChars=500
 		ctx := context.Background()
@@ -207,7 +214,10 @@ func TestMatch(t *testing.T) {
 				Explain: "Main branch uses production profile",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match with branch=main
 		ctx := context.Background()
@@ -238,7 +248,10 @@ func TestMatch(t *testing.T) {
 				Explain: "Large review tasks",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match with non-matching features
 		ctx := context.Background()
@@ -270,7 +283,10 @@ func TestMatch(t *testing.T) {
 				Explain: "Default profile",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match multiple times (some should explore)
 		ctx := context.Background()
@@ -281,7 +297,10 @@ func TestMatch(t *testing.T) {
 		// Run multiple times to potentially trigger exploration
 		exploredCount := 0
 		for i := 0; i < 100; i++ {
-			decision, _, _ := engine.Match(ctx, features)
+			decision, _, err := engine.Match(ctx, features)
+			if err != nil {
+				t.Fatalf("Match failed: %v", err)
+			}
 			if decision.Explore {
 				exploredCount++
 			}
@@ -304,7 +323,10 @@ func TestTrace(t *testing.T) {
 				Explain: "This is a detailed explanation of why this rule matched",
 			},
 		}
-		engine, _ := routing.Compile(rules)
+		engine, err := routing.Compile(rules)
+		if err != nil {
+			t.Fatalf("Compile failed: %v", err)
+		}
 
 		// When: Match triggers the rule
 		ctx := context.Background()

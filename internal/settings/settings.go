@@ -46,7 +46,7 @@ const (
 // It is idempotent - safe to call multiple times.
 func InitHome(home string) error {
 	// Create home directory
-	if err := os.MkdirAll(home, 0755); err != nil {
+	if err := os.MkdirAll(home, 0755); err != nil { //nolint:gosec // G301: 0755 is intentional for .boba directory
 		return fmt.Errorf("create home directory: %w", err)
 	}
 
@@ -165,7 +165,7 @@ func Load(ctx context.Context, home string) (Settings, error) {
 	settingsPath := filepath.Join(home, settingsFilename)
 
 	// Check if file exists
-	data, err := os.ReadFile(settingsPath)
+	data, err := os.ReadFile(settingsPath) //nolint:gosec // G304: path is constructed from trusted home directory
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// Return default settings

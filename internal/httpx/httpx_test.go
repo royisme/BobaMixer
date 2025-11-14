@@ -13,12 +13,13 @@ import (
 	"github.com/royisme/bobamixer/internal/httpx"
 )
 
+//nolint:gocyclo // Test function with multiple subtests is acceptable
 func TestExecute(t *testing.T) {
 	t.Run("successful request", func(t *testing.T) {
 		// Given: server that returns 200
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"usage":{"input_tokens":100,"output_tokens":200}}`)
+			_, _ = fmt.Fprintln(w, `{"usage":{"input_tokens":100,"output_tokens":200}}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -57,10 +58,10 @@ func TestExecute(t *testing.T) {
 			count := atomic.AddInt32(&attemptCount, 1)
 			if count == 1 {
 				w.WriteHeader(http.StatusInternalServerError)
-				fmt.Fprintln(w, "Server error")
+				_, _ = fmt.Fprintln(w, "Server error") //nolint:errcheck // test handler
 			} else {
 				w.WriteHeader(http.StatusOK)
-				fmt.Fprintln(w, `{"usage":{"input_tokens":50,"output_tokens":100}}`)
+				_, _ = fmt.Fprintln(w, `{"usage":{"input_tokens":50,"output_tokens":100}}`) //nolint:errcheck // test handler
 			}
 		}))
 		defer server.Close()
@@ -93,7 +94,7 @@ func TestExecute(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			atomic.AddInt32(&attemptCount, 1)
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintln(w, `{"error":"unauthorized"}`)
+			_, _ = fmt.Fprintln(w, `{"error":"unauthorized"}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -131,7 +132,7 @@ func TestExecute(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			atomic.AddInt32(&attemptCount, 1)
 			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintln(w, `{"error":"forbidden"}`)
+			_, _ = fmt.Fprintln(w, `{"error":"forbidden"}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -166,7 +167,7 @@ func TestExecute(t *testing.T) {
 				time.Sleep(200 * time.Millisecond)
 			}
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"test":"ok"}`)
+			_, _ = fmt.Fprintln(w, `{"test":"ok"}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -220,7 +221,7 @@ func TestExecute(t *testing.T) {
 		// Given: server that returns usage in Anthropic format
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"usage":{"input_tokens":150,"output_tokens":250}}`)
+			_, _ = fmt.Fprintln(w, `{"usage":{"input_tokens":150,"output_tokens":250}}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -252,7 +253,7 @@ func TestExecute(t *testing.T) {
 		// Given: server that returns usage in OpenAI format
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"usage":{"prompt_tokens":200,"completion_tokens":300}}`)
+			_, _ = fmt.Fprintln(w, `{"usage":{"prompt_tokens":200,"completion_tokens":300}}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -286,7 +287,7 @@ func TestExecute(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedHeaders = r.Header
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"status":"ok"}`)
+			_, _ = fmt.Fprintln(w, `{"status":"ok"}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -323,7 +324,7 @@ func TestExecute(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(10 * time.Millisecond)
 			w.WriteHeader(http.StatusOK)
-			fmt.Fprintln(w, `{"status":"ok"}`)
+			_, _ = fmt.Fprintln(w, `{"status":"ok"}`) //nolint:errcheck // test handler
 		}))
 		defer server.Close()
 
@@ -370,7 +371,7 @@ func TestErrorClassification(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				atomic.AddInt32(&attemptCount, 1)
 				w.WriteHeader(tt.statusCode)
-				fmt.Fprintf(w, `{"error":"test error"}`)
+				_, _ = fmt.Fprintf(w, `{"error":"test error"}`) //nolint:errcheck // test handler
 			}))
 			defer server.Close()
 

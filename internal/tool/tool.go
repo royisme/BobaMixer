@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/royisme/bobamixer/internal/adapters"
 	tooladapter "github.com/royisme/bobamixer/internal/adapters/tool"
 )
@@ -51,12 +50,6 @@ type ExecResult struct {
 // Run executes a CLI command according to the specification.
 // It wraps the execution with session tracking, timeout handling, and usage parsing.
 func Run(ctx context.Context, spec ExecSpec) (ExecResult, error) {
-	// Generate session ID if not provided
-	sessionID := spec.SessionID
-	if sessionID == "" {
-		sessionID = uuid.New().String()
-	}
-
 	// Validate required fields
 	if spec.Bin == "" {
 		return ExecResult{}, errors.New("bin is required")

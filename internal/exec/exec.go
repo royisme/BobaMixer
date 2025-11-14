@@ -159,7 +159,10 @@ func RunTool(ctx context.Context, db *sqlite.DB, home string, spec ToolExecSpec)
 	toolResult, err := tool.Run(ctx, toolSpec)
 	if err != nil {
 		// End session with error
-		_ = EndSession(ctx, db, sessionID, false, err.Error())
+		if endErr := EndSession(ctx, db, sessionID, false, err.Error()); endErr != nil {
+			// Log but don't override original error
+			fmt.Printf("Warning: failed to end session: %v\n", endErr)
+		}
 		return nil, fmt.Errorf("tool execution: %w", err)
 	}
 
@@ -228,7 +231,10 @@ func RunHTTP(ctx context.Context, db *sqlite.DB, home string, req HTTPRequest) (
 	httpxResult, err := httpx.Execute(ctx, httpxReq)
 	if err != nil {
 		// End session with error
-		_ = EndSession(ctx, db, sessionID, false, err.Error())
+		if endErr := EndSession(ctx, db, sessionID, false, err.Error()); endErr != nil {
+			// Log but don't override original error
+			fmt.Printf("Warning: failed to end session: %v\n", endErr)
+		}
 		return nil, fmt.Errorf("http execution: %w", err)
 	}
 
