@@ -7,7 +7,8 @@ on:
       - "v*"
   # 允许手动触发
   workflow_dispatch:
-
+env:
+  GO_VERSION: "1.25.4"
 # 这里的 permissions 只控制默认 GITHUB_TOKEN，对你用的 PAT 不生效
 permissions:
   contents: write
@@ -27,19 +28,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          # 注意：这里要确保 1.25 真的是存在的 Go 版本
-          go-version: "1.25"
-          cache: false # 禁用内建 cache，避免和 actions/cache 冲突
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -66,18 +57,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
-          cache: false
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -86,8 +68,4 @@ jobs:
           version: latest
           args: release --clean
         env:
-          # 关键：这里用的是你自己创建的 PAT，而不是默认 GITHUB_TOKEN
-          # 在 repo Settings → Secrets → Actions 里配置：
-          #   Name: HOMEBREW_GITHUB_TOKEN
-          #   Value: classic PAT（owner=royisme，scope 至少包含 repo）
           GITHUB_TOKEN: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}

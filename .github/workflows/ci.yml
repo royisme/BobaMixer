@@ -1,7 +1,6 @@
 name: CI
 
 on:
-
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -38,7 +37,6 @@ jobs:
       - uses: github/codeql-action/init@v3
         with:
           languages: go
-
 
   # Run tests with coverage
   test:
