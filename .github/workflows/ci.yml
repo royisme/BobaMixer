@@ -33,7 +33,7 @@ jobs:
         with:
           version: v2.6.1
           args: --timeout=5m
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: go
 
