@@ -93,7 +93,9 @@ func (db *DB) bootstrap() error {
 		if err := db.migrateToV1(); err != nil {
 			return fmt.Errorf("migrate to v1: %w", err)
 		}
-		version = schemaVersion
+		// Note: migrateToV1 sets version to 2 (includes estimate_level)
+		// We need to continue to v3 for explore and suggestions
+		version = 2
 	}
 
 	// Version 1 -> 2: Add estimate_level to usage_records
