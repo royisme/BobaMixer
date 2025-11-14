@@ -22,15 +22,15 @@ const (
 
 // StoredSuggestion represents a suggestion stored in the database
 type StoredSuggestion struct {
-	ID              string
-	CreatedAt       time.Time
-	SuggestionType  string
-	Title           string
-	Description     string
-	ActionCmd       string
-	Status          Status
-	UntilTS         *time.Time // For snoozed suggestions
-	Context         string     // JSON or text context
+	ID             string
+	CreatedAt      time.Time
+	SuggestionType string
+	Title          string
+	Description    string
+	ActionCmd      string
+	Status         Status
+	UntilTS        *time.Time // For snoozed suggestions
+	Context        string     // JSON or text context
 }
 
 // Store manages suggestion persistence
@@ -124,40 +124,35 @@ func (s *Store) Snooze(id string, duration time.Duration) error {
 
 // parseRows parses database rows into StoredSuggestion objects
 func (s *Store) parseRows(rows []string) []*StoredSuggestion {
-	var result []*StoredSuggestion
+	result := make([]*StoredSuggestion, 0, len(rows))
 	for _, row := range rows {
-		// Parse pipe-delimited row
-		// Format: id|created_at|type|title|description|action_cmd|status|until_ts|context
 		parts := strings.Split(row, "|")
 		if len(parts) < 9 {
-			continue // Skip invalid rows
+			continue
 		}
 
-		// Parse timestamps (Unix timestamp integers)
-		var createdAt time.Time
-		if ts, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
-			createdAt = time.Unix(ts, 0)
+		createdUnix, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			continue
 		}
 
-		var untilTS *time.Time
-		if parts[7] != "" && parts[7] != "0" {
-			if ts, err := strconv.ParseInt(parts[7], 10, 64); err == nil {
-				t := time.Unix(ts, 0)
-				untilTS = &t
-			}
-		}
-
-		result = append(result, &StoredSuggestion{
+		suggestion := &StoredSuggestion{
 			ID:             parts[0],
-			CreatedAt:      createdAt,
+			CreatedAt:      time.Unix(createdUnix, 0),
 			SuggestionType: parts[2],
 			Title:          parts[3],
 			Description:    parts[4],
 			ActionCmd:      parts[5],
 			Status:         Status(parts[6]),
-			UntilTS:        untilTS,
 			Context:        parts[8],
-		})
+		}
+
+		if untilUnix, err := strconv.ParseInt(parts[7], 10, 64); err == nil && untilUnix > 0 {
+			until := time.Unix(untilUnix, 0)
+			suggestion.UntilTS = &until
+		}
+
+		result = append(result, suggestion)
 	}
 	return result
 }

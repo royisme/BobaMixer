@@ -40,8 +40,8 @@ type Router struct {
 
 // NewRouter creates a new router
 func NewRouter(routes *config.RoutesConfig) *Router {
-	epsilonRate := 0.03      // 3% default exploration rate
-	enableExplore := true    // enabled by default
+	epsilonRate := 0.03   // 3% default exploration rate
+	enableExplore := true // enabled by default
 
 	// Use configuration if available
 	if routes != nil {
@@ -151,42 +151,87 @@ func (r *Router) collectAllProfiles() []string {
 }
 
 // matchRule checks if a rule matches the context
+//
 //nolint:gocyclo // Complex rule matching with multiple conditions and operators
 func (r *Router) matchRule(rule config.RouteRule, ctx Context) bool {
 	if rule.If == "" {
 		return false
 	}
 
-	// Simple expression evaluator
-	// Supports: intent=='value', text.matches('pattern'), ctx_chars>N, etc.
-	expr := rule.If
+	return r.evaluateBooleanExpression(strings.TrimSpace(rule.If), ctx)
+}
 
-	// Handle AND (&&) operator
-	if strings.Contains(expr, "&&") {
-		parts := strings.Split(expr, "&&")
-		for _, part := range parts {
-			trimmed := strings.TrimSpace(part)
-			if !r.evaluateSingleCondition(trimmed, ctx) {
-				return false
-			}
-		}
-		return true
-	}
-
-	// Handle OR (||) operator
-	if strings.Contains(expr, "||") {
-		parts := strings.Split(expr, "||")
-		for _, part := range parts {
-			trimmed := strings.TrimSpace(part)
-			if r.evaluateSingleCondition(trimmed, ctx) {
-				return true
-			}
-		}
+// evaluateBooleanExpression evaluates complex boolean expressions supporting &&, ||, and parentheses
+func (r *Router) evaluateBooleanExpression(expr string, ctx Context) bool {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
 		return false
 	}
 
-	// Single condition
+	expr = trimOuterParentheses(expr)
+
+	// Evaluate OR at the top level first (lowest precedence)
+	if idx := findTopLevelOperator(expr, "||"); idx >= 0 {
+		left := expr[:idx]
+		right := expr[idx+2:]
+		return r.evaluateBooleanExpression(left, ctx) || r.evaluateBooleanExpression(right, ctx)
+	}
+
+	// Then evaluate AND
+	if idx := findTopLevelOperator(expr, "&&"); idx >= 0 {
+		left := expr[:idx]
+		right := expr[idx+2:]
+		return r.evaluateBooleanExpression(left, ctx) && r.evaluateBooleanExpression(right, ctx)
+	}
+
 	return r.evaluateSingleCondition(expr, ctx)
+}
+
+func findTopLevelOperator(expr string, op string) int {
+	depth := 0
+	opLen := len(op)
+	for i := 0; i <= len(expr)-opLen; i++ {
+		switch expr[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		}
+		if depth == 0 && strings.HasPrefix(expr[i:], op) {
+			return i
+		}
+	}
+	return -1
+}
+
+func trimOuterParentheses(expr string) string {
+	for {
+		expr = strings.TrimSpace(expr)
+		if len(expr) < 2 || expr[0] != '(' || expr[len(expr)-1] != ')' {
+			return expr
+		}
+		match := matchingParenIndex(expr, 0)
+		if match != len(expr)-1 {
+			return expr
+		}
+		expr = expr[1 : len(expr)-1]
+	}
+}
+
+func matchingParenIndex(expr string, start int) int {
+	depth := 0
+	for i := start; i < len(expr); i++ {
+		switch expr[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // evaluateSingleCondition evaluates a single condition expression
