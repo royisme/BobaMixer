@@ -36,6 +36,11 @@ import (
 const (
 	scopeGlobal  = "global"
 	scopeProject = "project"
+
+	// Status symbols for output
+	statusOK      = statusOK
+	statusError   = statusError
+	statusWarning = statusWarning
 )
 
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
@@ -190,6 +195,7 @@ func runUse(home string, args []string) error {
 	return nil
 }
 
+//nolint:unparam // Keeping error return for consistency with other command handlers
 func runVersion() error {
 	v := version.GetVersionInfo()
 	fmt.Println(v.String())
@@ -332,12 +338,13 @@ func runEdit(home string, args []string) error {
 	return nil
 }
 
+//nolint:unparam // Keeping error return for consistency with other command handlers
 func runDoctor(home string, _ []string) error {
 	fmt.Println("BobaMixer Doctor")
 	fmt.Println("================")
 	fmt.Println()
 
-	fmt.Printf("✓ Home directory: %s\n", home)
+	fmt.Printf("%s Home directory: %s\n", statusOK, home)
 	if info, err := os.Stat(home); err == nil {
 		fmt.Printf("  Permissions: %04o\n", info.Mode().Perm())
 	}
@@ -350,48 +357,48 @@ func runDoctor(home string, _ []string) error {
 	if _, err := os.Stat(profsPath); err == nil {
 		loaded, err := config.LoadProfiles(home)
 		if err != nil {
-			fmt.Printf("✗ profiles.yaml: invalid (%v)\n", err)
+			fmt.Printf("%s profiles.yaml: invalid (%v)\n", statusError, err)
 		} else {
 			profs = loaded
-			fmt.Printf("✓ profiles.yaml: %d profiles\n", len(profs))
+			fmt.Printf("%s profiles.yaml: %d profiles\n", statusOK, len(profs))
 		}
 	} else {
-		fmt.Println("✗ profiles.yaml: not found")
+		fmt.Printf("%s profiles.yaml: not found\n", statusError)
 	}
 
 	secretsPath := filepath.Join(home, "secrets.yaml")
 	if _, err := os.Stat(secretsPath); err == nil {
 		if err := config.ValidateSecretsPermissions(home); err != nil {
-			fmt.Printf("✗ secrets.yaml: %v\n", err)
+			fmt.Printf("%s secrets.yaml: %v\n", statusError, err)
 		} else if info, statErr := os.Stat(secretsPath); statErr == nil {
-			fmt.Printf("✓ secrets.yaml: permissions OK (%04o)\n", info.Mode().Perm())
+			fmt.Printf("%s secrets.yaml: permissions OK (%04o)\n", statusOK, info.Mode().Perm())
 		}
 	} else {
-		fmt.Println("⚠ secrets.yaml: not found (run 'boba edit secrets' to add API keys)")
+		fmt.Printf("%s secrets.yaml: not found (run 'boba edit secrets' to add API keys)\n", statusWarning)
 	}
 
 	routesPath := filepath.Join(home, "routes.yaml")
 	if _, err := os.Stat(routesPath); err == nil {
 		routes, err := config.LoadRoutes(home)
 		if err != nil {
-			fmt.Printf("✗ routes.yaml: invalid (%v)\n", err)
+			fmt.Printf("%s routes.yaml: invalid (%v)\n", statusError, err)
 		} else {
-			fmt.Printf("✓ routes.yaml: %d rules, %d sub-agents\n", len(routes.Rules), len(routes.SubAgents))
+			fmt.Printf("%s routes.yaml: %d rules, %d sub-agents\n", statusOK, len(routes.Rules), len(routes.SubAgents))
 		}
 	} else {
-		fmt.Println("⚠ routes.yaml: not found (optional)")
+		fmt.Printf("%s routes.yaml: not found (optional)\n", statusWarning)
 	}
 
 	pricingPath := filepath.Join(home, "pricing.yaml")
 	if _, err := os.Stat(pricingPath); err == nil {
 		pricingCfg, err := config.LoadPricing(home)
 		if err != nil {
-			fmt.Printf("✗ pricing.yaml: invalid (%v)\n", err)
+			fmt.Printf("%s pricing.yaml: invalid (%v)\n", statusError, err)
 		} else {
-			fmt.Printf("✓ pricing.yaml: %d models configured\n", len(pricingCfg.Models))
+			fmt.Printf("%s pricing.yaml: %d models configured\n", statusOK, len(pricingCfg.Models))
 		}
 	} else {
-		fmt.Println("⚠ pricing.yaml: not found (optional)")
+		fmt.Printf("%s pricing.yaml: not found (optional)\n", statusWarning)
 	}
 
 	fmt.Println()
@@ -407,7 +414,7 @@ func runDoctor(home string, _ []string) error {
 	fmt.Println("Diagnosis complete.")
 	fmt.Println()
 	fmt.Println("Summary:")
-	fmt.Println("  Review any ✗/⚠ entries above for actionable fixes.")
+	fmt.Printf("  Review any %s/%s entries above for actionable fixes.\n", statusError, statusWarning)
 	return nil
 }
 
@@ -415,44 +422,44 @@ func diagnoseDatabase(home string) {
 	fmt.Println("Database Health:")
 	dbPath := filepath.Join(home, "usage.db")
 	if _, err := os.Stat(dbPath); err != nil {
-		fmt.Println("⚠ usage.db: will be created on first use")
+		fmt.Printf("%s usage.db: will be created on first use\n", statusWarning)
 		return
 	}
 
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
-		fmt.Printf("✗ usage.db: cannot open (%v)\n", err)
+		fmt.Printf("%s usage.db: cannot open (%v)\n", statusError, err)
 		fmt.Println("  Fix: remove corrupted usage.db or ensure sqlite3 is installed")
 		return
 	}
 
 	version, err := db.QueryInt("PRAGMA user_version;")
 	if err != nil {
-		fmt.Printf("✗ usage.db: cannot read schema version (%v)\n", err)
+		fmt.Printf("%s usage.db: cannot read schema version (%v)\n", statusError, err)
 	} else {
-		fmt.Printf("✓ usage.db: schema v%d\n", version)
+		fmt.Printf("%s usage.db: schema v%d\n", statusOK, version)
 	}
 
 	walMode, err := db.QueryRow("PRAGMA journal_mode;")
 	if err != nil {
-		fmt.Printf("  ⚠ Cannot check WAL mode: %v\n", err)
+		fmt.Printf("  %s Cannot check WAL mode: %v\n", statusWarning, err)
 	} else if strings.EqualFold(strings.TrimSpace(walMode), "wal") {
-		fmt.Println("  ✓ WAL mode enabled")
+		fmt.Printf("  %s WAL mode enabled\n", statusOK)
 	} else {
-		fmt.Printf("  ⚠ WAL mode not enabled (current: %s)\n", strings.TrimSpace(walMode))
+		fmt.Printf("  %s WAL mode not enabled (current: %s)\n", statusWarning, strings.TrimSpace(walMode))
 	}
 
 	if _, err := db.QueryRow("SELECT COUNT(*) FROM sessions;"); err != nil {
-		fmt.Printf("  ⚠ Database read test failed: %v\n", err)
+		fmt.Printf("  %s Database read test failed: %v\n", statusWarning, err)
 	} else {
-		fmt.Println("  ✓ Read test passed")
+		fmt.Printf("  %s Read test passed\n", statusOK)
 	}
 
 	if err := runDoctorWriteProbe(db); err != nil {
-		fmt.Printf("  ✗ Write probe failed: %v\n", err)
+		fmt.Printf("  %s Write probe failed: %v\n", statusError, err)
 		fmt.Println("    Fix: ensure ~/.boba is writable and sqlite3 supports WAL mode")
 	} else {
-		fmt.Println("  ✓ Write probe passed")
+		fmt.Printf("  %s Write probe passed\n", statusOK)
 	}
 }
 
@@ -475,7 +482,7 @@ func diagnosePricingSources(home string) {
 	fmt.Println("Pricing Sources:")
 	pricingCfg, err := config.LoadPricing(home)
 	if err != nil {
-		fmt.Printf("✗ pricing.yaml: invalid (%v)\n", err)
+		fmt.Printf("%s pricing.yaml: invalid (%v)\n", err)
 		return
 	}
 
@@ -485,22 +492,22 @@ func diagnosePricingSources(home string) {
 		case "http-json":
 			count, err := doctorFetchPricingHTTP(source.URL)
 			if err != nil {
-				fmt.Printf("⚠ %s: %v\n", source.URL, err)
+				fmt.Printf("%s %s: %v\n", source.URL, err)
 			} else {
 				success = true
-				fmt.Printf("✓ %s reachable (%d models)\n", source.URL, count)
+				fmt.Printf("%s %s reachable (%d models)\n", source.URL, count)
 			}
 		case "file":
 			path := doctorExpandHome(source.Path, home)
 			count, err := doctorLoadPricingFile(path)
 			if err != nil {
-				fmt.Printf("⚠ %s: %v\n", path, err)
+				fmt.Printf("%s %s: %v\n", path, err)
 			} else {
 				success = true
-				fmt.Printf("✓ %s loaded (%d models)\n", path, count)
+				fmt.Printf("%s %s loaded (%d models)\n", path, count)
 			}
 		default:
-			fmt.Printf("⚠ Unsupported pricing source type: %s\n", source.Type)
+			fmt.Printf("%s Unsupported pricing source type: %s\n", source.Type)
 		}
 	}
 
@@ -508,19 +515,19 @@ func diagnosePricingSources(home string) {
 	if info, err := os.Stat(cachePath); err == nil {
 		cacheAge := time.Since(info.ModTime())
 		if cacheAge < 24*time.Hour {
-			fmt.Printf("✓ Pricing cache fresh (updated %s)\n", info.ModTime().Format("2006-01-02 15:04"))
+			fmt.Printf("%s Pricing cache fresh (updated %s)\n", info.ModTime().Format("2006-01-02 15:04"))
 		} else {
-			fmt.Printf("⚠ Pricing cache stale since %s (will refresh on next fetch)\n", info.ModTime().Format("2006-01-02 15:04"))
+			fmt.Printf("%s Pricing cache stale since %s (will refresh on next fetch)\n", info.ModTime().Format("2006-01-02 15:04"))
 		}
 		if !success {
 			fmt.Println("  ↳ Falling back to cached pricing until remote fetch succeeds.")
 		}
 	} else {
-		fmt.Println("⚠ Pricing cache not found, will populate on next successful fetch")
+		fmt.Printf("%s Pricing cache not found, will populate on next successful fetch")
 	}
 
 	if len(pricingCfg.Sources) == 0 {
-		fmt.Println("⚠ No remote pricing sources configured. Add an http-json source in pricing.yaml to enable auto refresh.")
+		fmt.Printf("%s No remote pricing sources configured. Add an http-json source in pricing.yaml to enable auto refresh.")
 	}
 }
 
@@ -563,6 +570,7 @@ func doctorFetchPricingHTTP(url string) (int, error) {
 }
 
 func doctorLoadPricingFile(path string) (int, error) {
+	// #nosec G304 -- path is from pricing config file sources, validated by config loader
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
@@ -586,7 +594,7 @@ func doctorExpandHome(path, home string) string {
 func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 	fmt.Println("Network & API Keys:")
 	if len(profs) == 0 {
-		fmt.Println("⚠ No profiles configured yet. Run 'boba edit profiles' to add one.")
+		fmt.Printf("%s No profiles configured yet. Run 'boba edit profiles' to add one.")
 		return
 	}
 
@@ -603,14 +611,14 @@ func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 
 	prof, ok := profs[activeProfile]
 	if !ok {
-		fmt.Println("✗ Active profile not found in profiles.yaml")
+		fmt.Printf("%s Active profile not found in profiles.yaml")
 		return
 	}
 
 	fmt.Printf("Testing profile: %s (%s)\n", prof.Key, prof.Provider)
 	secrets, err := config.LoadSecrets(home)
 	if err != nil {
-		fmt.Printf("✗ Cannot load secrets.yaml: %v\n", err)
+		fmt.Printf("%s Cannot load secrets.yaml: %v\n", err)
 		fmt.Println("  Fix: ensure secrets.yaml exists and is valid YAML")
 		return
 	}
@@ -620,29 +628,29 @@ func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 	if !doctorHasAPIKey(envMap) {
 		missing := doctorSecretPlaceholders(prof.Env)
 		if len(missing) > 0 {
-			fmt.Printf("✗ API key missing. Expected secrets: %s\n", strings.Join(missing, ", "))
+			fmt.Printf("%s API key missing. Expected secrets: %s\n", strings.Join(missing, ", "))
 		} else {
-			fmt.Println("✗ API key missing. Add provider credentials to secrets.yaml")
+			fmt.Printf("%s API key missing. Add provider credentials to secrets.yaml")
 		}
 		fmt.Println("  Fix: run 'boba edit secrets' and add the appropriate secret value.")
 		return
 	}
-	fmt.Println("✓ API key detected")
+	fmt.Printf("%s API key detected\n", statusOK)
 
 	if prof.Adapter != "http" {
-		fmt.Printf("⚠ Adapter '%s' does not support HTTP diagnostics. Use 'boba call' to validate connectivity.\n", prof.Adapter)
+		fmt.Printf("%s Adapter '%s' does not support HTTP diagnostics. Use 'boba call' to validate connectivity.\n", statusWarning, prof.Adapter)
 		return
 	}
 
 	headers := doctorHeadersFromEnv(envVars)
 	if headers == nil {
-		fmt.Println("✗ Unable to derive HTTP headers from profile env. Ensure *_API_KEY entries are set.")
+		fmt.Printf("%s Unable to derive HTTP headers from profile env. Ensure *_API_KEY entries are set.\n", statusError)
 		return
 	}
 
 	status, detail := probeHTTPEndpoint(prof.Endpoint, headers, buildDoctorProbePayload(prof))
 	fmt.Printf("%s Network probe: %s\n", status, detail)
-	if status == "✗" {
+	if status == statusError {
 		fmt.Println("  Fix: verify the endpoint URL and credentials, then retry 'boba doctor'.")
 	}
 }
@@ -705,7 +713,7 @@ func doctorHeadersFromEnv(env []string) map[string]string {
 
 func probeHTTPEndpoint(endpoint string, headers map[string]string, payload []byte) (string, string) {
 	if endpoint == "" {
-		return "✗", "endpoint not configured"
+		return statusError, "endpoint not configured"
 	}
 	status, detail, retry := sendHTTPProbe(endpoint, headers, http.MethodHead, nil)
 	if retry {
@@ -726,7 +734,7 @@ func sendHTTPProbe(endpoint string, headers map[string]string, method string, bo
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, reader)
 	if err != nil {
-		return "✗", fmt.Sprintf("invalid endpoint: %v", err), false
+		return statusError, fmt.Sprintf("invalid endpoint: %v", err), false
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
@@ -735,34 +743,34 @@ func sendHTTPProbe(endpoint string, headers map[string]string, method string, bo
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		if isTimeoutErr(err) {
-			return "✗", "request timed out", false
+			return statusError, "request timed out", false
 		}
-		return "✗", fmt.Sprintf("network error: %v", err), false
+		return statusError, fmt.Sprintf("network error: %v", err), false
 	}
 	defer func() {
 		_ = resp.Body.Close() //nolint:errcheck,gosec
 	}()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-		return "✓", fmt.Sprintf("reachable (%s)", resp.Status), false
+		return statusOK, fmt.Sprintf("reachable (%s)", resp.Status), false
 	}
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return "✗", "401 unauthorized - update API key in secrets.yaml", false
+		return statusError, "401 unauthorized - update API key in secrets.yaml", false
 	case http.StatusForbidden:
-		return "✗", "403 forbidden - check provider access/billing", false
+		return statusError, "403 forbidden - check provider access/billing", false
 	case http.StatusTooManyRequests:
-		return "⚠", "rate limited (429) - wait before retrying", false
+		return statusWarning, "rate limited (429) - wait before retrying", false
 	case http.StatusBadRequest:
 		if method == http.MethodPost {
-			return "✓", "authentication OK (probe payload rejected as expected)", false
+			return statusOK, "authentication OK (probe payload rejected as expected)", false
 		}
 	case http.StatusNotFound, http.StatusMethodNotAllowed:
-		return "⚠", fmt.Sprintf("%s - retrying with POST", resp.Status), true
+		return statusWarning, fmt.Sprintf("%s - retrying with POST", resp.Status), true
 	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-		return "⚠", fmt.Sprintf("provider error (%s)", resp.Status), false
+		return statusWarning, fmt.Sprintf("provider error (%s)", resp.Status), false
 	}
-	return "⚠", fmt.Sprintf("unexpected response (%s)", resp.Status), false
+	return statusWarning, fmt.Sprintf("unexpected response (%s)", resp.Status), false
 }
 
 func buildDoctorProbePayload(profile config.Profile) []byte {
@@ -1016,10 +1024,10 @@ func runAction(home string, args []string) error {
 		}
 		summary, err := app.Apply(s)
 		if err != nil {
-			fmt.Printf("✗ %s: %v\n", s.Title, err)
+			fmt.Printf("%s %s: %v\n", s.Title, err)
 			continue
 		}
-		fmt.Printf("✓ %s -> %s\n", s.Title, summary)
+		fmt.Printf("%s %s -> %s\n", s.Title, summary)
 		applied++
 	}
 	if applied == 0 {
@@ -1541,7 +1549,7 @@ complete -c boba -n "__fish_seen_subcommand_from completions" -a "install uninst
 		return fmt.Errorf("write completion script: %w", err)
 	}
 
-	fmt.Printf("✓ Completion script installed to %s\n", destPath)
+	fmt.Printf("%s Completion script installed to %s\n", destPath)
 	fmt.Println()
 
 	// Print instructions
@@ -1590,7 +1598,7 @@ func runCompletionsUninstall(home string, args []string) error {
 		return fmt.Errorf("remove completion script: %w", err)
 	}
 
-	fmt.Printf("✓ Completion script removed from %s\n", destPath)
+	fmt.Printf("%s Completion script removed from %s\n", destPath)
 	return nil
 }
 

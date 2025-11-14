@@ -339,17 +339,14 @@ func (t *Tracker) GetMergedStatus(project string) (*Status, error) {
 	}
 
 	// Use project budget if available, otherwise use global
-	var effectiveBudget *Budget
 	var scope, target string
 
 	if projectErr == nil {
 		// Project budget exists - use it (project overrides global)
-		effectiveBudget = projectBudget
 		scope = "project"
 		target = project
 	} else {
 		// Use global budget
-		effectiveBudget = globalBudget
 		scope = "global"
 		target = ""
 	}

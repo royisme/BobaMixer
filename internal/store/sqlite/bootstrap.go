@@ -111,7 +111,7 @@ func (db *DB) bootstrap() error {
 		if err := db.migrateToV3(); err != nil {
 			return fmt.Errorf("migrate to v3: %w", err)
 		}
-		version = 3
+		// version = 3 (final version, no further checks needed)
 	}
 
 	return nil

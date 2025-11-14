@@ -1,3 +1,4 @@
+// Package version provides version information for BobaMixer.
 package version
 
 import (
