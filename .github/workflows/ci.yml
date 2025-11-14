@@ -5,9 +5,6 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-env:
-  GO_VERSION: "1.25.4"
-
 # Cancel in-progress runs for the same workflow and ref
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,15 +16,8 @@ jobs:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: go.sum
+      - name: setup go env
+        uses: ./.github/actions/setup-env
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
@@ -44,21 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: lint
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: go.sum
-
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Verify dependencies
-        run: go mod verify
+      - name: setup go env
+        uses: ./.github/actions/setup-env
 
       - name: Run tests with coverage
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
@@ -84,15 +61,8 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: go.sum
+      - name: setup go env
+        uses: ./.github/actions/setup-env
 
       - name: Build binary
         env:

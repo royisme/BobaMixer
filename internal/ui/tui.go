@@ -91,13 +91,17 @@ var (
 				Bold(true)
 
 	budgetDangerStyle = lipgloss.NewStyle().
-				Foreground(dangerColor).
-				Bold(true)
+			Foreground(dangerColor).
+			Bold(true)
 
 	helpStyle = lipgloss.NewStyle().
-			Foreground(mutedColor).
-			Italic(true)
+		Foreground(mutedColor).
+		Italic(true)
 )
+
+func colorize(color lipgloss.Color, text string) string {
+	return lipgloss.NewStyle().Foreground(color).Render(text)
+}
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
@@ -390,11 +394,11 @@ func (m Model) renderTrends() string {
 	var trendMsg string
 	switch trendDir {
 	case "increasing":
-		trendMsg = warningColor.Render("📈 Increasing")
+		trendMsg = colorize(warningColor, "📈 Increasing")
 	case "decreasing":
-		trendMsg = successColor.Render("📉 Decreasing")
+		trendMsg = colorize(successColor, "📉 Decreasing")
 	default:
-		trendMsg = mutedColor.Render("➡ Stable")
+		trendMsg = colorize(mutedColor, "➡ Stable")
 	}
 	lines = append(lines, fmt.Sprintf("Trend: %s", trendMsg))
 
@@ -409,9 +413,9 @@ func (m Model) renderSessions() string {
 	lines := []string{headerStyle.Render("Recent Sessions"), ""}
 	for _, sess := range m.sessionList {
 		started := time.Unix(sess.StartedAt, 0).Format("01-02 15:04")
-		status := successColor.Render("✓")
+		status := colorize(successColor, "✓")
 		if !sess.Success {
-			status = dangerColor.Render("✗")
+			status = colorize(dangerColor, "✗")
 		}
 		dur := fmt.Sprintf("%dms", sess.LatencyMS)
 		lines = append(lines,
@@ -495,11 +499,11 @@ func (m Model) renderFooter() string {
 	var parts []string
 
 	if m.err != nil {
-		parts = append(parts, dangerColor.Render("Error: "+m.err.Error()))
+		parts = append(parts, colorize(dangerColor, "Error: "+m.err.Error()))
 	}
 
 	if m.flashMessage != "" {
-		parts = append(parts, successColor.Render(m.flashMessage))
+		parts = append(parts, colorize(successColor, m.flashMessage))
 	}
 
 	if !m.lastUpdate.IsZero() {

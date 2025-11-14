@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -38,6 +39,8 @@ type Status struct {
 type Tracker struct {
 	db *sqlite.DB
 }
+
+var idCounter uint64
 
 // NewTracker creates a new budget tracker
 func NewTracker(db *sqlite.DB) *Tracker {
@@ -313,7 +316,8 @@ func (s *Status) FormatStatus() string {
 }
 
 func generateID() string {
-	return fmt.Sprintf("budget_%d", time.Now().UnixNano())
+	seq := atomic.AddUint64(&idCounter, 1)
+	return fmt.Sprintf("budget_%d_%d", time.Now().UnixNano(), seq)
 }
 
 func escape(s string) string {

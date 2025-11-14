@@ -1,0 +1,31 @@
+name: Setup Go environment
+description: Checkout, setup Go, and download modules
+
+inputs:
+  go-version:
+    description: Go version to use
+    required: false
+    default: "1.25"
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: true # 交给 setup-go 内置缓存
+
+    - name: Download dependencies
+      run: go mod download
+      shell: bash
+
+    - name: Verify dependencies
+      run: go mod verify
+      shell: bash
