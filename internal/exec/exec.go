@@ -45,13 +45,13 @@ type ToolExecSpec struct {
 
 // ToolExecResult contains the result of tool execution.
 type ToolExecResult struct {
-	SessionID   string
-	Success     bool
-	ExitCode    int
-	StdoutSize  int64
-	StderrSize  int64
-	LatencyMS   int64
-	ErrorClass  string
+	SessionID  string
+	Success    bool
+	ExitCode   int
+	StdoutSize int64
+	StderrSize int64
+	LatencyMS  int64
+	ErrorClass string
 }
 
 // BeginSession creates a new session in the database and returns the session ID.
@@ -96,7 +96,7 @@ func RecordUsage(ctx context.Context, db *sqlite.DB, sessionID string, usage Usa
 		usage.OutputTokens,
 		usage.InputCost,
 		usage.OutputCost,
-		"",                           // tool can be empty for now
+		"", // tool can be empty for now
 		sqlEscape(usage.Model),
 		sqlEscape(usage.Estimate),
 	)
@@ -108,9 +108,9 @@ func RecordUsage(ctx context.Context, db *sqlite.DB, sessionID string, usage Usa
 	return nil
 }
 
-// EndSession marks a session as complete with success status and optional notes.
+// EndSession marks a session as complete with success status, latency and optional notes.
 // This must be called exactly once per session, even if the session failed.
-func EndSession(ctx context.Context, db *sqlite.DB, sessionID string, success bool, notes string) error {
+func EndSession(ctx context.Context, db *sqlite.DB, sessionID string, success bool, latencyMS int64, notes string) error {
 	successInt := 0
 	if success {
 		successInt = 1
@@ -118,9 +118,10 @@ func EndSession(ctx context.Context, db *sqlite.DB, sessionID string, success bo
 	now := time.Now().Unix()
 
 	query := fmt.Sprintf(
-		`UPDATE sessions SET ended_at = %d, success = %d, notes = '%s' WHERE id = '%s';`,
+		`UPDATE sessions SET ended_at = %d, success = %d, latency_ms = %d, notes = '%s' WHERE id = '%s';`,
 		now,
 		successInt,
+		latencyMS,
 		sqlEscape(notes),
 		sessionID,
 	)
@@ -159,7 +160,7 @@ func RunTool(ctx context.Context, db *sqlite.DB, home string, spec ToolExecSpec)
 	toolResult, err := tool.Run(ctx, toolSpec)
 	if err != nil {
 		// End session with error
-		if endErr := EndSession(ctx, db, sessionID, false, err.Error()); endErr != nil {
+		if endErr := EndSession(ctx, db, sessionID, false, 0, err.Error()); endErr != nil {
 			// Log but don't override original error
 			fmt.Printf("Warning: failed to end session: %v\n", endErr)
 		}
@@ -186,18 +187,18 @@ func RunTool(ctx context.Context, db *sqlite.DB, home string, spec ToolExecSpec)
 	if !success {
 		notes = fmt.Sprintf("exit code %d: %s", toolResult.ExitCode, toolResult.ErrorClass)
 	}
-	if err := EndSession(ctx, db, sessionID, success, notes); err != nil {
+	if err := EndSession(ctx, db, sessionID, success, toolResult.LatencyMS, notes); err != nil {
 		return nil, fmt.Errorf("end session: %w", err)
 	}
 
 	return &ToolExecResult{
-		SessionID:   sessionID,
-		Success:     toolResult.Success,
-		ExitCode:    toolResult.ExitCode,
-		StdoutSize:  toolResult.StdoutSize,
-		StderrSize:  toolResult.StderrSize,
-		LatencyMS:   toolResult.LatencyMS,
-		ErrorClass:  toolResult.ErrorClass,
+		SessionID:  sessionID,
+		Success:    toolResult.Success,
+		ExitCode:   toolResult.ExitCode,
+		StdoutSize: toolResult.StdoutSize,
+		StderrSize: toolResult.StderrSize,
+		LatencyMS:  toolResult.LatencyMS,
+		ErrorClass: toolResult.ErrorClass,
 	}, nil
 }
 
@@ -231,7 +232,7 @@ func RunHTTP(ctx context.Context, db *sqlite.DB, home string, req HTTPRequest) (
 	httpxResult, err := httpx.Execute(ctx, httpxReq)
 	if err != nil {
 		// End session with error
-		if endErr := EndSession(ctx, db, sessionID, false, err.Error()); endErr != nil {
+		if endErr := EndSession(ctx, db, sessionID, false, 0, err.Error()); endErr != nil {
 			// Log but don't override original error
 			fmt.Printf("Warning: failed to end session: %v\n", endErr)
 		}
@@ -258,7 +259,7 @@ func RunHTTP(ctx context.Context, db *sqlite.DB, home string, req HTTPRequest) (
 	if !success {
 		notes = fmt.Sprintf("status %d: %s", httpxResult.StatusCode, httpxResult.ErrorClass)
 	}
-	if err := EndSession(ctx, db, sessionID, success, notes); err != nil {
+	if err := EndSession(ctx, db, sessionID, success, httpxResult.Usage.LatencyMS, notes); err != nil {
 		return nil, fmt.Errorf("end session: %w", err)
 	}
 
@@ -285,12 +286,12 @@ type HTTPRequest struct {
 
 // HTTPResult represents the result of an HTTP request.
 type HTTPResult struct {
-	SessionID   string
-	Success     bool
-	StatusCode  int
-	Body        []byte
-	LatencyMS   int64
-	ErrorClass  string
+	SessionID  string
+	Success    bool
+	StatusCode int
+	Body       []byte
+	LatencyMS  int64
+	ErrorClass string
 }
 
 // sqlEscape escapes single quotes for SQLite.

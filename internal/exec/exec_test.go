@@ -3,6 +3,8 @@ package exec_test
 import (
 	"context"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/royisme/bobamixer/internal/exec"
@@ -62,21 +64,30 @@ func TestSessionLifecycle(t *testing.T) {
 		}
 
 		// When: EndSession
-		err = exec.EndSession(ctx, database, sessionID, true, "")
+		latency := int64(123)
+		err = exec.EndSession(ctx, database, sessionID, true, latency, "")
 
 		// Then: session is ended successfully
 		if err != nil {
 			t.Fatalf("EndSession failed: %v", err)
 		}
 
-		// Verify session exists in database
-		query := "SELECT success, ended_at FROM sessions WHERE id = '" + sessionID + "';"
+		// Verify session exists in database with persisted latency
+		query := "SELECT success, ended_at, latency_ms FROM sessions WHERE id = '" + sessionID + "';"
 		row, err := database.QueryRow(query)
 		if err != nil {
 			t.Fatalf("query failed: %v", err)
 		}
 		if row == "" {
 			t.Error("session not found in database")
+		}
+
+		parts := strings.Split(row, "|")
+		if len(parts) != 3 {
+			t.Fatalf("unexpected session row format: %s", row)
+		}
+		if parts[2] != strconv.FormatInt(latency, 10) {
+			t.Fatalf("expected latency %d, got %s", latency, parts[2])
 		}
 	})
 
@@ -92,7 +103,7 @@ func TestSessionLifecycle(t *testing.T) {
 			t.Fatalf("BeginSession failed: %v", err)
 		}
 
-		err = exec.EndSession(ctx, database, sessionID, false, "test error")
+		err = exec.EndSession(ctx, database, sessionID, false, 0, "test error")
 
 		// Then: session marked as failed
 		if err != nil {
@@ -124,7 +135,7 @@ func TestSessionLifecycle(t *testing.T) {
 
 		// Simulate failure scenario
 		// When: EndSession is called with success=false
-		err = exec.EndSession(ctx, database, sessionID, false, "simulated failure")
+		err = exec.EndSession(ctx, database, sessionID, false, 0, "simulated failure")
 
 		// Then: no error and session is properly closed
 		if err != nil {
@@ -277,7 +288,7 @@ func TestConcurrentSessions(t *testing.T) {
 
 		// End all sessions
 		for _, sessionID := range sessions {
-			if err := exec.EndSession(ctx, database, sessionID, true, ""); err != nil {
+			if err := exec.EndSession(ctx, database, sessionID, true, 0, ""); err != nil {
 				t.Fatalf("EndSession failed: %v", err)
 			}
 		}
