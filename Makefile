@@ -124,7 +124,31 @@ ci: ## Run CI checks locally
 	@$(MAKE) build
 	@echo "All CI checks passed!"
 
+# Version management
+version: ## Show current version
+	@echo "Current version: $(shell git describe --tags --abbrev=0 2>/dev/null || echo 'v1.0.0-dev')"
+	@./dist/boba version 2>/dev/null || echo "Build the binary first with 'make build'"
+
+bump: ## Show version bump information (same as 'boba bump --dry-run')
+	@echo "Analyzing changes since last tag..."
+	@./dist/boba bump --dry-run || echo "Build the binary first with 'make build'"
+
+bump-patch: ## Bump patch version and commit changes
+	@./dist/boba bump patch || echo "Build the binary first with 'make build'"
+
+bump-minor: ## Bump minor version and commit changes
+	@./dist/boba bump minor || echo "Build the binary first with 'make build'"
+
+bump-major: ## Bump major version and commit changes
+	@./dist/boba bump major || echo "Build the binary first with 'make build'"
+
+bump-auto: ## Auto-detect version bump type based on conventional commits
+	@./dist/boba bump auto || echo "Build the binary first with 'make build'"
+
 # Release targets
+release: ## Auto-detect version and create release tag
+	@./dist/boba release --auto || echo "Build the binary first with 'make build'"
+
 tag: ## Create and push a new version tag
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Usage: make tag VERSION=v1.0.0"; \
@@ -136,10 +160,13 @@ tag: ## Create and push a new version tag
 	@echo "Tag $(VERSION) pushed successfully!"
 
 release-patch: ## Create patch release (vX.Y.Z+1)
-	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1"."$$2"."$$3+1}')
+	@$(MAKE) bump-patch
+	@$(MAKE) release
 
 release-minor: ## Create minor release (vX.Y+1.0)
-	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1"."$$2+1".0"}')
+	@$(MAKE) bump-minor
+	@$(MAKE) release
 
 release-major: ## Create major release (vX+1.0.0)
-	@$(MAKE) tag VERSION=v$(shell git describe --tags --abbrev=0 | awk -F. '{print $$1+1".0.0"}')
+	@$(MAKE) bump-major
+	@$(MAKE) release

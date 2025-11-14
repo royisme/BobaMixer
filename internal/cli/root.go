@@ -72,6 +72,8 @@ func Run(args []string) error {
 		return runRoute(home, args[1:])
 	case "version":
 		return runVersion()
+	case "bump":
+		return runBump()
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
@@ -91,6 +93,7 @@ func printUsage() {
 	fmt.Println("  boba route test <text|@file>")
 	fmt.Println("  boba hooks install|remove|track")
 	fmt.Println("  boba version")
+	fmt.Println("  boba bump [major|minor|patch|auto] [--dry-run]")
 	fmt.Println("  boba release [major|minor|patch]")
 }
 
@@ -546,14 +549,92 @@ func findRepoRootFromArgs(args []string) (string, error) {
 }
 
 func runRelease(args []string) error {
-	flags := flag.NewFlagSet("release", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	if err := flags.Parse(args); err != nil {
-		return err
+	// Simple manual parsing for release flags
+	var auto bool
+	for _, arg := range args {
+		if arg == "--auto" {
+			auto = true
+			break
+		}
 	}
-	fmt.Println("Release management is now handled through GitHub Actions")
-	fmt.Println("Use: git tag v1.0.0 && git push origin v1.0.0")
-	fmt.Println("Or use make targets: make release-patch, make release-minor, make release-major")
+
+	if auto {
+		// Get current version
+		currentVersion, err := getCurrentVersion()
+		if err != nil {
+			return fmt.Errorf("failed to get current version: %w", err)
+		}
+
+		// Determine next version
+		nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
+		if err != nil {
+			return fmt.Errorf("failed to determine next version: %w", err)
+		}
+
+		// Create and push tag
+		tagName := "v" + nextVersion
+		fmt.Printf("Creating release tag: %s\n", tagName)
+
+		cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to create tag: %w", err)
+		}
+
+		cmd = exec.Command("git", "push", "origin", tagName)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to push tag: %w", err)
+		}
+
+		fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
+		fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
+		return nil
+	}
+
+	fmt.Println("Release management options:")
+	fmt.Println("  boba release --auto    # Automatically determine version and create release tag")
+	fmt.Println("  boba bump major|minor|patch  # Version bumping")
+	fmt.Println("  git tag v1.0.0 && git push origin v1.0.0  # Manual tag creation")
+	fmt.Println("  make release-patch|minor|major  # Quick release targets")
+	return nil
+}
+
+	if *auto {
+		// Get current version
+		currentVersion, err := getCurrentVersion()
+		if err != nil {
+			return fmt.Errorf("failed to get current version: %w", err)
+		}
+
+		// Determine next version
+		nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
+		if err != nil {
+			return fmt.Errorf("failed to determine next version: %w", err)
+		}
+
+		// Create and push tag
+		tagName := "v" + nextVersion
+		fmt.Printf("Creating release tag: %s\n", tagName)
+
+		cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to create tag: %w", err)
+		}
+
+		cmd = exec.Command("git", "push", "origin", tagName)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to push tag: %w", err)
+		}
+
+		fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
+		fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
+		return nil
+	}
+
+	fmt.Println("Release management options:")
+	fmt.Println("  boba release --auto    # Automatically determine version and create release tag")
+	fmt.Println("  boba bump major|minor|patch  # Version bumping")
+	fmt.Println("  git tag v1.0.0 && git push origin v1.0.0  # Manual tag creation")
+	fmt.Println("  make release-patch|minor|major  # Quick release targets")
 	return nil
 }
 
