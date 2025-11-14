@@ -113,7 +113,9 @@ func (e *Executor) Execute(ctx context.Context, req ExecuteRequest) (*ExecuteRes
 			logger.String("session_id", sessionID),
 			logger.Err(err))
 		// End session with error
-		_ = e.endSession(sessionID, false, time.Since(startTime).Milliseconds(), err.Error())
+		if endErr := e.endSession(sessionID, false, time.Since(startTime).Milliseconds(), err.Error()); endErr != nil {
+			logger.Error("Failed to end session after adapter error", logger.Err(endErr))
+		}
 		return nil, fmt.Errorf("adapter execute: %w", err)
 	}
 

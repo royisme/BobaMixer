@@ -324,3 +324,72 @@ func escape(s string) string {
 	// Simple SQL escape - in production use parameterized queries
 	return s
 }
+
+// GetMergedStatus returns budget status with project overriding global settings
+func (t *Tracker) GetMergedStatus(project string) (*Status, error) {
+	// Try to get project-specific budget first
+	projectBudget, projectErr := t.GetBudget("project", project)
+
+	// Get global budget as fallback
+	globalBudget, globalErr := t.GetGlobalBudget()
+
+	// If both fail, return error
+	if projectErr != nil && globalErr != nil {
+		return nil, fmt.Errorf("no budget configured (project or global)")
+	}
+
+	// Use project budget if available, otherwise use global
+	var scope, target string
+
+	if projectErr == nil {
+		// Project budget exists - use it (project overrides global)
+		scope = "project"
+		target = project
+	} else {
+		// Use global budget
+		scope = "global"
+		target = ""
+	}
+
+	// Get status for the effective budget
+	return t.GetStatus(scope, target)
+}
+
+// GetAllBudgets returns all configured budgets for display
+func (t *Tracker) GetAllBudgets() ([]*Budget, error) {
+	query := `SELECT id, scope, target, daily_usd, hard_cap, period_start, period_end, spent_usd
+		FROM budgets ORDER BY scope, target;`
+
+	rows, err := t.db.QueryRows(query)
+	if err != nil {
+		return nil, err
+	}
+
+	var budgets []*Budget
+	for _, row := range rows {
+		parts := strings.Split(row, "|")
+		if len(parts) < 8 {
+			continue
+		}
+
+		daily, _ := strconv.ParseFloat(parts[3], 64)
+		hard, _ := strconv.ParseFloat(parts[4], 64)
+		periodStart, _ := strconv.ParseInt(parts[5], 10, 64)
+		periodEnd, _ := strconv.ParseInt(parts[6], 10, 64)
+		spent, _ := strconv.ParseFloat(parts[7], 64)
+
+		budget := &Budget{
+			ID:          parts[0],
+			Scope:       parts[1],
+			Target:      parts[2],
+			DailyUSD:    daily,
+			HardCapUSD:  hard,
+			PeriodStart: periodStart,
+			PeriodEnd:   periodEnd,
+			SpentUSD:    spent,
+		}
+		budgets = append(budgets, budget)
+	}
+
+	return budgets, nil
+}

@@ -115,7 +115,7 @@ func Bool(key string, val bool) zap.Field {
 	return zap.Bool(key, val)
 }
 
-// Error creates a zap field for an error value
+// Err creates a zap field for an error value
 func Err(err error) zap.Field {
 	if err == nil {
 		return zap.Skip()

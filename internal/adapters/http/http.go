@@ -80,7 +80,7 @@ func (c *Client) executeWithRetry(ctx context.Context, req adapters.Request, max
 			select {
 			case <-time.After(backoffDuration):
 			case <-ctx.Done():
-				logger.Warn("HTTP request cancelled during retry", logger.Err(ctx.Err()))
+				logger.Warn("HTTP request canceled during retry", logger.Err(ctx.Err()))
 				return adapters.Result{}, ctx.Err()
 			}
 		}
