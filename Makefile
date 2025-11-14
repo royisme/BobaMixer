@@ -149,6 +149,9 @@ bump-auto: ## Auto-detect version bump type based on conventional commits
 release: ## Auto-detect version and create release tag
 	@./dist/boba release --auto || echo "Build the binary first with 'make build'"
 
+release-auto: ## Auto-detect version and create release tag (alias for release)
+	@$(MAKE) release
+
 tag: ## Create and push a new version tag
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Usage: make tag VERSION=v1.0.0"; \
