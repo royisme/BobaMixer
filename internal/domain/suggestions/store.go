@@ -3,6 +3,8 @@ package suggestions
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -126,13 +128,35 @@ func (s *Store) parseRows(rows []string) []*StoredSuggestion {
 	for _, row := range rows {
 		// Parse pipe-delimited row
 		// Format: id|created_at|type|title|description|action_cmd|status|until_ts|context
-		// This is a simplified parser - in production would use proper CSV parsing
+		parts := strings.Split(row, "|")
+		if len(parts) < 9 {
+			continue // Skip invalid rows
+		}
+
+		// Parse timestamps (Unix timestamp integers)
+		var createdAt time.Time
+		if ts, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+			createdAt = time.Unix(ts, 0)
+		}
+
+		var untilTS *time.Time
+		if parts[7] != "" && parts[7] != "0" {
+			if ts, err := strconv.ParseInt(parts[7], 10, 64); err == nil {
+				t := time.Unix(ts, 0)
+				untilTS = &t
+			}
+		}
+
 		result = append(result, &StoredSuggestion{
-			ID:             "parsed_row",
-			CreatedAt:      time.Now(),
-			SuggestionType: "unknown",
-			Title:          row,
-			Status:         StatusNew,
+			ID:             parts[0],
+			CreatedAt:      createdAt,
+			SuggestionType: parts[2],
+			Title:          parts[3],
+			Description:    parts[4],
+			ActionCmd:      parts[5],
+			Status:         Status(parts[6]),
+			UntilTS:        untilTS,
+			Context:        parts[8],
 		})
 	}
 	return result
