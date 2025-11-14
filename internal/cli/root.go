@@ -25,7 +25,7 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
-	"github.com/royisme/bobamixer/internal/logger"
+	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/svc"
@@ -67,12 +67,16 @@ func Run(args []string) error {
 	}
 
 	// Initialize structured logging
-	if err := logger.Init(home); err != nil {
+	if err := logging.Init(home); err != nil {
 		return fmt.Errorf("failed to initialize logger: %w", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		if err := logging.Sync(); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to flush logs: %v\n", err)
+		}
+	}()
 
-	logger.Info("BobaMixer CLI started")
+	logging.Info("BobaMixer CLI started")
 
 	// Enforce secrets permissions early so every command respects the baseline security requirement
 	if err := config.ValidateSecretsPermissions(home); err != nil {
@@ -87,7 +91,7 @@ func Run(args []string) error {
 
 	// No arguments: launch TUI dashboard
 	if len(args) == 0 {
-		logger.Info("Launching TUI dashboard")
+		logging.Info("Launching TUI dashboard")
 		return runTUI(home)
 	}
 
@@ -195,7 +199,7 @@ func runUse(home string, args []string) error {
 	start := time.Now()
 	var profileKey string
 	defer func() {
-		logCommandDuration("use", start, useSlowThreshold, logger.String("profile", profileKey))
+		logCommandDuration("use", start, useSlowThreshold, logging.String("profile", profileKey))
 	}()
 
 	if len(args) != 1 {
@@ -269,8 +273,8 @@ func runStats(home string, args []string) error {
 		start := time.Now()
 		err := showPeriodStats(db, 7, *byProfile)
 		logCommandDuration("stats", start, statsSlowThreshold,
-			logger.String("window", "7d"),
-			logger.Bool("by_profile", *byProfile),
+			logging.String("window", "7d"),
+			logging.Bool("by_profile", *byProfile),
 		)
 		return err
 	}
@@ -287,17 +291,17 @@ func runStats(home string, args []string) error {
 func logCommandDuration(command string, start time.Time, threshold time.Duration, extra ...zap.Field) {
 	duration := time.Since(start)
 	fields := []zap.Field{
-		logger.String("command", command),
-		logger.Int64("duration_ms", duration.Milliseconds()),
+		logging.String("command", command),
+		logging.Int64("duration_ms", duration.Milliseconds()),
 	}
 	if len(extra) > 0 {
 		fields = append(fields, extra...)
 	}
-	logger.Info("command_duration", fields...)
+	logging.Info("command_duration", fields...)
 	if threshold > 0 && duration > threshold {
 		slowFields := append([]zap.Field{}, fields...)
-		slowFields = append(slowFields, logger.Int64("slow_threshold_ms", threshold.Milliseconds()))
-		logger.Warn("command_duration_slow", slowFields...)
+		slowFields = append(slowFields, logging.Int64("slow_threshold_ms", threshold.Milliseconds()))
+		logging.Warn("command_duration_slow", slowFields...)
 	}
 }
 

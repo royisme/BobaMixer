@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/royisme/bobamixer/internal/adapters"
-	"github.com/royisme/bobamixer/internal/logger"
+	"github.com/royisme/bobamixer/internal/logging"
 )
 
 type Client struct {
@@ -72,22 +72,22 @@ func (c *Client) executeWithRetry(ctx context.Context, req adapters.Request, max
 		// Wait before retry (exponential backoff: 1s, 2s)
 		if attempt > 0 {
 			backoffDuration := time.Duration(attempt) * time.Second
-			logger.Info("HTTP retry backoff",
-				logger.String("client", c.name),
-				logger.Int("attempt", attempt),
-				logger.String("backoff", backoffDuration.String()))
+			logging.Info("HTTP retry backoff",
+				logging.String("client", c.name),
+				logging.Int("attempt", attempt),
+				logging.String("backoff", backoffDuration.String()))
 			fmt.Printf("[Retry %d after %s]\n", attempt, backoffDuration)
 			select {
 			case <-time.After(backoffDuration):
 			case <-ctx.Done():
-				logger.Warn("HTTP request canceled during retry", logger.Err(ctx.Err()))
+				logging.Warn("HTTP request canceled during retry", logging.Err(ctx.Err()))
 				return adapters.Result{}, ctx.Err()
 			}
 		}
 
 		// Log attempt
 		if attempt == 0 {
-			logger.Info("HTTP request attempt", logger.String("client", c.name))
+			logging.Info("HTTP request attempt", logging.String("client", c.name))
 			fmt.Println("[Attempt 1]")
 		}
 
@@ -98,10 +98,10 @@ func (c *Client) executeWithRetry(ctx context.Context, req adapters.Request, max
 
 		// If request creation or network error, retry
 		if err != nil {
-			logger.Error("HTTP request failed",
-				logger.String("client", c.name),
-				logger.Int("attempt", attempt),
-				logger.Err(err))
+			logging.Error("HTTP request failed",
+				logging.String("client", c.name),
+				logging.Int("attempt", attempt),
+				logging.Err(err))
 			if attempt < maxRetries {
 				fmt.Printf("Network error: %v\n", err)
 				continue
@@ -111,28 +111,28 @@ func (c *Client) executeWithRetry(ctx context.Context, req adapters.Request, max
 
 		// Check if we should retry based on status code
 		if result.Success {
-			logger.Info("HTTP request succeeded",
-				logger.String("client", c.name),
-				logger.Int64("latency_ms", result.Usage.LatencyMS),
-				logger.Int("input_tokens", result.Usage.InputTokens),
-				logger.Int("output_tokens", result.Usage.OutputTokens))
+			logging.Info("HTTP request succeeded",
+				logging.String("client", c.name),
+				logging.Int64("latency_ms", result.Usage.LatencyMS),
+				logging.Int("input_tokens", result.Usage.InputTokens),
+				logging.Int("output_tokens", result.Usage.OutputTokens))
 			return result, nil
 		}
 
 		// Parse status code from error message
 		shouldRetry := c.shouldRetry(result.Error)
 		if !shouldRetry || attempt >= maxRetries {
-			logger.Warn("HTTP request failed, not retrying",
-				logger.String("client", c.name),
-				logger.String("error", result.Error),
-				logger.Bool("should_retry", shouldRetry),
-				logger.Int("attempt", attempt))
+			logging.Warn("HTTP request failed, not retrying",
+				logging.String("client", c.name),
+				logging.String("error", result.Error),
+				logging.Bool("should_retry", shouldRetry),
+				logging.Int("attempt", attempt))
 			return result, nil
 		}
 
-		logger.Warn("HTTP request failed, will retry",
-			logger.String("client", c.name),
-			logger.String("error", result.Error))
+		logging.Warn("HTTP request failed, will retry",
+			logging.String("client", c.name),
+			logging.String("error", result.Error))
 		fmt.Printf("%s\n", result.Error)
 	}
 

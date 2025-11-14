@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/royisme/bobamixer/internal/logger"
+	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/store/config"
 )
 
@@ -50,21 +50,21 @@ func (r *Refresher) run(ctx context.Context) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
-	logger.Info("Pricing refresher started", logger.String("interval", r.interval.String()))
+	logging.Info("Pricing refresher started", logging.String("interval", r.interval.String()))
 
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Info("Pricing refresher stopped due to context cancellation")
+			logging.Info("Pricing refresher stopped due to context cancellation")
 			return
 		case <-r.stopCh:
-			logger.Info("Pricing refresher stopped")
+			logging.Info("Pricing refresher stopped")
 			return
 		case <-ticker.C:
 			if err := r.refresh(); err != nil {
-				logger.Error("Failed to refresh pricing", logger.Err(err))
+				logging.Error("Failed to refresh pricing", logging.Err(err))
 			} else {
-				logger.Info("Pricing refreshed successfully")
+				logging.Info("Pricing refreshed successfully")
 			}
 		}
 	}
