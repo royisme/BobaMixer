@@ -40,10 +40,19 @@ type Router struct {
 
 // NewRouter creates a new router
 func NewRouter(routes *config.RoutesConfig) *Router {
+	epsilonRate := 0.03      // 3% default exploration rate
+	enableExplore := true    // enabled by default
+
+	// Use configuration if available
+	if routes != nil {
+		epsilonRate = routes.Explore.Rate
+		enableExplore = routes.Explore.Enabled
+	}
+
 	return &Router{
 		routes:        routes,
-		epsilonRate:   0.03, // 3% default exploration rate
-		enableExplore: true,
+		epsilonRate:   epsilonRate,
+		enableExplore: enableExplore,
 		// #nosec G404 -- weak RNG acceptable for epsilon-greedy exploration
 		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -152,6 +161,37 @@ func (r *Router) matchRule(rule config.RouteRule, ctx Context) bool {
 	// Supports: intent=='value', text.matches('pattern'), ctx_chars>N, etc.
 	expr := rule.If
 
+	// Handle AND (&&) operator
+	if strings.Contains(expr, "&&") {
+		parts := strings.Split(expr, "&&")
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if !r.evaluateSingleCondition(trimmed, ctx) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Handle OR (||) operator
+	if strings.Contains(expr, "||") {
+		parts := strings.Split(expr, "||")
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if r.evaluateSingleCondition(trimmed, ctx) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Single condition
+	return r.evaluateSingleCondition(expr, ctx)
+}
+
+// evaluateSingleCondition evaluates a single condition expression
+func (r *Router) evaluateSingleCondition(expr string, ctx Context) bool {
+
 	// Check for intent equality
 	if strings.Contains(expr, "intent==") {
 		re := regexp.MustCompile(`intent=='([^']+)'`)
@@ -221,6 +261,48 @@ func (r *Router) matchRule(rule config.RouteRule, ctx Context) bool {
 			pattern := regexp.MustCompile(matches[1])
 			if pattern.MatchString(ctx.Branch) {
 				return true
+			}
+		}
+	}
+
+	// Check for branch.equals or branch=='value'
+	if strings.Contains(expr, "branch.equals") {
+		re := regexp.MustCompile(`branch\.equals\('([^']+)'\)`)
+		matches := re.FindStringSubmatch(expr)
+		if len(matches) > 1 && ctx.Branch == matches[1] {
+			return true
+		}
+	}
+	if strings.Contains(expr, "branch==") {
+		re := regexp.MustCompile(`branch=='([^']+)'`)
+		matches := re.FindStringSubmatch(expr)
+		if len(matches) > 1 && ctx.Branch == matches[1] {
+			return true
+		}
+	}
+
+	// Check for time_of_day.in('HH:MM-HH:MM')
+	if strings.Contains(expr, "time_of_day.in") {
+		re := regexp.MustCompile(`time_of_day\.in\('([^']+)'\)`)
+		matches := re.FindStringSubmatch(expr)
+		if len(matches) > 1 {
+			// Parse the time range
+			if checkTimeRangeString(matches[1]) {
+				return true
+			}
+		}
+	}
+
+	// Check for project_types.contains('type')
+	if strings.Contains(expr, "project_types.contains") {
+		re := regexp.MustCompile(`project_types\.contains\('([^']+)'\)`)
+		matches := re.FindStringSubmatch(expr)
+		if len(matches) > 1 {
+			targetType := matches[1]
+			for _, pt := range ctx.ProjectType {
+				if pt == targetType {
+					return true
+				}
 			}
 		}
 	}
@@ -302,4 +384,20 @@ func checkTimeRange(ranges []interface{}) bool {
 	}
 
 	return false
+}
+
+// checkTimeRangeString checks if current time is within a single time range string
+func checkTimeRangeString(rangeStr string) bool {
+	now := time.Now()
+	currentTime := now.Format("15:04")
+
+	parts := strings.Split(rangeStr, "-")
+	if len(parts) != 2 {
+		return false
+	}
+
+	start := strings.TrimSpace(parts[0])
+	end := strings.TrimSpace(parts[1])
+
+	return currentTime >= start && currentTime <= end
 }

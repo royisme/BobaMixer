@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const schemaVersion = 2
+const schemaVersion = 3
 
 type DB struct {
 	Path string
@@ -104,6 +104,14 @@ func (db *DB) bootstrap() error {
 		version = 2
 	}
 
+	// Version 2 -> 3: Add explore to sessions and suggestions table
+	if version == 2 {
+		if err := db.migrateToV3(); err != nil {
+			return fmt.Errorf("migrate to v3: %w", err)
+		}
+		version = 3
+	}
+
 	return nil
 }
 
@@ -165,6 +173,31 @@ func (db *DB) migrateToV2() error {
 	statements := []string{
 		`ALTER TABLE usage_records ADD COLUMN estimate_level TEXT NOT NULL DEFAULT 'heuristic' CHECK(estimate_level IN ('exact','mapped','heuristic'));`,
 		"PRAGMA user_version = 2;",
+	}
+	for _, stmt := range statements {
+		if err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *DB) migrateToV3() error {
+	// Add explore column to sessions table and create suggestions table
+	statements := []string{
+		`ALTER TABLE sessions ADD COLUMN explore INTEGER DEFAULT 0;`,
+		`CREATE TABLE IF NOT EXISTS suggestions (
+            id TEXT PRIMARY KEY,
+            created_at INTEGER NOT NULL,
+            suggestion_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            action_cmd TEXT,
+            status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new','applied','ignored','snoozed')),
+            until_ts INTEGER,
+            context TEXT
+        );`,
+		"PRAGMA user_version = 3;",
 	}
 	for _, stmt := range statements {
 		if err := db.Exec(stmt); err != nil {

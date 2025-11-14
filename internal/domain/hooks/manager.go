@@ -125,6 +125,15 @@ if ! command -v boba >/dev/null 2>&1; then
   exit 0
 fi
 boba hooks track --event "$1" --repo "$repo" --branch "$branch" >/dev/null 2>&1 || true
+
+# Show profile suggestion after checkout
+if [ "$1" = "post-checkout" ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "📍 Branch changed to: $branch"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  boba suggest 2>/dev/null || true
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+fi
 `, repo)
 }
 

@@ -23,3 +23,18 @@ rules:
     if: "ctx_chars>3000 || task.matches('architecture|review|audit')"
     use: "work-heavy"
     fallback: "quick-tasks"
+
+  - id: "working-hours-go"
+    if: "time_of_day.in('09:00-18:00') && project_types.contains('go')"
+    use: "work-heavy"
+    explain: "工作时间 + Go 项目优先使用强力模型"
+
+  - id: "main-branch-review"
+    if: "branch=='main' || branch.equals('master')"
+    use: "work-heavy"
+    explain: "主分支代码需要高质量审查"
+
+# 探索配置
+explore:
+  enabled: true
+  rate: 0.03

@@ -36,6 +36,12 @@ type Secrets map[string]string
 type RoutesConfig struct {
 	SubAgents map[string]SubAgent
 	Rules     []RouteRule
+	Explore   ExploreConfig
+}
+
+type ExploreConfig struct {
+	Enabled bool
+	Rate    float64
 }
 
 type SubAgent struct {
@@ -158,13 +164,21 @@ func LoadRoutes(home string) (*RoutesConfig, error) {
 		return nil, err
 	}
 	if len(data) == 0 {
-		return &RoutesConfig{SubAgents: map[string]SubAgent{}, Rules: nil}, nil
+		return &RoutesConfig{
+			SubAgents: map[string]SubAgent{},
+			Rules:     nil,
+			Explore:   ExploreConfig{Enabled: true, Rate: 0.03}, // Default values
+		}, nil
 	}
 	root, err := parseYAML(data)
 	if err != nil {
 		return nil, err
 	}
-	cfg := &RoutesConfig{SubAgents: map[string]SubAgent{}, Rules: []RouteRule{}}
+	cfg := &RoutesConfig{
+		SubAgents: map[string]SubAgent{},
+		Rules:     []RouteRule{},
+		Explore:   ExploreConfig{Enabled: true, Rate: 0.03}, // Default values
+	}
 	if subs := toMap(root["sub_agents"]); subs != nil {
 		for name, raw := range subs {
 			entry := toMap(raw)
@@ -188,6 +202,13 @@ func LoadRoutes(home string) (*RoutesConfig, error) {
 				Explain:  stringValue(m["explain"]),
 			}
 			cfg.Rules = append(cfg.Rules, rule)
+		}
+	}
+	// Load explore configuration
+	if explore := toMap(root["explore"]); explore != nil {
+		cfg.Explore = ExploreConfig{
+			Enabled: boolValue(explore["enabled"]),
+			Rate:    floatValue(explore["rate"]),
 		}
 	}
 	return cfg, nil

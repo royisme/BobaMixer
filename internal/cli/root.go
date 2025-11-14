@@ -91,6 +91,10 @@ func Run(args []string) error {
 		return runReport(home, args[1:])
 	case "route":
 		return runRoute(home, args[1:])
+	case "completions":
+		return runCompletions(home, args[1:])
+	case "suggest":
+		return runSuggest(home, args[1:])
 	case "version":
 		return runVersion()
 	default:
@@ -1102,4 +1106,253 @@ func getEstimateLevel(usage adapters.Usage) string {
 	default:
 		return "unknown"
 	}
+}
+
+func runCompletions(home string, args []string) error {
+	if len(args) == 0 {
+		return errors.New("completions subcommand required (install|uninstall)")
+	}
+
+	switch args[0] {
+	case "install":
+		return runCompletionsInstall(home, args[1:])
+	case "uninstall":
+		return runCompletionsUninstall(home, args[1:])
+	default:
+		return fmt.Errorf("unknown completions subcommand: %s", args[0])
+	}
+}
+
+func runCompletionsInstall(home string, args []string) error {
+	flags := flag.NewFlagSet("completions install", flag.ContinueOnError)
+	shell := flags.String("shell", "bash", "shell type: bash|zsh|fish")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	// Determine completion file path based on shell
+	var destPath string
+	var completionScript string
+
+	switch *shell {
+	case "bash":
+		homeDir, _ := os.UserHomeDir()
+		destPath = filepath.Join(homeDir, ".bash_completion.d", "boba")
+		completionScript = `# Bash completion for boba
+_boba_completion() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    opts="ls use call stats edit doctor budget hooks action report route completions suggest version"
+
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+        return 0
+    fi
+
+    case "${prev}" in
+        edit)
+            COMPREPLY=( $(compgen -W "profiles routes pricing secrets" -- ${cur}) )
+            ;;
+        hooks)
+            COMPREPLY=( $(compgen -W "install remove track" -- ${cur}) )
+            ;;
+        completions)
+            COMPREPLY=( $(compgen -W "install uninstall" -- ${cur}) )
+            ;;
+        *)
+            ;;
+    esac
+}
+
+complete -F _boba_completion boba
+`
+	case "zsh":
+		homeDir, _ := os.UserHomeDir()
+		destPath = filepath.Join(homeDir, ".zsh", "completions", "_boba")
+		completionScript = `#compdef boba
+
+_boba() {
+    local -a commands
+    commands=(
+        'ls:List profiles'
+        'use:Activate a profile'
+        'call:Execute an AI call'
+        'stats:Show usage statistics'
+        'edit:Edit configuration files'
+        'doctor:Run diagnostics'
+        'budget:Show budget status'
+        'hooks:Manage git hooks'
+        'action:View/apply suggestions'
+        'report:Generate usage report'
+        'route:Test routing rules'
+        'completions:Manage shell completions'
+        'suggest:Get profile suggestions'
+        'version:Show version info'
+    )
+
+    _arguments '1: :->command' '*:: :->args'
+
+    case $state in
+        command)
+            _describe 'command' commands
+            ;;
+        args)
+            case $words[1] in
+                edit)
+                    compadd profiles routes pricing secrets
+                    ;;
+                hooks)
+                    compadd install remove track
+                    ;;
+                completions)
+                    compadd install uninstall
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+_boba
+`
+	case "fish":
+		homeDir, _ := os.UserHomeDir()
+		destPath = filepath.Join(homeDir, ".config", "fish", "completions", "boba.fish")
+		completionScript = `# Fish completion for boba
+
+complete -c boba -f
+
+# Main commands
+complete -c boba -n "__fish_use_subcommand" -a "ls" -d "List profiles"
+complete -c boba -n "__fish_use_subcommand" -a "use" -d "Activate a profile"
+complete -c boba -n "__fish_use_subcommand" -a "call" -d "Execute an AI call"
+complete -c boba -n "__fish_use_subcommand" -a "stats" -d "Show usage statistics"
+complete -c boba -n "__fish_use_subcommand" -a "edit" -d "Edit configuration files"
+complete -c boba -n "__fish_use_subcommand" -a "doctor" -d "Run diagnostics"
+complete -c boba -n "__fish_use_subcommand" -a "budget" -d "Show budget status"
+complete -c boba -n "__fish_use_subcommand" -a "hooks" -d "Manage git hooks"
+complete -c boba -n "__fish_use_subcommand" -a "action" -d "View/apply suggestions"
+complete -c boba -n "__fish_use_subcommand" -a "report" -d "Generate usage report"
+complete -c boba -n "__fish_use_subcommand" -a "route" -d "Test routing rules"
+complete -c boba -n "__fish_use_subcommand" -a "completions" -d "Manage shell completions"
+complete -c boba -n "__fish_use_subcommand" -a "suggest" -d "Get profile suggestions"
+complete -c boba -n "__fish_use_subcommand" -a "version" -d "Show version info"
+
+# Subcommands
+complete -c boba -n "__fish_seen_subcommand_from edit" -a "profiles routes pricing secrets"
+complete -c boba -n "__fish_seen_subcommand_from hooks" -a "install remove track"
+complete -c boba -n "__fish_seen_subcommand_from completions" -a "install uninstall"
+`
+	default:
+		return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish)", *shell)
+	}
+
+	// Create directory if needed
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+		return fmt.Errorf("create completion directory: %w", err)
+	}
+
+	// Write completion script
+	if err := os.WriteFile(destPath, []byte(completionScript), 0o644); err != nil {
+		return fmt.Errorf("write completion script: %w", err)
+	}
+
+	fmt.Printf("✓ Completion script installed to %s\n", destPath)
+	fmt.Println()
+
+	// Print instructions
+	switch *shell {
+	case "bash":
+		fmt.Println("Add the following to your ~/.bashrc:")
+		fmt.Println("  source ~/.bash_completion.d/boba")
+	case "zsh":
+		fmt.Println("Add the following to your ~/.zshrc:")
+		fmt.Println("  fpath=(~/.zsh/completions $fpath)")
+		fmt.Println("  autoload -Uz compinit && compinit")
+	case "fish":
+		fmt.Println("Completion will be loaded automatically in new fish sessions.")
+	}
+
+	return nil
+}
+
+func runCompletionsUninstall(home string, args []string) error {
+	flags := flag.NewFlagSet("completions uninstall", flag.ContinueOnError)
+	shell := flags.String("shell", "bash", "shell type: bash|zsh|fish")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	homeDir, _ := os.UserHomeDir()
+	var destPath string
+
+	switch *shell {
+	case "bash":
+		destPath = filepath.Join(homeDir, ".bash_completion.d", "boba")
+	case "zsh":
+		destPath = filepath.Join(homeDir, ".zsh", "completions", "_boba")
+	case "fish":
+		destPath = filepath.Join(homeDir, ".config", "fish", "completions", "boba.fish")
+	default:
+		return fmt.Errorf("unsupported shell: %s", *shell)
+	}
+
+	if err := os.Remove(destPath); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println("Completion script not found")
+			return nil
+		}
+		return fmt.Errorf("remove completion script: %w", err)
+	}
+
+	fmt.Printf("✓ Completion script removed from %s\n", destPath)
+	return nil
+}
+
+func runSuggest(home string, args []string) error {
+	// Get current directory context
+	cwd, _ := os.Getwd()
+	branch := ""
+	project := ""
+
+	if repoRoot, err := findRepoRoot(cwd); err == nil {
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot)
+		if projectCfg != nil {
+			project = projectCfg.Project.Name
+			// Get preferred profiles from project config
+			if len(projectCfg.Project.PreferredProfiles) > 0 {
+				fmt.Println("=== Recommended Profiles for", project, "===")
+				for _, prof := range projectCfg.Project.PreferredProfiles {
+					fmt.Printf("  • %s\n", prof)
+				}
+				fmt.Println()
+				fmt.Printf("Tip: Use 'boba use %s' to switch\n", projectCfg.Project.PreferredProfiles[0])
+				return nil
+			}
+		}
+
+		// Get git branch
+		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoRoot
+		if output, err := cmd.Output(); err == nil {
+			branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	fmt.Println("=== Profile Suggestion ===")
+	if project != "" {
+		fmt.Printf("Project: %s\n", project)
+	}
+	if branch != "" {
+		fmt.Printf("Branch: %s\n", branch)
+	}
+	fmt.Println()
+	fmt.Println("No specific profile recommendation configured for this project.")
+	fmt.Println("Tip: Add preferred_profiles to .boba-project.yaml")
+
+	return nil
 }
