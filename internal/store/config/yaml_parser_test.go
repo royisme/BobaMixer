@@ -19,7 +19,8 @@ func TestParseYAMLMap(t *testing.T) {
 	if !ok {
 		t.Fatalf("work-heavy not map: %#v", profiles["work-heavy"])
 	}
-	if name := wh["name"].(string); name != "Work" { //nolint:errcheck
+	name, ok := wh["name"].(string)
+	if !ok || name != "Work" {
 		t.Fatalf("name=%s", name)
 	}
 	if tokens := intFromAny(wh["max_tokens"]); tokens != 123 {
@@ -40,12 +41,21 @@ func TestParseYAMLListOfMaps(t *testing.T) {
 	if len(rules) != 2 {
 		t.Fatalf("rules len=%d", len(rules))
 	}
-	first := rules[0].(map[string]interface{})                                //nolint:errcheck
-	if first["id"].(string) != "format" || first["use"].(string) != "quick" { //nolint:errcheck
-		t.Fatalf("unexpected first: %#v", first)
+	first, ok := rules[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("first rule not map: %#v", rules[0])
 	}
-	second := rules[1].(map[string]interface{}) //nolint:errcheck
-	if second["fallback"].(string) != "quick" { //nolint:errcheck
+	if id, ok := first["id"].(string); !ok || id != "format" {
+		t.Fatalf("unexpected first id: %#v", first)
+	}
+	if use, ok := first["use"].(string); !ok || use != "quick" {
+		t.Fatalf("unexpected first use: %#v", first)
+	}
+	second, ok := rules[1].(map[string]interface{})
+	if !ok {
+		t.Fatalf("second rule not map: %#v", rules[1])
+	}
+	if fallback, ok := second["fallback"].(string); !ok || fallback != "quick" {
 		t.Fatalf("unexpected second: %#v", second)
 	}
 }
@@ -66,12 +76,18 @@ func TestParseYAMLNestedListStructures(t *testing.T) {
 	if !ok || len(items) != 2 {
 		t.Fatalf("unexpected items: %#v", got["list"])
 	}
-	first := items[0].(map[string]interface{})
-	vals := first["values"].([]interface{})
+	first, ok := items[0].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map entry: %#v", items[0])
+	}
+	vals, ok := first["values"].([]interface{})
+	if !ok {
+		t.Fatalf("values not list: %#v", first["values"])
+	}
 	if len(vals) != 2 {
 		t.Fatalf("expected array nested: %#v", vals)
 	}
-	if items[1].(string) != "simple-value" {
+	if val, ok := items[1].(string); !ok || val != "simple-value" {
 		t.Fatalf("expected scalar list item")
 	}
 }

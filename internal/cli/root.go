@@ -43,9 +43,15 @@ const (
 	statusError   = "[ERROR]"
 	statusWarning = "[WARN]"
 
+	shellBash = "bash"
+	shellZsh  = "zsh"
+	shellFish = "fish"
+
 	useSlowThreshold   = 2 * time.Second
 	statsSlowThreshold = 3 * time.Second
 )
+
+var supportedShells = []string{shellBash, shellZsh, shellFish}
 
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
@@ -109,9 +115,9 @@ func Run(args []string) error {
 	case "route":
 		return runRoute(home, args[1:])
 	case "completions":
-		return runCompletions(home, args[1:])
+		return runCompletions(args[1:])
 	case "suggest":
-		return runSuggest(home, args[1:])
+		return runSuggest(args[1:])
 	case "version":
 		return runVersion()
 	default:
@@ -1436,24 +1442,24 @@ func getEstimateLevel(usage adapters.Usage) string {
 	}
 }
 
-func runCompletions(home string, args []string) error {
+func runCompletions(args []string) error {
 	if len(args) == 0 {
 		return errors.New("completions subcommand required (install|uninstall)")
 	}
 
 	switch args[0] {
 	case "install":
-		return runCompletionsInstall(home, args[1:])
+		return runCompletionsInstall(args[1:])
 	case "uninstall":
-		return runCompletionsUninstall(home, args[1:])
+		return runCompletionsUninstall(args[1:])
 	default:
 		return fmt.Errorf("unknown completions subcommand: %s", args[0])
 	}
 }
 
-func runCompletionsInstall(home string, args []string) error {
+func runCompletionsInstall(args []string) error {
 	flags := flag.NewFlagSet("completions install", flag.ContinueOnError)
-	shell := flags.String("shell", "bash", "shell type: bash|zsh|fish")
+	shell := flags.String("shell", shellBash, "shell type: bash|zsh|fish")
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -1462,10 +1468,13 @@ func runCompletionsInstall(home string, args []string) error {
 	// Determine completion file path based on shell
 	var destPath string
 	var completionScript string
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("determine home directory: %w", err)
+	}
 
 	switch *shell {
-	case "bash":
-		homeDir, _ := os.UserHomeDir()
+	case shellBash:
 		destPath = filepath.Join(homeDir, ".bash_completion.d", "boba")
 		completionScript = `# Bash completion for boba
 _boba_completion() {
@@ -1498,8 +1507,7 @@ _boba_completion() {
 
 complete -F _boba_completion boba
 `
-	case "zsh":
-		homeDir, _ := os.UserHomeDir()
+	case shellZsh:
 		destPath = filepath.Join(homeDir, ".zsh", "completions", "_boba")
 		completionScript = `#compdef boba
 
@@ -1546,14 +1554,14 @@ _boba() {
 
 _boba
 `
-	case "fish":
-		homeDir, _ := os.UserHomeDir()
+	case shellFish:
 		destPath = filepath.Join(homeDir, ".config", "fish", "completions", "boba.fish")
 		completionScript = `# Fish completion for boba
+function __boba_subcommands
+    set -l commands budget hooks action report route completions suggest version
+    printf "%s\n" $commands
+end
 
-complete -c boba -f
-
-# Main commands
 complete -c boba -n "__fish_use_subcommand" -a "ls" -d "List profiles"
 complete -c boba -n "__fish_use_subcommand" -a "use" -d "Activate a profile"
 complete -c boba -n "__fish_use_subcommand" -a "call" -d "Execute an AI call"
@@ -1575,16 +1583,16 @@ complete -c boba -n "__fish_seen_subcommand_from hooks" -a "install remove track
 complete -c boba -n "__fish_seen_subcommand_from completions" -a "install uninstall"
 `
 	default:
-		return fmt.Errorf("unsupported shell: %s (supported: bash, zsh, fish)", *shell)
+		return fmt.Errorf("unsupported shell: %s (supported: %s)", *shell, strings.Join(supportedShells, ", "))
 	}
 
 	// Create directory if needed
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0o750); err != nil {
 		return fmt.Errorf("create completion directory: %w", err)
 	}
 
 	// Write completion script
-	if err := os.WriteFile(destPath, []byte(completionScript), 0o644); err != nil {
+	if err := os.WriteFile(destPath, []byte(completionScript), 0o600); err != nil {
 		return fmt.Errorf("write completion script: %w", err)
 	}
 
@@ -1593,40 +1601,43 @@ complete -c boba -n "__fish_seen_subcommand_from completions" -a "install uninst
 
 	// Print instructions
 	switch *shell {
-	case "bash":
+	case shellBash:
 		fmt.Println("Add the following to your ~/.bashrc:")
 		fmt.Println("  source ~/.bash_completion.d/boba")
-	case "zsh":
+	case shellZsh:
 		fmt.Println("Add the following to your ~/.zshrc:")
 		fmt.Println("  fpath=(~/.zsh/completions $fpath)")
 		fmt.Println("  autoload -Uz compinit && compinit")
-	case "fish":
+	case shellFish:
 		fmt.Println("Completion will be loaded automatically in new fish sessions.")
 	}
 
 	return nil
 }
 
-func runCompletionsUninstall(home string, args []string) error {
+func runCompletionsUninstall(args []string) error {
 	flags := flag.NewFlagSet("completions uninstall", flag.ContinueOnError)
-	shell := flags.String("shell", "bash", "shell type: bash|zsh|fish")
+	shell := flags.String("shell", shellBash, "shell type: bash|zsh|fish")
 	flags.SetOutput(io.Discard)
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("determine home directory: %w", err)
+	}
 	var destPath string
 
 	switch *shell {
-	case "bash":
+	case shellBash:
 		destPath = filepath.Join(homeDir, ".bash_completion.d", "boba")
-	case "zsh":
+	case shellZsh:
 		destPath = filepath.Join(homeDir, ".zsh", "completions", "_boba")
-	case "fish":
+	case shellFish:
 		destPath = filepath.Join(homeDir, ".config", "fish", "completions", "boba.fish")
 	default:
-		return fmt.Errorf("unsupported shell: %s", *shell)
+		return fmt.Errorf("unsupported shell: %s (supported: %s)", *shell, strings.Join(supportedShells, ", "))
 	}
 
 	if err := os.Remove(destPath); err != nil {
@@ -1641,14 +1652,20 @@ func runCompletionsUninstall(home string, args []string) error {
 	return nil
 }
 
-func runSuggest(home string, args []string) error {
+func runSuggest(_ []string) error {
 	// Get current directory context
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("determine working directory: %w", err)
+	}
 	branch := ""
 	project := ""
 
 	if repoRoot, err := findRepoRoot(cwd); err == nil {
-		projectCfg, _, _ := config.FindProjectConfig(repoRoot)
+		projectCfg, _, cfgErr := config.FindProjectConfig(repoRoot)
+		if cfgErr != nil {
+			return fmt.Errorf("find project config: %w", cfgErr)
+		}
 		if projectCfg != nil {
 			project = projectCfg.Project.Name
 			// Get preferred profiles from project config
@@ -1666,7 +1683,7 @@ func runSuggest(home string, args []string) error {
 		// Get git branch
 		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
 		cmd.Dir = repoRoot
-		if output, err := cmd.Output(); err == nil {
+		if output, cmdErr := cmd.Output(); cmdErr == nil {
 			branch = strings.TrimSpace(string(output))
 		}
 	}

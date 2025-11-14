@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strconv"
@@ -42,21 +43,51 @@ func main() {
 	flag.Var(&cores, "core", "core package requiring stricter threshold (relative path)")
 	flag.Parse()
 
-	if *modulePath == "" {
-		fatal(errors.New("module path is required"))
+	if err := runCovCheck(*profile, *modulePath, *minTotal, *minCore, cores); err != nil {
+		fatal(err)
+	}
+}
+
+func runCovCheck(profilePath, modulePath string, minTotal, minCore float64, cores []string) (retErr error) {
+	if modulePath == "" {
+		return errors.New("module path is required")
 	}
 
-	file, err := os.Open(*profile)
+	// #nosec G304 -- coverage profile path is provided via CLI flag intentionally
+	file, err := os.Open(profilePath)
 	if err != nil {
-		fatal(fmt.Errorf("open coverage profile: %w", err))
+		return fmt.Errorf("open coverage profile: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if cerr := file.Close(); cerr != nil && retErr == nil {
+			retErr = fmt.Errorf("close coverage profile: %w", cerr)
+		}
+	}()
 
+	summaries, total, err := summarizeCoverage(file, modulePath)
+	if err != nil {
+		return err
+	}
+
+	totalPct := percentage(total)
+	if totalPct < minTotal {
+		return fmt.Errorf("overall coverage %.2f%% below required %.2f%%", totalPct, minTotal)
+	}
+
+	if err := verifyCorePackages(summaries, cores, minCore); err != nil {
+		return err
+	}
+
+	fmt.Printf("overall coverage: %.2f%%\n", totalPct)
+	return nil
+}
+
+func summarizeCoverage(reader io.Reader, modulePath string) (map[string]*summary, *summary, error) {
 	summaries := map[string]*summary{}
 	total := &summary{}
-	modulePrefix := strings.TrimSuffix(*modulePath, "/") + "/"
+	modulePrefix := strings.TrimSuffix(modulePath, "/") + "/"
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	lineNum := 0
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -81,28 +112,26 @@ func main() {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		fatal(fmt.Errorf("read coverage profile: %w", err))
+		return nil, nil, fmt.Errorf("read coverage profile: %w", err)
 	}
 
-	totalPct := percentage(total)
-	if totalPct < *minTotal {
-		fatal(fmt.Errorf("overall coverage %.2f%% below required %.2f%%", totalPct, *minTotal))
-	}
+	return summaries, total, nil
+}
 
+func verifyCorePackages(summaries map[string]*summary, cores []string, minCore float64) error {
 	for _, corePkg := range cores {
 		pkg := strings.Trim(corePkg, "/")
 		sum, ok := summaries[pkg]
 		if !ok {
-			fatal(fmt.Errorf("no coverage data for core package %s", pkg))
+			return fmt.Errorf("no coverage data for core package %s", pkg)
 		}
 		pct := percentage(sum)
-		if pct < *minCore {
-			fatal(fmt.Errorf("core package %s coverage %.2f%% below required %.2f%%", pkg, pct, *minCore))
+		if pct < minCore {
+			return fmt.Errorf("core package %s coverage %.2f%% below required %.2f%%", pkg, pct, minCore)
 		}
 		fmt.Printf("core package %s coverage: %.2f%%\n", pkg, pct)
 	}
-
-	fmt.Printf("overall coverage: %.2f%%\n", totalPct)
+	return nil
 }
 
 func parseProfileLine(line, modulePrefix string) (string, float64, bool) {

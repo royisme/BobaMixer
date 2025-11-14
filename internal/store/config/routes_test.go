@@ -73,6 +73,7 @@ func TestValidateSecretsPermissions(t *testing.T) {
 	if err := ValidateSecretsPermissions(dir); err != nil {
 		t.Fatalf("expected valid permissions, got %v", err)
 	}
+	// #nosec G302 -- set insecure permissions intentionally to ensure validator catches them
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatalf("chmod: %v", err)
 	}
