@@ -77,7 +77,8 @@ jobs:
       - name: Bump Homebrew formula
         uses: dawidd6/action-homebrew-bump-formula@v3
         with:
-          formula-name: boba
+          formula: boba
           tap: royisme/tap
-          github-token: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}
-          token: ${{ secrets.HOMEBREW_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          COMMITTER_TOKEN: ${{ secrets.GITHUB_TOKEN }}

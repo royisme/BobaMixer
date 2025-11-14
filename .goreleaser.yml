@@ -65,6 +65,19 @@ changelog:
       order: 1
     - title: Others
       order: 999
+
+# Homebrew formula configuration
+brews:
+  - repository:
+      owner: royisme
+      name: homebrew-tap
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    homepage: "https://github.com/royisme/BobaMixer"
+    description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
+    license: MIT
+    test: |
+      system "#{bin}/boba version"
+
 # The lines beneath this are called `modelines`. See `:help modeline`
 # Feel free to remove those if you don't want/use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
