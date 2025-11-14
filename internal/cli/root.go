@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/routing"
@@ -23,6 +24,7 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/svc"
 	"github.com/royisme/bobamixer/internal/version"
 )
 
@@ -60,6 +62,8 @@ func Run(args []string) error {
 		return runLS(home, args[1:])
 	case "use":
 		return runUse(home, args[1:])
+	case "call":
+		return runCall(home, args[1:])
 	case "stats":
 		return runStats(home, args[1:])
 	case "edit":
@@ -93,6 +97,9 @@ func printUsage() {
 	fmt.Println("Profile Management:")
 	fmt.Println("  boba ls --profiles                            List available profiles")
 	fmt.Println("  boba use <profile>                            Activate a profile")
+	fmt.Println()
+	fmt.Println("AI Calls:")
+	fmt.Println("  boba call --profile <p> --data @file.json    Execute an AI call")
 	fmt.Println()
 	fmt.Println("Usage & Statistics:")
 	fmt.Println("  boba stats [--today|--7d|--30d] [--by-profile]  Show usage statistics")
@@ -879,4 +886,126 @@ func runRouteTest(home string, args []string) error {
 	}
 
 	return nil
+}
+
+func runCall(home string, args []string) error {
+	flags := flag.NewFlagSet("call", flag.ContinueOnError)
+	profileFlag := flags.String("profile", "", "profile to use")
+	dataFlag := flags.String("data", "", "data file (use @file.json syntax)")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	// Load active profile if not specified
+	profileKey := *profileFlag
+	if profileKey == "" {
+		active, err := config.LoadActiveProfile(home)
+		if err != nil {
+			return fmt.Errorf("no active profile, use --profile or run 'boba use <profile>'")
+		}
+		profileKey = active
+	}
+
+	// Read data payload
+	var payload []byte
+	var err error
+	if *dataFlag == "" {
+		return errors.New("--data is required (use @file.json syntax)")
+	}
+
+	if strings.HasPrefix(*dataFlag, "@") {
+		// Read from file
+		filePath := strings.TrimPrefix(*dataFlag, "@")
+		// #nosec G304 -- user-provided file path for call data
+		payload, err = os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("read data file: %w", err)
+		}
+	} else {
+		// Use as inline JSON
+		payload = []byte(*dataFlag)
+	}
+
+	// Open database
+	dbPath := filepath.Join(home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+
+	// Create executor
+	executor, err := svc.NewExecutor(db, home)
+	if err != nil {
+		return fmt.Errorf("create executor: %w", err)
+	}
+
+	// Get current directory context
+	cwd, _ := os.Getwd() //nolint:errcheck
+	project := ""
+	branch := ""
+
+	if repoRoot, err := findRepoRoot(cwd); err == nil {
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot) //nolint:errcheck
+		if projectCfg != nil {
+			project = projectCfg.Project.Name
+		}
+
+		// Get git branch
+		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoRoot
+		if output, err := cmd.Output(); err == nil {
+			branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	// Execute call
+	req := svc.ExecuteRequest{
+		ProfileKey: profileKey,
+		Payload:    payload,
+		Project:    project,
+		Branch:     branch,
+		TaskType:   "api-call",
+	}
+
+	fmt.Printf("Calling %s...\n", profileKey)
+	result, err := executor.Execute(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("execute: %w", err)
+	}
+
+	// Display result
+	fmt.Println()
+	if !result.Success {
+		fmt.Printf("❌ Call failed: %s\n", result.Error)
+		return nil
+	}
+
+	fmt.Println("✅ Call succeeded")
+	fmt.Println()
+	fmt.Println("Response:")
+	fmt.Println(string(result.Output))
+	fmt.Println()
+	fmt.Printf("Session ID: %s\n", result.SessionID)
+	fmt.Printf("Tokens: %d in + %d out = %d total\n",
+		result.Usage.InputTokens,
+		result.Usage.OutputTokens,
+		result.Usage.InputTokens+result.Usage.OutputTokens)
+	fmt.Printf("Estimate level: %s\n", getEstimateLevel(result.Usage))
+	fmt.Printf("Latency: %dms\n", result.Usage.LatencyMS)
+
+	return nil
+}
+
+func getEstimateLevel(usage adapters.Usage) string {
+	switch usage.Estimate {
+	case adapters.EstimateExact:
+		return "exact"
+	case adapters.EstimateMapped:
+		return "mapped"
+	case adapters.EstimateHeuristic:
+		return "heuristic"
+	default:
+		return "unknown"
+	}
 }

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const schemaVersion = 1
+const schemaVersion = 2
 
 type DB struct {
 	Path string
@@ -87,6 +87,27 @@ func (db *DB) bootstrap() error {
 	if version >= schemaVersion {
 		return nil
 	}
+
+	// Version 0 -> 1: Initial schema
+	if version == 0 {
+		if err := db.migrateToV1(); err != nil {
+			return fmt.Errorf("migrate to v1: %w", err)
+		}
+		version = 1
+	}
+
+	// Version 1 -> 2: Add estimate_level to usage_records
+	if version == 1 {
+		if err := db.migrateToV2(); err != nil {
+			return fmt.Errorf("migrate to v2: %w", err)
+		}
+		version = 2
+	}
+
+	return nil
+}
+
+func (db *DB) migrateToV1() error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
@@ -111,6 +132,7 @@ func (db *DB) bootstrap() error {
             output_cost REAL DEFAULT 0,
             tool TEXT,
             model TEXT,
+            estimate_level TEXT NOT NULL DEFAULT 'heuristic' CHECK(estimate_level IN ('exact','mapped','heuristic')),
             FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );`,
 		`CREATE TABLE IF NOT EXISTS budgets (
@@ -128,7 +150,21 @@ func (db *DB) bootstrap() error {
                    SUM(input_tokens + output_tokens) AS total_tokens,
                    SUM(input_cost + output_cost) AS total_cost
             FROM usage_records GROUP BY date;`,
-		fmt.Sprintf("PRAGMA user_version = %d;", schemaVersion),
+		"PRAGMA user_version = 1;",
+	}
+	for _, stmt := range statements {
+		if err := db.Exec(stmt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *DB) migrateToV2() error {
+	// Add estimate_level column to existing usage_records table
+	statements := []string{
+		`ALTER TABLE usage_records ADD COLUMN estimate_level TEXT NOT NULL DEFAULT 'heuristic' CHECK(estimate_level IN ('exact','mapped','heuristic'));`,
+		"PRAGMA user_version = 2;",
 	}
 	for _, stmt := range statements {
 		if err := db.Exec(stmt); err != nil {
