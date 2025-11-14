@@ -1,6 +1,11 @@
 package pricing
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/royisme/bobamixer/internal/store/config"
@@ -161,5 +166,77 @@ func TestExpandHome(t *testing.T) {
 				t.Errorf("got %q, want %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestLoadPrefersRemoteBeforeCache(t *testing.T) {
+	home := t.TempDir()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(`{"models":{"remote-model":{"input_per_1k":0.02,"output_per_1k":0.03}}}`)); err != nil {
+			panic(err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	pricingYAML := fmt.Sprintf(`sources:
+  - type: "http-json"
+    url: %q
+    priority: 10
+refresh:
+  on_startup: true
+`, srv.URL)
+	if err := os.WriteFile(filepath.Join(home, "pricing.yaml"), []byte(pricingYAML), 0600); err != nil {
+		t.Fatalf("write pricing.yaml: %v", err)
+	}
+
+	if cfg, err := config.LoadPricing(home); err != nil {
+		t.Fatalf("LoadPricing: %v", err)
+	} else if len(cfg.Sources) == 0 {
+		t.Fatalf("expected sources to be parsed")
+	}
+
+	cachePayload := []byte(`{"models":{"cache-model":{"input_per_1k":9.9,"output_per_1k":9.9}}}`)
+	if err := os.WriteFile(filepath.Join(home, "pricing.cache.json"), cachePayload, 0600); err != nil {
+		t.Fatalf("write cache: %v", err)
+	}
+
+	table, err := Load(home)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if _, ok := table.Models["remote-model"]; !ok {
+		t.Fatalf("remote data not returned, got: %#v", table.Models)
+	}
+	if _, ok := table.Models["cache-model"]; ok {
+		t.Fatalf("expected cache data to be ignored when remote succeeds")
+	}
+}
+
+func TestLoadFallsBackToCacheWhenRemoteFails(t *testing.T) {
+	home := t.TempDir()
+	pricingYAML := `sources:
+  - type: "http-json"
+    url: "http://127.0.0.1:0"
+    priority: 10
+refresh:
+  on_startup: true
+`
+	if err := os.WriteFile(filepath.Join(home, "pricing.yaml"), []byte(pricingYAML), 0600); err != nil {
+		t.Fatalf("write pricing.yaml: %v", err)
+	}
+
+	cachePayload := []byte(`{"models":{"cache-model":{"input_per_1k":1.1,"output_per_1k":2.2}}}`)
+	if err := os.WriteFile(filepath.Join(home, "pricing.cache.json"), cachePayload, 0600); err != nil {
+		t.Fatalf("write cache: %v", err)
+	}
+
+	table, err := Load(home)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if _, ok := table.Models["cache-model"]; !ok {
+		t.Fatalf("expected cache data to be used when remote fails")
 	}
 }
