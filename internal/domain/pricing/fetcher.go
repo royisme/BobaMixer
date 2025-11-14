@@ -28,27 +28,20 @@ type Table struct {
 }
 
 // Load loads pricing table with fallback strategy:
-// 1. Try cache (~/.boba/pricing.cache.json, valid for 24h)
-// 2. Fetch from remote sources (if configured)
+// 1. Fetch from remote sources (if configured)
+// 2. Try cache (~/.boba/pricing.cache.json, valid for 24h)
 // 3. Load from local file (~/.boba/pricing.local.json)
 // 4. Load from pricing.yaml
 // 5. Fallback to profiles.yaml cost_per_1k
 func Load(home string) (*Table, error) {
-	// 1) Try cache (24h validity)
-	cache := filepath.Join(home, "pricing.cache.json")
-	if t, err := loadCache(cache); err == nil && len(t.Models) > 0 {
-		return t, nil
-	}
-
-	// Load pricing config to get sources
 	pricingCfg, err := config.LoadPricing(home)
 	if err != nil {
-		// Ignore error, will fall through to other sources
 		pricingCfg = nil
 	}
 
-	// 2) Try fetching from remote sources
-	if pricingCfg != nil && pricingCfg.Refresh.OnStartup {
+	cache := filepath.Join(home, "pricing.cache.json")
+
+	if hasRemoteSources(pricingCfg) {
 		if t, err := fetchRemote(pricingCfg.Sources, home); err == nil && len(t.Models) > 0 {
 			//nolint:errcheck,gosec // saveCache is best effort, failure doesn't affect functionality
 			saveCache(cache, t)
@@ -56,7 +49,10 @@ func Load(home string) (*Table, error) {
 		}
 	}
 
-	// 3) Try local pricing.local.json
+	if t, err := loadCache(cache); err == nil && len(t.Models) > 0 {
+		return t, nil
+	}
+
 	localPath := filepath.Join(home, "pricing.local.json")
 	if t, err := loadJSONFile(localPath); err == nil && len(t.Models) > 0 {
 		return t, nil
@@ -76,6 +72,13 @@ func Load(home string) (*Table, error) {
 
 	// 5) Final fallback: empty table (will use profiles.yaml cost_per_1k)
 	return &Table{Models: make(map[string]ModelPrice)}, nil
+}
+
+func hasRemoteSources(table *config.PricingTable) bool {
+	if table == nil {
+		return false
+	}
+	return len(table.Sources) > 0
 }
 
 // loadCache loads pricing from cache if it's fresh (< 24h)
