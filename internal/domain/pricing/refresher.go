@@ -50,7 +50,7 @@ func (r *Refresher) run(ctx context.Context) {
 	ticker := time.NewTicker(r.interval)
 	defer ticker.Stop()
 
-	logger.Info("Pricing refresher started", "interval", r.interval.String())
+	logger.Info("Pricing refresher started", logger.String("interval", r.interval.String()))
 
 	for {
 		select {
@@ -62,7 +62,7 @@ func (r *Refresher) run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := r.refresh(); err != nil {
-				logger.Error("Failed to refresh pricing", "error", err.Error())
+				logger.Error("Failed to refresh pricing", logger.Err(err))
 			} else {
 				logger.Info("Pricing refreshed successfully")
 			}

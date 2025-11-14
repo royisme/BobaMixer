@@ -327,32 +327,22 @@ func escape(s string) string {
 
 // GetMergedStatus returns budget status with project overriding global settings
 func (t *Tracker) GetMergedStatus(project string) (*Status, error) {
-	// Try to get project-specific budget first
-	projectBudget, projectErr := t.GetBudget("project", project)
-
-	// Get global budget as fallback
-	globalBudget, globalErr := t.GetGlobalBudget()
-
-	// If both fail, return error
-	if projectErr != nil && globalErr != nil {
-		return nil, fmt.Errorf("no budget configured (project or global)")
+	// Prefer project budget when it exists
+	if project != "" {
+		if _, err := t.GetBudget("project", project); err == nil {
+			return t.GetStatus("project", project)
+		}
 	}
 
-	// Use project budget if available, otherwise use global
-	var scope, target string
-
-	if projectErr == nil {
-		// Project budget exists - use it (project overrides global)
-		scope = "project"
-		target = project
-	} else {
-		// Use global budget
-		scope = "global"
-		target = ""
+	// Fall back to global budget
+	if _, err := t.GetGlobalBudget(); err == nil {
+		return t.GetStatus("global", "")
 	}
 
-	// Get status for the effective budget
-	return t.GetStatus(scope, target)
+	if project != "" {
+		return nil, fmt.Errorf("no budget configured for project %s or global scope", project)
+	}
+	return nil, fmt.Errorf("no budget configured (project or global)")
 }
 
 // GetAllBudgets returns all configured budgets for display

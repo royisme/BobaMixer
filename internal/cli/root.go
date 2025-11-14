@@ -38,9 +38,9 @@ const (
 	scopeProject = "project"
 
 	// Status symbols for output
-	statusOK      = statusOK
-	statusError   = statusError
-	statusWarning = statusWarning
+	statusOK      = "[OK]"
+	statusError   = "[ERROR]"
+	statusWarning = "[WARN]"
 )
 
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
@@ -63,6 +63,11 @@ func Run(args []string) error {
 	defer logger.Sync()
 
 	logger.Info("BobaMixer CLI started")
+
+	// Enforce secrets permissions early so every command respects the baseline security requirement
+	if err := config.ValidateSecretsPermissions(home); err != nil {
+		return err
+	}
 
 	// Handle help flag
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
@@ -482,7 +487,7 @@ func diagnosePricingSources(home string) {
 	fmt.Println("Pricing Sources:")
 	pricingCfg, err := config.LoadPricing(home)
 	if err != nil {
-		fmt.Printf("%s pricing.yaml: invalid (%v)\n", err)
+		fmt.Printf("%s pricing.yaml: invalid (%v)\n", statusError, err)
 		return
 	}
 
@@ -492,22 +497,22 @@ func diagnosePricingSources(home string) {
 		case "http-json":
 			count, err := doctorFetchPricingHTTP(source.URL)
 			if err != nil {
-				fmt.Printf("%s %s: %v\n", source.URL, err)
+				fmt.Printf("%s %s: %v\n", statusError, source.URL, err)
 			} else {
 				success = true
-				fmt.Printf("%s %s reachable (%d models)\n", source.URL, count)
+				fmt.Printf("%s %s reachable (%d models)\n", statusOK, source.URL, count)
 			}
 		case "file":
 			path := doctorExpandHome(source.Path, home)
 			count, err := doctorLoadPricingFile(path)
 			if err != nil {
-				fmt.Printf("%s %s: %v\n", path, err)
+				fmt.Printf("%s %s: %v\n", statusError, path, err)
 			} else {
 				success = true
-				fmt.Printf("%s %s loaded (%d models)\n", path, count)
+				fmt.Printf("%s %s loaded (%d models)\n", statusOK, path, count)
 			}
 		default:
-			fmt.Printf("%s Unsupported pricing source type: %s\n", source.Type)
+			fmt.Printf("%s Unsupported pricing source type: %s\n", statusWarning, source.Type)
 		}
 	}
 
@@ -515,19 +520,19 @@ func diagnosePricingSources(home string) {
 	if info, err := os.Stat(cachePath); err == nil {
 		cacheAge := time.Since(info.ModTime())
 		if cacheAge < 24*time.Hour {
-			fmt.Printf("%s Pricing cache fresh (updated %s)\n", info.ModTime().Format("2006-01-02 15:04"))
+			fmt.Printf("%s Pricing cache fresh (updated %s)\n", statusOK, info.ModTime().Format("2006-01-02 15:04"))
 		} else {
-			fmt.Printf("%s Pricing cache stale since %s (will refresh on next fetch)\n", info.ModTime().Format("2006-01-02 15:04"))
+			fmt.Printf("%s Pricing cache stale since %s (will refresh on next fetch)\n", statusWarning, info.ModTime().Format("2006-01-02 15:04"))
 		}
 		if !success {
 			fmt.Println("  ↳ Falling back to cached pricing until remote fetch succeeds.")
 		}
 	} else {
-		fmt.Printf("%s Pricing cache not found, will populate on next successful fetch")
+		fmt.Printf("%s Pricing cache not found, will populate on next successful fetch\n", statusWarning)
 	}
 
 	if len(pricingCfg.Sources) == 0 {
-		fmt.Printf("%s No remote pricing sources configured. Add an http-json source in pricing.yaml to enable auto refresh.")
+		fmt.Printf("%s No remote pricing sources configured. Add an http-json source in pricing.yaml to enable auto refresh.\n", statusWarning)
 	}
 }
 
@@ -594,7 +599,7 @@ func doctorExpandHome(path, home string) string {
 func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 	fmt.Println("Network & API Keys:")
 	if len(profs) == 0 {
-		fmt.Printf("%s No profiles configured yet. Run 'boba edit profiles' to add one.")
+		fmt.Printf("%s No profiles configured yet. Run 'boba edit profiles' to add one.\n", statusWarning)
 		return
 	}
 
@@ -611,14 +616,14 @@ func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 
 	prof, ok := profs[activeProfile]
 	if !ok {
-		fmt.Printf("%s Active profile not found in profiles.yaml")
+		fmt.Printf("%s Active profile not found in profiles.yaml\n", statusError)
 		return
 	}
 
 	fmt.Printf("Testing profile: %s (%s)\n", prof.Key, prof.Provider)
 	secrets, err := config.LoadSecrets(home)
 	if err != nil {
-		fmt.Printf("%s Cannot load secrets.yaml: %v\n", err)
+		fmt.Printf("%s Cannot load secrets.yaml: %v\n", statusError, err)
 		fmt.Println("  Fix: ensure secrets.yaml exists and is valid YAML")
 		return
 	}
@@ -628,9 +633,9 @@ func diagnoseNetworkAndKeys(home string, profs config.Profiles) {
 	if !doctorHasAPIKey(envMap) {
 		missing := doctorSecretPlaceholders(prof.Env)
 		if len(missing) > 0 {
-			fmt.Printf("%s API key missing. Expected secrets: %s\n", strings.Join(missing, ", "))
+			fmt.Printf("%s API key missing. Expected secrets: %s\n", statusError, strings.Join(missing, ", "))
 		} else {
-			fmt.Printf("%s API key missing. Add provider credentials to secrets.yaml")
+			fmt.Printf("%s API key missing. Add provider credentials to secrets.yaml\n", statusError)
 		}
 		fmt.Println("  Fix: run 'boba edit secrets' and add the appropriate secret value.")
 		return
@@ -1024,10 +1029,10 @@ func runAction(home string, args []string) error {
 		}
 		summary, err := app.Apply(s)
 		if err != nil {
-			fmt.Printf("%s %s: %v\n", s.Title, err)
+			fmt.Printf("%s %s: %v\n", statusError, s.Title, err)
 			continue
 		}
-		fmt.Printf("%s %s -> %s\n", s.Title, summary)
+		fmt.Printf("%s %s -> %s\n", statusOK, s.Title, summary)
 		applied++
 	}
 	if applied == 0 {
@@ -1549,7 +1554,7 @@ complete -c boba -n "__fish_seen_subcommand_from completions" -a "install uninst
 		return fmt.Errorf("write completion script: %w", err)
 	}
 
-	fmt.Printf("%s Completion script installed to %s\n", destPath)
+	fmt.Printf("%s Completion script installed to %s\n", statusOK, destPath)
 	fmt.Println()
 
 	// Print instructions
@@ -1598,7 +1603,7 @@ func runCompletionsUninstall(home string, args []string) error {
 		return fmt.Errorf("remove completion script: %w", err)
 	}
 
-	fmt.Printf("%s Completion script removed from %s\n", destPath)
+	fmt.Printf("%s Completion script removed from %s\n", statusOK, destPath)
 	return nil
 }
 

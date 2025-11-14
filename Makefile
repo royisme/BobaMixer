@@ -14,7 +14,7 @@ BUILD_FLAGS=-ldflags "-X github.com/royisme/BobaMixer/internal/version.Version=$
 BUILD_DIR=dist
 COVERAGE_FILE=coverage.out
 TOOLS_BIN?=$(CURDIR)/bin
-GOLANGCI_LINT_VERSION?=v2.6.1
+GOLANGCI_LINT_VERSION?=v1.60.1
 GOLANGCI_LINT=$(TOOLS_BIN)/golangci-lint
 
 # Default target
