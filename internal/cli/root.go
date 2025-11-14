@@ -16,13 +16,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
+	"github.com/royisme/bobamixer/internal/logger"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
+	"github.com/royisme/bobamixer/internal/svc"
+	"github.com/royisme/bobamixer/internal/ui"
 	"github.com/royisme/bobamixer/internal/version"
 )
 
@@ -43,15 +47,34 @@ func Run(args []string) error {
 	if err := os.MkdirAll(filepath.Join(home, "logs"), 0o700); err != nil {
 		return err
 	}
-	if len(args) == 0 {
+
+	// Initialize structured logging
+	if err := logger.Init(home); err != nil {
+		return fmt.Errorf("failed to initialize logger: %w", err)
+	}
+	defer logger.Sync()
+
+	logger.Info("BobaMixer CLI started")
+
+	// Handle help flag
+	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
 		printUsage()
 		return nil
 	}
+
+	// No arguments: launch TUI dashboard
+	if len(args) == 0 {
+		logger.Info("Launching TUI dashboard")
+		return runTUI(home)
+	}
+
 	switch args[0] {
 	case "ls":
 		return runLS(home, args[1:])
 	case "use":
 		return runUse(home, args[1:])
+	case "call":
+		return runCall(home, args[1:])
 	case "stats":
 		return runStats(home, args[1:])
 	case "edit":
@@ -66,35 +89,49 @@ func Run(args []string) error {
 		return runAction(home, args[1:])
 	case "report":
 		return runReport(home, args[1:])
-	case "release":
-		return runRelease(args[1:])
 	case "route":
 		return runRoute(home, args[1:])
 	case "version":
 		return runVersion()
-	case "bump":
-		return runBump()
 	default:
 		return fmt.Errorf("unknown command %s", args[0])
 	}
 }
 
 func printUsage() {
-	fmt.Println("BobaMixer CLI")
+	fmt.Println("BobaMixer - Smart AI Adapter Router")
+	fmt.Println()
 	fmt.Println("Usage:")
-	fmt.Println("  boba ls --profiles")
-	fmt.Println("  boba use <profile>")
-	fmt.Println("  boba stats --today")
-	fmt.Println("  boba edit <profiles|routes|pricing|secrets>")
-	fmt.Println("  boba doctor")
-	fmt.Println("  boba budget [--status]")
-	fmt.Println("  boba action [--auto]")
-	fmt.Println("  boba report [--format json|csv]")
-	fmt.Println("  boba route test <text|@file>")
-	fmt.Println("  boba hooks install|remove|track")
-	fmt.Println("  boba version")
-	fmt.Println("  boba bump [major|minor|patch|auto] [--dry-run]")
-	fmt.Println("  boba release [major|minor|patch]")
+	fmt.Println("  boba                                          Launch TUI dashboard")
+	fmt.Println("  boba --help                                   Show this help")
+	fmt.Println()
+	fmt.Println("Profile Management:")
+	fmt.Println("  boba ls --profiles                            List available profiles")
+	fmt.Println("  boba use <profile>                            Activate a profile")
+	fmt.Println()
+	fmt.Println("AI Calls:")
+	fmt.Println("  boba call --profile <p> --data @file.json    Execute an AI call")
+	fmt.Println()
+	fmt.Println("Usage & Statistics:")
+	fmt.Println("  boba stats [--today|--7d|--30d] [--by-profile]  Show usage statistics")
+	fmt.Println("  boba report [--format json|csv] [--out file]   Generate usage report")
+	fmt.Println()
+	fmt.Println("Configuration:")
+	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
+	fmt.Println("  boba doctor                                   Run diagnostics")
+	fmt.Println()
+	fmt.Println("Budget & Optimization:")
+	fmt.Println("  boba budget [--status]                        Show budget status")
+	fmt.Println("  boba action [--auto]                          View/apply suggestions")
+	fmt.Println()
+	fmt.Println("Routing:")
+	fmt.Println("  boba route test <text|@file>                 Test routing rules")
+	fmt.Println()
+	fmt.Println("Advanced:")
+	fmt.Println("  boba hooks install|remove|track              Manage git hooks")
+	fmt.Println("  boba version                                  Show version info")
+	fmt.Println()
+	fmt.Println("For more information, visit: https://royisme.github.io/BobaMixer/")
 }
 
 func runLS(home string, args []string) error {
@@ -358,18 +395,115 @@ func runDoctor(home string, _ []string) error {
 		if err != nil {
 			fmt.Printf("✗ usage.db: cannot open (%v)\n", err)
 		} else {
-			fmt.Println("✓ usage.db: OK")
-			// Try to query version
-			if version, err := db.QueryInt("PRAGMA user_version;"); err == nil {
-				fmt.Printf("  Schema version: %d\n", version)
+			// Check schema version
+			version, err := db.QueryInt("PRAGMA user_version;")
+			if err != nil {
+				fmt.Printf("✗ usage.db: cannot read schema version (%v)\n", err)
+			} else {
+				fmt.Printf("✓ usage.db: OK (schema v%d)\n", version)
+			}
+
+			// Check WAL mode
+			walMode, err := db.QueryRow("PRAGMA journal_mode;")
+			if err != nil {
+				fmt.Printf("  ⚠ Cannot check WAL mode: %v\n", err)
+			} else {
+				if strings.TrimSpace(walMode) == "wal" {
+					fmt.Println("  ✓ WAL mode enabled")
+				} else {
+					fmt.Printf("  ⚠ WAL mode not enabled (current: %s)\n", walMode)
+				}
+			}
+
+			// Test read/write
+			testQuery := "SELECT COUNT(*) FROM sessions;"
+			if _, err := db.QueryRow(testQuery); err != nil {
+				fmt.Printf("  ⚠ Database read test failed: %v\n", err)
+			} else {
+				fmt.Println("  ✓ Read/write test passed")
 			}
 		}
 	} else {
 		fmt.Println("⚠ usage.db: will be created on first use")
 	}
 
+	// Check pricing cache
+	fmt.Println()
+	fmt.Println("Pricing Configuration:")
+	pricingCachePath := filepath.Join(home, "pricing.cache.json")
+	if info, err := os.Stat(pricingCachePath); err == nil {
+		// Check if cache is valid (within 24 hours)
+		cacheAge := time.Since(info.ModTime())
+		if cacheAge < 24*time.Hour {
+			validUntil := info.ModTime().Add(24 * time.Hour)
+			fmt.Printf("✓ Pricing cache: valid until %s\n", validUntil.Format("2006-01-02 15:04"))
+		} else {
+			fmt.Println("⚠ Pricing cache: expired, will refresh on next use")
+		}
+	} else {
+		fmt.Println("⚠ Pricing cache: not found, will fetch on first use")
+	}
+
+	// Check network and API key (if profiles exist)
+	fmt.Println()
+	fmt.Println("Network & API Keys:")
+	if len(profs) > 0 {
+		// Try to load active profile
+		activeProfile := ""
+		if ap, err := config.LoadActiveProfile(home); err == nil {
+			activeProfile = ap
+		}
+
+		// If no active profile, use first available
+		if activeProfile == "" {
+			for key := range profs {
+				activeProfile = key
+				break
+			}
+		}
+
+		if activeProfile != "" {
+			prof := profs[activeProfile]
+			fmt.Printf("Testing profile: %s (%s)\n", activeProfile, prof.Provider)
+
+			// Check if secrets exist
+			secrets, err := config.LoadSecrets(home)
+			if err != nil {
+				fmt.Printf("✗ Cannot load secrets: %v\n", err)
+			} else {
+				// Resolve env to check if API key is available
+				env := config.ResolveEnv(prof.Env, secrets)
+				hasKey := false
+				for _, e := range env {
+					if strings.Contains(e, "API_KEY=") && !strings.HasSuffix(e, "=") {
+						hasKey = true
+						break
+					}
+				}
+
+				if !hasKey {
+					fmt.Println("✗ API Key: not found in secrets.yaml")
+					fmt.Printf("  Fix: Add API key for %s to secrets.yaml\n", prof.Provider)
+				} else {
+					fmt.Println("✓ API Key: configured")
+					// Note: We don't make actual API calls in doctor to avoid costs
+					// Users should use `boba call` to test end-to-end connectivity
+					fmt.Println("  Use 'boba call --data @test.json' to test end-to-end")
+				}
+			}
+		}
+	} else {
+		fmt.Println("⚠ No profiles configured yet")
+		fmt.Println("  Fix: Run 'boba edit profiles' to add a profile")
+	}
+
 	fmt.Println()
 	fmt.Println("Diagnosis complete.")
+	fmt.Println()
+	fmt.Println("Summary:")
+	fmt.Println("  - Configuration files are accessible")
+	fmt.Println("  - Database is operational")
+	fmt.Println("  - Ready to use BobaMixer")
 	return nil
 }
 
@@ -548,87 +682,8 @@ func findRepoRootFromArgs(args []string) (string, error) {
 	return findRepoRoot(start)
 }
 
-func runRelease(args []string) error {
-	// Simple manual parsing for release flags
-	var auto bool
-	for _, arg := range args {
-		if arg == "--auto" {
-			auto = true
-			break
-		}
-	}
-
-	if auto {
-		// Get current version
-		currentVersion, err := getCurrentVersion()
-		if err != nil {
-			return fmt.Errorf("failed to get current version: %w", err)
-		}
-
-		// Determine next version
-		nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
-		if err != nil {
-			return fmt.Errorf("failed to determine next version: %w", err)
-		}
-
-		// Create and push tag
-		tagName := "v" + nextVersion
-		fmt.Printf("Creating release tag: %s\n", tagName)
-
-		cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to create tag: %w", err)
-		}
-
-		cmd = exec.Command("git", "push", "origin", tagName)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to push tag: %w", err)
-		}
-
-		fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
-		fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
-		return nil
-	}
-
-	// Show help if no specific action requested
-	if !auto {
-		fmt.Println("Release management options:")
-		fmt.Println("  boba release --auto    # Automatically determine version and create release tag")
-		fmt.Println("  boba bump major|minor|patch  # Version bumping")
-		fmt.Println("  git tag v1.0.0 && git push origin v1.0.0  # Manual tag creation")
-		fmt.Println("  make release-patch|minor|major  # Quick release targets")
-		return nil
-	}
-
-	// Get current version
-	currentVersion, err := getCurrentVersion()
-	if err != nil {
-		return fmt.Errorf("failed to get current version: %w", err)
-	}
-
-	// Determine next version
-	nextVersion, _, err := calculateNextVersion(currentVersion, "auto")
-	if err != nil {
-		return fmt.Errorf("failed to determine next version: %w", err)
-	}
-
-	// Create and push tag
-	tagName := "v" + nextVersion
-	fmt.Printf("Creating release tag: %s\n", tagName)
-
-	cmd := exec.Command("git", "tag", "-a", tagName, "-m", fmt.Sprintf("Release %s", nextVersion))
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create tag: %w", err)
-	}
-
-	cmd = exec.Command("git", "push", "origin", tagName)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to push tag: %w", err)
-	}
-
-	fmt.Printf("✅ Release tag %s created and pushed!\n", tagName)
-	fmt.Printf("🚀 GitHub Actions will now build and publish the release.\n")
-	return nil
+func runTUI(home string) error {
+	return ui.Run(home)
 }
 
 func runAction(home string, args []string) error {
@@ -925,4 +980,126 @@ func runRouteTest(home string, args []string) error {
 	}
 
 	return nil
+}
+
+func runCall(home string, args []string) error {
+	flags := flag.NewFlagSet("call", flag.ContinueOnError)
+	profileFlag := flags.String("profile", "", "profile to use")
+	dataFlag := flags.String("data", "", "data file (use @file.json syntax)")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	// Load active profile if not specified
+	profileKey := *profileFlag
+	if profileKey == "" {
+		active, err := config.LoadActiveProfile(home)
+		if err != nil {
+			return fmt.Errorf("no active profile, use --profile or run 'boba use <profile>'")
+		}
+		profileKey = active
+	}
+
+	// Read data payload
+	var payload []byte
+	var err error
+	if *dataFlag == "" {
+		return errors.New("--data is required (use @file.json syntax)")
+	}
+
+	if strings.HasPrefix(*dataFlag, "@") {
+		// Read from file
+		filePath := strings.TrimPrefix(*dataFlag, "@")
+		// #nosec G304 -- user-provided file path for call data
+		payload, err = os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("read data file: %w", err)
+		}
+	} else {
+		// Use as inline JSON
+		payload = []byte(*dataFlag)
+	}
+
+	// Open database
+	dbPath := filepath.Join(home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+
+	// Create executor
+	executor, err := svc.NewExecutor(db, home)
+	if err != nil {
+		return fmt.Errorf("create executor: %w", err)
+	}
+
+	// Get current directory context
+	cwd, _ := os.Getwd() //nolint:errcheck
+	project := ""
+	branch := ""
+
+	if repoRoot, err := findRepoRoot(cwd); err == nil {
+		projectCfg, _, _ := config.FindProjectConfig(repoRoot) //nolint:errcheck
+		if projectCfg != nil {
+			project = projectCfg.Project.Name
+		}
+
+		// Get git branch
+		cmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
+		cmd.Dir = repoRoot
+		if output, err := cmd.Output(); err == nil {
+			branch = strings.TrimSpace(string(output))
+		}
+	}
+
+	// Execute call
+	req := svc.ExecuteRequest{
+		ProfileKey: profileKey,
+		Payload:    payload,
+		Project:    project,
+		Branch:     branch,
+		TaskType:   "api-call",
+	}
+
+	fmt.Printf("Calling %s...\n", profileKey)
+	result, err := executor.Execute(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("execute: %w", err)
+	}
+
+	// Display result
+	fmt.Println()
+	if !result.Success {
+		fmt.Printf("❌ Call failed: %s\n", result.Error)
+		return nil
+	}
+
+	fmt.Println("✅ Call succeeded")
+	fmt.Println()
+	fmt.Println("Response:")
+	fmt.Println(string(result.Output))
+	fmt.Println()
+	fmt.Printf("Session ID: %s\n", result.SessionID)
+	fmt.Printf("Tokens: %d in + %d out = %d total\n",
+		result.Usage.InputTokens,
+		result.Usage.OutputTokens,
+		result.Usage.InputTokens+result.Usage.OutputTokens)
+	fmt.Printf("Estimate level: %s\n", getEstimateLevel(result.Usage))
+	fmt.Printf("Latency: %dms\n", result.Usage.LatencyMS)
+
+	return nil
+}
+
+func getEstimateLevel(usage adapters.Usage) string {
+	switch usage.Estimate {
+	case adapters.EstimateExact:
+		return "exact"
+	case adapters.EstimateMapped:
+		return "mapped"
+	case adapters.EstimateHeuristic:
+		return "heuristic"
+	default:
+		return "unknown"
+	}
 }

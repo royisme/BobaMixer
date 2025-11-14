@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/royisme/bobamixer/internal/adapters"
+	"github.com/royisme/bobamixer/internal/logger"
 )
 
 type Client struct {
@@ -59,6 +60,86 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 		return adapters.Result{}, errors.New("endpoint not configured")
 	}
 
+	// Execute with retry logic (max 2 retries = 3 total attempts)
+	return c.executeWithRetry(ctx, req, 2)
+}
+
+func (c *Client) executeWithRetry(ctx context.Context, req adapters.Request, maxRetries int) (adapters.Result, error) {
+	var lastResult adapters.Result
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Wait before retry (exponential backoff: 1s, 2s)
+		if attempt > 0 {
+			backoffDuration := time.Duration(attempt) * time.Second
+			logger.Info("HTTP retry backoff",
+				logger.String("client", c.name),
+				logger.Int("attempt", attempt),
+				logger.String("backoff", backoffDuration.String()))
+			fmt.Printf("[Retry %d after %s]\n", attempt, backoffDuration)
+			select {
+			case <-time.After(backoffDuration):
+			case <-ctx.Done():
+				logger.Warn("HTTP request cancelled during retry", logger.Err(ctx.Err()))
+				return adapters.Result{}, ctx.Err()
+			}
+		}
+
+		// Log attempt
+		if attempt == 0 {
+			logger.Info("HTTP request attempt", logger.String("client", c.name))
+			fmt.Println("[Attempt 1]")
+		}
+
+		// Execute the request
+		result, err := c.executeOnce(ctx, req)
+		lastResult = result
+		lastErr = err
+
+		// If request creation or network error, retry
+		if err != nil {
+			logger.Error("HTTP request failed",
+				logger.String("client", c.name),
+				logger.Int("attempt", attempt),
+				logger.Err(err))
+			if attempt < maxRetries {
+				fmt.Printf("Network error: %v\n", err)
+				continue
+			}
+			return result, err
+		}
+
+		// Check if we should retry based on status code
+		if result.Success {
+			logger.Info("HTTP request succeeded",
+				logger.String("client", c.name),
+				logger.Int64("latency_ms", result.Usage.LatencyMS),
+				logger.Int("input_tokens", result.Usage.InputTokens),
+				logger.Int("output_tokens", result.Usage.OutputTokens))
+			return result, nil
+		}
+
+		// Parse status code from error message
+		shouldRetry := c.shouldRetry(result.Error)
+		if !shouldRetry || attempt >= maxRetries {
+			logger.Warn("HTTP request failed, not retrying",
+				logger.String("client", c.name),
+				logger.String("error", result.Error),
+				logger.Bool("should_retry", shouldRetry),
+				logger.Int("attempt", attempt))
+			return result, nil
+		}
+
+		logger.Warn("HTTP request failed, will retry",
+			logger.String("client", c.name),
+			logger.String("error", result.Error))
+		fmt.Printf("%s\n", result.Error)
+	}
+
+	return lastResult, lastErr
+}
+
+func (c *Client) executeOnce(ctx context.Context, req adapters.Request) (adapters.Result, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, strings.NewReader(string(req.Payload)))
 	if err != nil {
 		return adapters.Result{}, err
@@ -103,6 +184,33 @@ func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Re
 		Error:   errorText(resp.StatusCode, body),
 		Usage:   usage,
 	}, nil
+}
+
+// shouldRetry determines if a request should be retried based on the error
+func (c *Client) shouldRetry(errorMsg string) bool {
+	if errorMsg == "" {
+		return false
+	}
+
+	// Check for 5xx server errors (should retry)
+	if strings.Contains(errorMsg, "status 5") {
+		return true
+	}
+
+	// Check for timeout errors (should retry)
+	if strings.Contains(errorMsg, "timeout") ||
+		strings.Contains(errorMsg, "Timeout") ||
+		strings.Contains(errorMsg, "deadline exceeded") {
+		return true
+	}
+
+	// Check for 4xx client errors (should NOT retry)
+	if strings.Contains(errorMsg, "status 4") {
+		return false
+	}
+
+	// For other errors, don't retry
+	return false
 }
 
 // parseUsage attempts to extract usage information from API response

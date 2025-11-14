@@ -51,7 +51,10 @@ func ValidateSecretsPermissions(home string) error {
 
 	mode := info.Mode().Perm()
 	if mode != 0600 {
-		return fmt.Errorf("secrets.yaml has insecure permissions %o, should be 0600", mode)
+		return fmt.Errorf(
+			"secrets.yaml has insecure permissions (%04o), should be 0600\n"+
+				"Fix: chmod 600 %s/secrets.yaml",
+			mode, home)
 	}
 
 	return nil
