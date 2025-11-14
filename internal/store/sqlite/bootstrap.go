@@ -93,7 +93,7 @@ func (db *DB) bootstrap() error {
 		if err := db.migrateToV1(); err != nil {
 			return fmt.Errorf("migrate to v1: %w", err)
 		}
-		version = 1
+		version = schemaVersion
 	}
 
 	// Version 1 -> 2: Add estimate_level to usage_records
@@ -150,7 +150,7 @@ func (db *DB) migrateToV1() error {
                    SUM(input_tokens + output_tokens) AS total_tokens,
                    SUM(input_cost + output_cost) AS total_cost
             FROM usage_records GROUP BY date;`,
-		"PRAGMA user_version = 1;",
+		"PRAGMA user_version = 2;",
 	}
 	for _, stmt := range statements {
 		if err := db.Exec(stmt); err != nil {
