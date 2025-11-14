@@ -19,6 +19,8 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    main: ./cmd/boba
+    binary: boba
     ldflags:
       - -s -w
       - -X github.com/royisme/BobaMixer/internal/version.Version={{.Version}}
@@ -33,19 +35,12 @@ archives:
     files:
       - README.md
       - LICENSE
-      - completions/*
-  - format: zip
-    name_template: >-
-      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
-    files:
-      - README.md
-      - LICENSE
-      - completions/*
-    # only zip for windows
-    if: eq .Os "windows"
+    format_overrides:
+      - goos: windows
+        format: zip
 
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
@@ -55,77 +50,21 @@ changelog:
   use: github
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - '^style:'
-      - '^refactor:'
-      - '^perf:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^style:"
+      - "^refactor:"
+      - "^perf:"
   groups:
     - title: Features
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: 'Bug fixes'
+    - title: "Bug fixes"
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 1
     - title: Others
       order: 999
-
-# Homebrew formula
-brews:
-  - name: boba
-    homepage: "https://github.com/royisme/BobaMixer"
-    description: "A smart AI adapter router with intelligent routing, budget tracking, and cost optimization"
-    license: MIT
-    repository:
-      owner: royisme
-      name: homebrew-tap
-      branch: main
-    commit_author:
-      name: goreleaserbot
-      email: goreleaser@carlosbecker.com
-
-# GitHub release
-release:
-  github:
-    owner: royisme
-    name: BobaMixer
-  draft: false
-  prerelease: auto
-  name_template: "{{.ProjectName}} v{{.Version}}"
-  header: |
-    ## BobaMixer v{{.Version}}
-
-    Welcome to this new release!
-
-    ### 🚀 Installation
-
-    #### Homebrew (recommended)
-    ```bash
-    brew install royisme/tap/boba
-    ```
-
-    #### Download binaries
-    Download the appropriate binary for your platform from the assets below.
-
-    #### Install from source
-    ```bash
-    go install github.com/royisme/BobaMixer/cmd/boba@v{{.Version}}
-    ```
-
-    ### 📋 What's Changed
-
-    {{ .Changelog }}
-
-    ### 🔗 Links
-    - [Documentation](https://royisme.github.io/BobaMixer/)
-    - [GitHub Repository](https://github.com/royisme/BobaMixer)
-    - [Report Issues](https://github.com/royisme/BobaMixer/issues)
-
-  footer: |
-    ---
-    <sub>Released with ❤️ by Goreleaser</sub>
-
 # The lines beneath this are called `modelines`. See `:help modeline`
 # Feel free to remove those if you don't want/use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
