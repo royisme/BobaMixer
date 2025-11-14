@@ -16,7 +16,7 @@ import (
 
 // SessionMeta contains metadata for starting a session.
 type SessionMeta struct {
-	Source  string // "wrap" | "demo" | "call" | etc.
+	Source  string // "wrap" | "call" | "http" | "tool" | etc.
 	Profile string // profile key
 	Project string // project name
 	Branch  string // git branch
