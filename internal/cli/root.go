@@ -31,6 +31,7 @@ import (
 	"github.com/royisme/bobamixer/internal/svc"
 	"github.com/royisme/bobamixer/internal/ui"
 	"github.com/royisme/bobamixer/internal/version"
+	"go.uber.org/zap"
 )
 
 const (
@@ -41,6 +42,9 @@ const (
 	statusOK      = "[OK]"
 	statusError   = "[ERROR]"
 	statusWarning = "[WARN]"
+
+	useSlowThreshold   = 2 * time.Second
+	statsSlowThreshold = 3 * time.Second
 )
 
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
@@ -182,6 +186,12 @@ func runLS(home string, args []string) error {
 }
 
 func runUse(home string, args []string) error {
+	start := time.Now()
+	var profileKey string
+	defer func() {
+		logCommandDuration("use", start, useSlowThreshold, logger.String("profile", profileKey))
+	}()
+
 	if len(args) != 1 {
 		return errors.New("use requires profile name")
 	}
@@ -193,6 +203,7 @@ func runUse(home string, args []string) error {
 	if !ok {
 		return fmt.Errorf("profile %s not found", args[0])
 	}
+	profileKey = prof.Key
 	if err := config.SaveActiveProfile(home, prof.Key); err != nil {
 		return err
 	}
@@ -249,7 +260,13 @@ func runStats(home string, args []string) error {
 
 	// Handle 7-day stats
 	if *days7 {
-		return showPeriodStats(db, 7, *byProfile)
+		start := time.Now()
+		err := showPeriodStats(db, 7, *byProfile)
+		logCommandDuration("stats", start, statsSlowThreshold,
+			logger.String("window", "7d"),
+			logger.Bool("by_profile", *byProfile),
+		)
+		return err
 	}
 
 	// Handle 30-day stats
@@ -259,6 +276,23 @@ func runStats(home string, args []string) error {
 
 	// Default: show today
 	return runStats(home, []string{"--today"})
+}
+
+func logCommandDuration(command string, start time.Time, threshold time.Duration, extra ...zap.Field) {
+	duration := time.Since(start)
+	fields := []zap.Field{
+		logger.String("command", command),
+		logger.Int64("duration_ms", duration.Milliseconds()),
+	}
+	if len(extra) > 0 {
+		fields = append(fields, extra...)
+	}
+	logger.Info("command_duration", fields...)
+	if threshold > 0 && duration > threshold {
+		slowFields := append([]zap.Field{}, fields...)
+		slowFields = append(slowFields, logger.Int64("slow_threshold_ms", threshold.Milliseconds()))
+		logger.Warn("command_duration_slow", slowFields...)
+	}
 }
 
 func showPeriodStats(db *sqlite.DB, days int, byProfile bool) error {

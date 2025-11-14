@@ -38,17 +38,27 @@ func GetVersionInfo() VersionInfo {
 
 // String returns a formatted version string
 func (v VersionInfo) String() string {
-	if v.Version == "dev" {
-		return fmt.Sprintf("BobaMixer version %s (development)", v.Version)
+	version := v.Version
+	if version == "" {
+		version = "dev"
 	}
-
 	commit := v.Commit
+	if commit == "" {
+		commit = "unknown"
+	}
 	if len(commit) > 7 {
 		commit = commit[:7]
 	}
-
-	return fmt.Sprintf("BobaMixer version %s (commit: %s, built: %s, os/arch: %s/%s)",
-		v.Version, commit, v.Date, v.GoOS, v.GoArch)
+	build := v.Date
+	if build == "" {
+		build = "unknown"
+	}
+	meta := "release"
+	if version == "dev" {
+		meta = "development"
+	}
+	return fmt.Sprintf("BobaMixer %s %s (commit: %s, built: %s, os/arch: %s/%s)",
+		meta, version, commit, build, v.GoOS, v.GoArch)
 }
 
 // FullString returns a detailed version string

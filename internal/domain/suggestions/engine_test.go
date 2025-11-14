@@ -1,8 +1,10 @@
 package suggestions
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -400,6 +402,48 @@ func TestSuggestionTypeString(t *testing.T) {
 				t.Errorf("String() = %s, want %s", tt.suggType.String(), tt.want)
 			}
 		})
+	}
+}
+
+func TestEngineGenerateSuggestionsEndToEnd(t *testing.T) {
+	tempDir := t.TempDir()
+	db, err := sqlite.Open(filepath.Join(tempDir, "suggestions.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+
+	for i := 0; i < 7; i++ {
+		profile := "fast"
+		cost := float64(i + 1)
+		if i > 3 {
+			profile = "expensive"
+			cost = float64(10 + i)
+		}
+		seedSuggestionUsage(t, db, i, profile, cost)
+	}
+
+	engine := NewEngine(db)
+	suggestions, err := engine.GenerateSuggestions(7)
+	if err != nil {
+		t.Fatalf("GenerateSuggestions: %v", err)
+	}
+	if len(suggestions) == 0 {
+		t.Fatal("expected at least one suggestion")
+	}
+}
+
+func seedSuggestionUsage(t *testing.T, db *sqlite.DB, dayOffset int, profile string, cost float64) {
+	t.Helper()
+	day := time.Now().AddDate(0, 0, -dayOffset)
+	ts := day.Unix()
+	sessionID := fmt.Sprintf("sess-%s-%d", profile, dayOffset)
+	stmtSession := fmt.Sprintf("INSERT INTO sessions (id, started_at, profile, adapter, success, latency_ms) VALUES ('%s', %d, '%s', 'http', 1, 100);", sessionID, ts, profile)
+	if err := db.Exec(stmtSession); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	stmtUsage := fmt.Sprintf("INSERT INTO usage_records (id, session_id, ts, input_tokens, output_tokens, input_cost, output_cost, model) VALUES ('usage-%s-%d', '%s', %d, 100, 50, %.2f, %.2f, 'model');", profile, dayOffset, sessionID, ts, cost/2, cost/2)
+	if err := db.Exec(stmtUsage); err != nil {
+		t.Fatalf("insert usage: %v", err)
 	}
 }
 
