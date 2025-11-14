@@ -86,9 +86,19 @@ boba report --format json --output usage-report.json
 ## 🧪 Development
 
 ### Prerequisites
-- Go 1.22+
+- Go 1.22+ (set `GOTOOLCHAIN=auto` to let Go download matching toolchains automatically)
 - SQLite 3
 - Git
+- [golangci-lint v2.6.1](https://github.com/golangci/golangci-lint)
+
+```bash
+# Ensure Go always fetches the matching compiler
+export GOTOOLCHAIN=auto
+
+# Install golangci-lint v2.6.1 locally (installs into ./bin)
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+  sh -s -- -b ./bin v2.6.1
+```
 
 ### Build from Source
 
