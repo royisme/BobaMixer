@@ -139,12 +139,8 @@ func Run(ctx context.Context, spec ExecSpec) (ExecResult, error) {
 // parseUsage attempts to parse usage from tool output.
 // It tries JSONL format first (exact), otherwise falls back to heuristic.
 func parseUsage(stdout, stderr []byte) Usage {
-	// Use the existing tooladapter logic for parsing JSONL
-	// Create a temporary runner to reuse parsing logic
-	runner := tooladapter.New("temp", "temp", nil)
-
 	// Try parsing stdout
-	if event, ok := tryParseJSONLines(runner, stdout); ok {
+	if event, ok := parseJSONLinesUsage(stdout); ok {
 		return Usage{
 			InputTokens:  event.InputTokens,
 			OutputTokens: event.OutputTokens,
@@ -153,7 +149,7 @@ func parseUsage(stdout, stderr []byte) Usage {
 	}
 
 	// Try parsing stderr
-	if event, ok := tryParseJSONLines(runner, stderr); ok {
+	if event, ok := parseJSONLinesUsage(stderr); ok {
 		return Usage{
 			InputTokens:  event.InputTokens,
 			OutputTokens: event.OutputTokens,
@@ -167,13 +163,6 @@ func parseUsage(stdout, stderr []byte) Usage {
 		OutputTokens: 0,
 		Estimate:     "heuristic",
 	}
-}
-
-// tryParseJSONLines is a helper that uses the tooladapter's parsing logic
-func tryParseJSONLines(runner *tooladapter.Runner, data []byte) (*tooladapter.UsageEvent, bool) {
-	// We need to use reflection or recreate the parsing logic here
-	// For simplicity, let's recreate the basic JSONL parsing
-	return parseJSONLinesUsage(data)
 }
 
 // parseJSONLinesUsage parses JSONL usage events from output

@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -26,24 +27,28 @@ func insertTestUsage(t *testing.T, db *sqlite.DB, sessionID string, inputTokens,
 	timestamp := time.Now().AddDate(0, 0, -daysAgo).Unix()
 
 	sessionQuery := `INSERT INTO sessions (id, started_at, ended_at, success, latency_ms, profile)
-		VALUES ('` + sessionID + `', ` + itoa(timestamp) + `, ` + itoa(timestamp+100) + `, 1, 100, 'test-profile');`
+		VALUES ('` + sessionID + `', ` + i64toa(timestamp) + `, ` + i64toa(timestamp+100) + `, 1, 100, 'test-profile');`
 	if err := db.Exec(sessionQuery); err != nil {
 		t.Fatalf("insert session: %v", err)
 	}
 
 	usageQuery := `INSERT INTO usage_records (id, session_id, ts, input_tokens, output_tokens, input_cost, output_cost, model, estimate_level)
-		VALUES ('usage-` + sessionID + `', '` + sessionID + `', ` + itoa(timestamp) + `, ` + itoa(inputTokens) + `, ` + itoa(outputTokens) + `, ` + ftoa(cost/2) + `, ` + ftoa(cost/2) + `, 'test-model', 'exact');`
+		VALUES ('usage-` + sessionID + `', '` + sessionID + `', ` + i64toa(timestamp) + `, ` + itoa(inputTokens) + `, ` + itoa(outputTokens) + `, ` + ftoa(cost/2) + `, ` + ftoa(cost/2) + `, 'test-model', 'exact');`
 	if err := db.Exec(usageQuery); err != nil {
 		t.Fatalf("insert usage: %v", err)
 	}
 }
 
-func itoa(i int64) string {
-	return string(rune(i)) // simplified for tests
+func i64toa(i int64) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
 }
 
 func ftoa(f float64) string {
-	return string(rune(int(f * 1000))) // simplified for tests
+	return fmt.Sprintf("%.4f", f)
 }
 
 func TestToday(t *testing.T) {
@@ -97,7 +102,7 @@ func TestWindow(t *testing.T) {
 
 		// Insert usage for the past 7 days
 		for i := 0; i < 7; i++ {
-			insertTestUsage(t, db, "session-"+itoa(int64(i)), 100, 200, 0.01, i)
+			insertTestUsage(t, db, "session-"+itoa(i), 100, 200, 0.01, i)
 		}
 
 		// When: Window is called for 7 days
