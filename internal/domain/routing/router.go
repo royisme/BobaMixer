@@ -263,7 +263,7 @@ var (
 	intentEqualsPattern           = regexp.MustCompile(`intent=='([^']+)'`)
 	textMatchesPattern            = regexp.MustCompile(`text\.matches\('([^']+)'\)`)
 	textContainsPattern           = regexp.MustCompile(`text\.contains\('([^']+)'\)`)
-	ctxCharsPattern               = regexp.MustCompile(`ctx_chars>(\d+)`)
+	ctxCharsPattern               = regexp.MustCompile(`ctx_chars([<>])(\d+)`)
 	taskMatchesPattern            = regexp.MustCompile(`task\.matches\('([^']+)'\)`)
 	branchMatchesPattern          = regexp.MustCompile(`branch\.matches\('([^']+)'\)`)
 	branchEqualsPattern           = regexp.MustCompile(`branch\.equals\('([^']+)'\)`)
@@ -304,18 +304,27 @@ func textContainsCondition(expr string, ctx Context) bool {
 }
 
 func ctxCharsCondition(expr string, ctx Context) bool {
-	if !strings.Contains(expr, "ctx_chars>") {
+	if !strings.Contains(expr, "ctx_chars") {
 		return false
 	}
 	matches := ctxCharsPattern.FindStringSubmatch(expr)
-	if len(matches) <= 1 {
+	if len(matches) < 3 {
 		return false
 	}
-	threshold, err := strconv.Atoi(matches[1])
+	operator := matches[1]
+	threshold, err := strconv.Atoi(matches[2])
 	if err != nil {
 		return false
 	}
-	return ctx.CtxChars > threshold
+
+	switch operator {
+	case ">":
+		return ctx.CtxChars > threshold
+	case "<":
+		return ctx.CtxChars < threshold
+	default:
+		return false
+	}
 }
 
 func taskMatchesCondition(expr string, ctx Context) bool {
