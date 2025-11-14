@@ -1,3 +1,5 @@
+export GOTOOLCHAIN=auto
+
 .PHONY: help build test lint fmt vet clean install dev hooks run coverage
 
 # Variables
@@ -11,6 +13,9 @@ DATE?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 BUILD_FLAGS=-ldflags "-X github.com/royisme/BobaMixer/internal/version.Version=$(VERSION) -X github.com/royisme/BobaMixer/internal/version.Commit=$(COMMIT) -X github.com/royisme/BobaMixer/internal/version.Date=$(DATE)"
 BUILD_DIR=dist
 COVERAGE_FILE=coverage.out
+TOOLS_BIN?=$(CURDIR)/bin
+GOLANGCI_LINT_VERSION?=v2.6.1
+GOLANGCI_LINT=$(TOOLS_BIN)/golangci-lint
 
 # Default target
 .DEFAULT_GOAL := help
@@ -62,23 +67,19 @@ vet: ## Run go vet
 	@echo "Running go vet..."
 	$(GO) vet ./...
 
-lint: ## Run golangci-lint
-	@echo "Running golangci-lint..."
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --timeout=5m; \
-	else \
-		echo "golangci-lint not installed. Install it from https://golangci-lint.run/usage/install/"; \
-		exit 1; \
-	fi
+lint: $(GOLANGCI_LINT) ## Run golangci-lint
+       @echo "Running golangci-lint ($(GOLANGCI_LINT_VERSION))..."
+       $(GOLANGCI_LINT) run --timeout=5m
 
-lint-fast: ## Run golangci-lint in fast mode
-	@echo "Running golangci-lint (fast mode)..."
-	@if command -v golangci-lint >/dev/null 2>&1; then \
-		golangci-lint run --fast --timeout=3m; \
-	else \
-		echo "golangci-lint not installed. Install it from https://golangci-lint.run/usage/install/"; \
-		exit 1; \
-	fi
+lint-fast: $(GOLANGCI_LINT) ## Run golangci-lint in fast mode
+       @echo "Running golangci-lint (fast mode, $(GOLANGCI_LINT_VERSION))..."
+       $(GOLANGCI_LINT) run --fast --timeout=3m
+
+$(GOLANGCI_LINT):
+       @echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)..."
+       @mkdir -p $(TOOLS_BIN)
+       @curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+               sh -s -- -b $(TOOLS_BIN) $(GOLANGCI_LINT_VERSION)
 
 check: fmt vet lint-fast test ## Run all checks (format, vet, lint, test)
 	@echo "All checks passed!"

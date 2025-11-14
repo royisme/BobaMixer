@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -233,13 +234,17 @@ func isSensitiveKey(key string) bool {
 		"payload", "request_body", "response_body",
 	}
 
-	lowerKey := regexp.MustCompile(`[A-Z]`).ReplaceAllStringFunc(key, func(s string) string {
-		return "_" + s
+	normalized := regexp.MustCompile(`[A-Z]`).ReplaceAllStringFunc(key, func(s string) string {
+		return "_" + strings.ToLower(s)
 	})
-	lowerKey = regexp.MustCompile(`-`).ReplaceAllString(lowerKey, "_")
+	normalized = strings.ToLower(regexp.MustCompile(`-`).ReplaceAllString(normalized, "_"))
 
-	for _, s := range sensitive {
-		if regexp.MustCompile(`(?i)`+s).MatchString(lowerKey) {
+	for _, pattern := range sensitive {
+		needle := strings.ToLower(pattern)
+		if needle == "token" && strings.Contains(normalized, "tokens") {
+			continue
+		}
+		if strings.Contains(normalized, needle) {
 			return true
 		}
 	}
