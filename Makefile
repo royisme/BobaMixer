@@ -1,6 +1,6 @@
 export GOTOOLCHAIN=auto
 
-.PHONY: help build test lint fmt vet clean install dev hooks run coverage
+.PHONY: help build test lint fmt vet clean install dev hooks run coverage cover
 
 # Variables
 BINARY_NAME=boba
@@ -10,9 +10,13 @@ LDFLAGS=-s -w
 VERSION?=$(shell git describe --tags --always --dirty --abbrev=8 2>/dev/null || echo "dev")
 COMMIT?=$(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 DATE?=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-BUILD_FLAGS=-ldflags "-X github.com/royisme/BobaMixer/internal/version.Version=$(VERSION) -X github.com/royisme/BobaMixer/internal/version.Commit=$(COMMIT) -X github.com/royisme/BobaMixer/internal/version.Date=$(DATE)"
+BUILD_FLAGS=-ldflags "-X github.com/royisme/bobamixer/internal/version.Version=$(VERSION) -X github.com/royisme/bobamixer/internal/version.Commit=$(COMMIT) -X github.com/royisme/bobamixer/internal/version.Date=$(DATE)"
 BUILD_DIR=dist
 COVERAGE_FILE=coverage.out
+COVER_MIN_TOTAL?=60
+CORE_MIN_COVER?=80
+CORE_PACKAGES?=internal/store/config internal/domain/stats internal/domain/suggestions
+COVERAGE_PACKAGES?=./internal/store/config ./internal/domain/stats ./internal/domain/suggestions
 TOOLS_BIN?=$(CURDIR)/bin
 GOLANGCI_LINT_VERSION?=v1.60.1
 GOLANGCI_LINT=$(TOOLS_BIN)/golangci-lint
@@ -59,6 +63,12 @@ coverage: test-coverage ## Generate HTML coverage report
 	$(GO) tool cover -html=$(COVERAGE_FILE) -o coverage.html
 	@echo "Open coverage.html in your browser to view the report"
 
+cover: ## Run coverage with quality gates
+	@echo "Running coverage with enforcement..."
+	$(GO) test -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PACKAGES)
+	@$(GO) tool cover -func=$(COVERAGE_FILE)
+	@$(GO) run ./scripts/covcheck -profile $(COVERAGE_FILE) -module github.com/royisme/bobamixer -min-total $(COVER_MIN_TOTAL) -min-core $(CORE_MIN_COVER) $(foreach pkg,$(CORE_PACKAGES),-core $(pkg))
+
 fmt: ## Format Go code
 	@echo "Formatting code..."
 	gofmt -w -s .
@@ -68,18 +78,18 @@ vet: ## Run go vet
 	$(GO) vet ./...
 
 lint: $(GOLANGCI_LINT) ## Run golangci-lint
-       @echo "Running golangci-lint ($(GOLANGCI_LINT_VERSION))..."
-       $(GOLANGCI_LINT) run --timeout=5m
+	@echo "Running golangci-lint ($(GOLANGCI_LINT_VERSION))..."
+	$(GOLANGCI_LINT) run --timeout=5m
 
 lint-fast: $(GOLANGCI_LINT) ## Run golangci-lint in fast mode
-       @echo "Running golangci-lint (fast mode, $(GOLANGCI_LINT_VERSION))..."
-       $(GOLANGCI_LINT) run --fast --timeout=3m
+	@echo "Running golangci-lint (fast mode, $(GOLANGCI_LINT_VERSION))..."
+	$(GOLANGCI_LINT) run --fast --timeout=3m
 
 $(GOLANGCI_LINT):
-       @echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)..."
-       @mkdir -p $(TOOLS_BIN)
-       @curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
-               sh -s -- -b $(TOOLS_BIN) $(GOLANGCI_LINT_VERSION)
+	@echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)..."
+	@mkdir -p $(TOOLS_BIN)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+	       sh -s -- -b $(TOOLS_BIN) $(GOLANGCI_LINT_VERSION)
 
 check: fmt vet lint-fast test ## Run all checks (format, vet, lint, test)
 	@echo "All checks passed!"

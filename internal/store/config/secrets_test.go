@@ -46,10 +46,22 @@ func TestResolveEnv(t *testing.T) {
 				"MISSING_KEY": "",
 			},
 		},
+		{
+			name: "fallback to environment variable",
+			env: map[string]string{
+				"OPENAI_API_KEY": "secret://missing_env",
+			},
+			expected: map[string]string{
+				"OPENAI_API_KEY": "env-provided",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "fallback to environment variable" {
+				t.Setenv("missing_env", "env-provided")
+			}
 			result := ResolveEnv(tt.env, secrets)
 
 			// Convert result to map for easier comparison
@@ -112,5 +124,12 @@ func TestResolveSecretRef(t *testing.T) {
 				t.Errorf("got %q, want %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestValidateSecretsPermissionsMissing(t *testing.T) {
+	dir := t.TempDir()
+	if err := ValidateSecretsPermissions(dir); err != nil {
+		t.Fatalf("expected no error when file missing, got %v", err)
 	}
 }

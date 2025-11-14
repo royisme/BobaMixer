@@ -50,6 +50,32 @@ func TestParseYAMLListOfMaps(t *testing.T) {
 	}
 }
 
+func TestParseYAMLNestedListStructures(t *testing.T) {
+	data := []byte(`list:
+  - name: nested
+    values:
+      - 1
+      - 2
+  - simple-value
+`)
+	got, err := parseYAML(data)
+	if err != nil {
+		t.Fatalf("parseYAML: %v", err)
+	}
+	items, ok := got["list"].([]interface{})
+	if !ok || len(items) != 2 {
+		t.Fatalf("unexpected items: %#v", got["list"])
+	}
+	first := items[0].(map[string]interface{})
+	vals := first["values"].([]interface{})
+	if len(vals) != 2 {
+		t.Fatalf("expected array nested: %#v", vals)
+	}
+	if items[1].(string) != "simple-value" {
+		t.Fatalf("expected scalar list item")
+	}
+}
+
 func intFromAny(v interface{}) int {
 	switch n := v.(type) {
 	case int:
