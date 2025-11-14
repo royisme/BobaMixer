@@ -4,6 +4,18 @@
 ### Features
 
 * add HTTP retry and enhanced diagnostics (batch 3) ([b0691a9](https://github.com/royisme/BobaMixer/commit/b0691a9eda3d0fe5fb56c6679b7fd5a0ef870027))
+* enhance doctor diagnostics and tooling setup ([e852a97](https://github.com/royisme/BobaMixer/commit/e852a976b35e030391ecc9a9131719d5a4946ecd))
+* implement core execution features (batch 2) ([31d47fe](https://github.com/royisme/BobaMixer/commit/31d47fed6605a5cd52b95ca2e4a9f9c85b2b7018))
+* implement structured logging and connect TUI dashboard ([5715034](https://github.com/royisme/BobaMixer/commit/5715034c8792521da69ed515590ed4f6f3dc4c85)), closes [#P0-4](https://github.com/royisme/BobaMixer/issues/P0-4) [#P2-5](https://github.com/royisme/BobaMixer/issues/P2-5) [#P1-2](https://github.com/royisme/BobaMixer/issues/P1-2) [#P3-3](https://github.com/royisme/BobaMixer/issues/P3-3)
+
+
+
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.8...v1.0.0) (2025-11-14)
+
+
+### Features
+
+* add HTTP retry and enhanced diagnostics (batch 3) ([b0691a9](https://github.com/royisme/BobaMixer/commit/b0691a9eda3d0fe5fb56c6679b7fd5a0ef870027))
 * implement core execution features (batch 2) ([31d47fe](https://github.com/royisme/BobaMixer/commit/31d47fed6605a5cd52b95ca2e4a9f9c85b2b7018))
 * implement structured logging and connect TUI dashboard ([5715034](https://github.com/royisme/BobaMixer/commit/5715034c8792521da69ed515590ed4f6f3dc4c85)), closes [#P0-4](https://github.com/royisme/BobaMixer/issues/P0-4) [#P2-5](https://github.com/royisme/BobaMixer/issues/P2-5) [#P1-2](https://github.com/royisme/BobaMixer/issues/P1-2) [#P3-3](https://github.com/royisme/BobaMixer/issues/P3-3)
 
