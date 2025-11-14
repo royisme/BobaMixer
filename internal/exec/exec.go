@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/royisme/bobamixer/internal/httpx"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/tool"
@@ -197,10 +198,72 @@ func RunTool(ctx context.Context, db *sqlite.DB, home string, spec ToolExecSpec)
 	}, nil
 }
 
-// RunHTTP is a placeholder for HTTP adapter execution with session tracking.
-// Implementation to be completed when httpx package is ready.
+// RunHTTP executes an HTTP request with full session and usage tracking.
+// It automatically creates a session, executes the HTTP request, records usage, and ends the session.
 func RunHTTP(ctx context.Context, db *sqlite.DB, home string, req HTTPRequest) (*HTTPResult, error) {
-	return nil, fmt.Errorf("RunHTTP not yet implemented")
+	// Begin session
+	meta := SessionMeta{
+		Source:  "http",
+		Profile: req.Profile,
+	}
+	sessionID := req.SessionID
+	if sessionID == "" {
+		var err error
+		sessionID, err = BeginSession(ctx, db, meta)
+		if err != nil {
+			return nil, fmt.Errorf("begin session: %w", err)
+		}
+	}
+
+	// Execute HTTP request
+	httpxReq := httpx.HTTPRequest{
+		SessionID: sessionID,
+		Endpoint:  req.Endpoint,
+		Headers:   req.Headers,
+		Payload:   req.Payload,
+		Timeout:   req.Timeout,
+		Retries:   req.Retries,
+	}
+
+	httpxResult, err := httpx.Execute(ctx, httpxReq)
+	if err != nil {
+		// End session with error
+		_ = EndSession(ctx, db, sessionID, false, err.Error())
+		return nil, fmt.Errorf("http execution: %w", err)
+	}
+
+	// Record usage if available
+	if httpxResult.Usage.InputTokens > 0 || httpxResult.Usage.OutputTokens > 0 {
+		usage := Usage{
+			InputTokens:  httpxResult.Usage.InputTokens,
+			OutputTokens: httpxResult.Usage.OutputTokens,
+			Model:        req.Profile, // use profile as model for now
+			Estimate:     httpxResult.Usage.Estimate,
+		}
+		if err := RecordUsage(ctx, db, sessionID, usage); err != nil {
+			// Log error but don't fail the execution
+			fmt.Printf("Warning: failed to record usage: %v\n", err)
+		}
+	}
+
+	// End session
+	success := httpxResult.Success
+	notes := ""
+	if !success {
+		notes = fmt.Sprintf("status %d: %s", httpxResult.StatusCode, httpxResult.ErrorClass)
+	}
+	if err := EndSession(ctx, db, sessionID, success, notes); err != nil {
+		return nil, fmt.Errorf("end session: %w", err)
+	}
+
+	return &HTTPResult{
+		SessionID:  sessionID,
+		Success:    httpxResult.Success,
+		StatusCode: httpxResult.StatusCode,
+		Body:       httpxResult.Body,
+		LatencyMS:  httpxResult.Usage.LatencyMS,
+		ErrorClass: httpxResult.ErrorClass,
+	}, nil
 }
 
 // HTTPRequest represents an HTTP request specification.
