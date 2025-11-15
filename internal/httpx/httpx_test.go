@@ -197,7 +197,7 @@ func TestExecute(t *testing.T) {
 		ctx := context.Background()
 		req := httpx.HTTPRequest{
 			SessionID: "test-session",
-			Endpoint:  "http://invalid-host-that-does-not-exist.local:9999",
+			Endpoint:  "http://127.0.0.1:65535",
 			Timeout:   1 * time.Second,
 			Retries:   2,
 		}

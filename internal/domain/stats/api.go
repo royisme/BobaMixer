@@ -3,6 +3,7 @@ package stats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -77,9 +78,15 @@ func Window(ctx context.Context, db *sqlite.DB, from, to time.Time) (Summary, er
 	}, nil
 }
 
+// ErrSchemaTooOld indicates the SQLite schema version is below the minimum supported level.
+var ErrSchemaTooOld = errors.New("stats schema version too old")
+
 // P95Latency returns the 95th percentile latency for a given time window.
 // If byProfile is true, returns per-profile latencies; otherwise returns overall P95.
 func P95Latency(ctx context.Context, db *sqlite.DB, window time.Duration, byProfile bool) (map[string]int64, error) {
+	if err := requireSchemaVersion(db, 3); err != nil {
+		return nil, err
+	}
 	analyzer := NewAnalyzer(db)
 	startDate := time.Now().Add(-window).Format("2006-01-02")
 
@@ -226,4 +233,15 @@ func sqlEscape(s string) string {
 		}
 	}
 	return result
+}
+
+func requireSchemaVersion(db *sqlite.DB, minVersion int) error {
+	version, err := db.QueryInt("PRAGMA user_version;")
+	if err != nil {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+	if version < minVersion {
+		return fmt.Errorf("schema version %d is below required %d: %w", version, minVersion, ErrSchemaTooOld)
+	}
+	return nil
 }
