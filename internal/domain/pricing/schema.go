@@ -104,6 +104,7 @@ func (c *CachedPricing) IsFresh() bool {
 
 // ToLegacyTable converts PricingSchema to the legacy Table format
 // This ensures backward compatibility with existing code
+// Only models with valid (non-zero) pricing are included to avoid underestimating costs
 func (ps *PricingSchema) ToLegacyTable() *Table {
 	table := &Table{
 		Models: make(map[string]ModelPrice),
@@ -111,10 +112,14 @@ func (ps *PricingSchema) ToLegacyTable() *Table {
 
 	for _, model := range ps.Models {
 		if model.Pricing.Token != nil {
-			// Convert per million to per 1K (multiply by 1000)
-			table.Models[model.ID] = ModelPrice{
-				InputPer1K:  model.Pricing.Token.Input / 1000.0,
-				OutputPer1K: model.Pricing.Token.Output / 1000.0,
+			// Only include models with valid pricing (both input and output > 0)
+			// This prevents zero-priced models from being used when pricing data is incomplete
+			if model.Pricing.Token.Input > 0 && model.Pricing.Token.Output > 0 {
+				// Convert per million to per 1K (divide by 1000)
+				table.Models[model.ID] = ModelPrice{
+					InputPer1K:  model.Pricing.Token.Input / 1000.0,
+					OutputPer1K: model.Pricing.Token.Output / 1000.0,
+				}
 			}
 		}
 	}

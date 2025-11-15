@@ -298,9 +298,3 @@ meta, err := cacheManager.GetMetadata()
 - Automatic vendor JSON updates
 - Price history tracking
 - Cost forecasting
-
-## Related Documentation
-
-- [Configuration Guide](./CONFIGURATION.md)
-- [CLI Commands](./CLI.md)
-- [API Reference](./API.md)
