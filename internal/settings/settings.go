@@ -138,6 +138,9 @@ func Save(ctx context.Context, home string, s Settings) error {
 	if s.Mode != ModeObserver && s.Mode != ModeSuggest && s.Mode != ModeApply {
 		return fmt.Errorf("invalid mode: %s (must be observer, suggest, or apply)", s.Mode)
 	}
+	if s.Explore.Rate < 0 || s.Explore.Rate > 1 {
+		return fmt.Errorf("explore rate must be between 0 and 1, got %f", s.Explore.Rate)
+	}
 
 	// Set defaults
 	if s.Theme == "" {

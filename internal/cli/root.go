@@ -22,11 +22,12 @@ import (
 	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
-	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/logging"
+	"github.com/royisme/bobamixer/internal/settings"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/svc"
@@ -64,6 +65,9 @@ func Run(args []string) error {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(home, "logs"), 0o700); err != nil {
+		return err
+	}
+	if err := settings.InitHome(home); err != nil {
 		return err
 	}
 
@@ -117,6 +121,8 @@ func Run(args []string) error {
 		return runAction(home, args[1:])
 	case "report":
 		return runReport(home, args[1:])
+	case "init":
+		return runInit(home, args[1:])
 	case "route":
 		return runRoute(home, args[1:])
 	case "completions":
@@ -149,6 +155,7 @@ func printUsage() {
 	fmt.Println("  boba report [--format json|csv] [--out file]   Generate usage report")
 	fmt.Println()
 	fmt.Println("Configuration:")
+	fmt.Println("  boba init                                     Initialize ~/.boba with defaults")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
 	fmt.Println("  boba doctor                                   Run diagnostics")
 	fmt.Println("  boba doctor --pricing                         Run pricing validation")
@@ -1190,6 +1197,46 @@ func runReport(home string, args []string) error {
 	}
 
 	fmt.Printf("Report exported to %s\n", fileName)
+	return nil
+}
+
+func runInit(home string, args []string) error {
+	flags := flag.NewFlagSet("init", flag.ContinueOnError)
+	mode := flags.String("mode", "", "operation mode: observer|suggest|apply")
+	theme := flags.String("theme", "", "ui theme: auto|dark|light")
+	disableExplore := flags.Bool("disable-explore", false, "disable exploration suggestions")
+	exploreRate := flags.Float64("explore-rate", -1, "exploration rate between 0 and 1")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if err := settings.InitHome(home); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	current, err := settings.Load(ctx, home)
+	if err != nil {
+		return err
+	}
+	if *mode != "" {
+		current.Mode = settings.Mode(*mode)
+	} else if current.Mode == "" {
+		current.Mode = settings.ModeObserver
+	}
+	if *theme != "" {
+		current.Theme = *theme
+	}
+	if *disableExplore {
+		current.Explore.Enabled = false
+	}
+	if *exploreRate >= 0 {
+		current.Explore.Rate = *exploreRate
+		current.Explore.Enabled = true
+	}
+	if err := settings.Save(ctx, home, current); err != nil {
+		return err
+	}
+	fmt.Println("Settings initialized in", filepath.Join(home, "settings.yaml"))
 	return nil
 }
 
