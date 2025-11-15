@@ -262,21 +262,31 @@ func sanitizeField(field Field) Field {
 }
 
 func ensureLogFile(path string) error {
-	_, err := os.Stat(path)
-	if err == nil {
-		if err := os.Chmod(path, 0o600); err != nil {
-			return fmt.Errorf("set log file permissions: %w", err)
-		}
-		return nil
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("stat log file: %w", err)
-	}
-	f, createErr := os.OpenFile(path, os.O_CREATE|os.O_APPEND, 0o600)
-	if createErr != nil {
-		return fmt.Errorf("create log file: %w", createErr)
-	}
-	return f.Close()
+        safePath := filepath.Clean(path)
+        if !filepath.IsAbs(safePath) {
+                abs, err := filepath.Abs(safePath)
+                if err != nil {
+                        return fmt.Errorf("resolve log file path: %w", err)
+                }
+                safePath = abs
+        }
+
+        _, err := os.Stat(safePath)
+        if err == nil {
+                if err := os.Chmod(safePath, 0o600); err != nil {
+                        return fmt.Errorf("set log file permissions: %w", err)
+                }
+                return nil
+        }
+        if !errors.Is(err, os.ErrNotExist) {
+                return fmt.Errorf("stat log file: %w", err)
+        }
+        // #nosec G304 -- safePath is derived from Config via resolvePath and sanitized above.
+        f, createErr := os.OpenFile(safePath, os.O_CREATE|os.O_APPEND, 0o600)
+        if createErr != nil {
+                return fmt.Errorf("create log file: %w", createErr)
+        }
+        return f.Close()
 }
 
 func isSensitiveKey(key string) bool {
