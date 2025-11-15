@@ -2,6 +2,7 @@
 package logging
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -59,6 +60,7 @@ var (
 )
 
 // New builds a structured logger based on cfg.
+
 func New(cfg Config) (Logger, error) {
 	path, err := resolvePath(cfg)
 	if err != nil {
@@ -67,6 +69,9 @@ func New(cfg Config) (Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
+	if err := ensureLogFile(path); err != nil {
+		return nil, err
+	}
 
 	writer := &lumberjack.Logger{
 		Filename:   path,
@@ -74,9 +79,6 @@ func New(cfg Config) (Logger, error) {
 		MaxBackups: pickInt(cfg.MaxBackups, 5),
 		MaxAge:     pickInt(cfg.MaxAgeDays, 0),
 		LocalTime:  true,
-	}
-	if err := os.Chmod(path, 0o600); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("set log file permissions: %w", err)
 	}
 
 	level := zap.InfoLevel
@@ -227,17 +229,64 @@ func Sanitize(msg string) string {
 func sanitizeFields(fields []Field) []Field {
 	sanitized := make([]Field, len(fields))
 	for i, field := range fields {
-		if isSensitiveKey(field.Key) {
-			sanitized[i] = zap.String(field.Key, "***REDACTED***")
-			continue
-		}
-		if field.Type == zapcore.StringType {
-			sanitized[i] = zap.String(field.Key, Sanitize(field.String))
-		} else {
-			sanitized[i] = field
-		}
+		sanitized[i] = sanitizeField(field)
 	}
 	return sanitized
+}
+
+func sanitizeField(field Field) Field {
+	if isSensitiveKey(field.Key) {
+		return zap.String(field.Key, "***REDACTED***")
+	}
+	switch field.Type {
+	case zapcore.StringType:
+		return zap.String(field.Key, Sanitize(field.String))
+	case zapcore.ByteStringType, zapcore.BinaryType:
+		if data, ok := field.Interface.([]byte); ok {
+			return zap.ByteString(field.Key, []byte(Sanitize(string(data))))
+		}
+		return zap.String(field.Key, Sanitize(field.String))
+	case zapcore.ReflectType, zapcore.ObjectMarshalerType, zapcore.ArrayMarshalerType:
+		if field.Interface != nil {
+			return zap.String(field.Key, Sanitize(fmt.Sprint(field.Interface)))
+		}
+	case zapcore.StringerType:
+		if str, ok := field.Interface.(fmt.Stringer); ok {
+			return zap.String(field.Key, Sanitize(str.String()))
+		}
+	}
+	if field.Interface != nil {
+		return zap.String(field.Key, Sanitize(fmt.Sprint(field.Interface)))
+	}
+	return field
+}
+
+func ensureLogFile(path string) error {
+        safePath := filepath.Clean(path)
+        if !filepath.IsAbs(safePath) {
+                abs, err := filepath.Abs(safePath)
+                if err != nil {
+                        return fmt.Errorf("resolve log file path: %w", err)
+                }
+                safePath = abs
+        }
+
+        _, err := os.Stat(safePath)
+        if err == nil {
+                if err := os.Chmod(safePath, 0o600); err != nil {
+                        return fmt.Errorf("set log file permissions: %w", err)
+                }
+                return nil
+        }
+        if !errors.Is(err, os.ErrNotExist) {
+                return fmt.Errorf("stat log file: %w", err)
+        }
+        // #nosec G304 -- safePath is derived from Config via resolvePath and sanitized above.
+        f, createErr := os.OpenFile(safePath, os.O_CREATE|os.O_APPEND, 0o600)
+        if createErr != nil {
+                return fmt.Errorf("create log file: %w", createErr)
+        }
+        return f.Close()
 }
 
 func isSensitiveKey(key string) bool {

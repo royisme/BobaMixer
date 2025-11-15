@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -27,7 +28,7 @@ func insertTestUsage(t *testing.T, db *sqlite.DB, sessionID string, inputTokens,
 	timestamp := time.Now().AddDate(0, 0, -daysAgo).Unix()
 
 	sessionQuery := `INSERT INTO sessions (id, started_at, ended_at, success, latency_ms, profile)
-		VALUES ('` + sessionID + `', ` + i64toa(timestamp) + `, ` + i64toa(timestamp+100) + `, 1, 100, 'test-profile');`
+        VALUES ('` + sessionID + `', ` + i64toa(timestamp) + `, ` + i64toa(timestamp+100) + `, 1, 100, 'test-profile');`
 	if err := db.Exec(sessionQuery); err != nil {
 		t.Fatalf("insert session: %v", err)
 	}
@@ -148,23 +149,22 @@ func TestP95Latency(t *testing.T) {
 		// Given: database with session latencies
 		db := setupTestDB(t)
 		ctx := context.Background()
-
-		// Insert sessions with varying latencies
-		// (Note: simplified test, would need proper session insertion)
+		insertLatencySession(t, db, "overall-1", "default", 100, 0)
+		insertLatencySession(t, db, "overall-2", "default", 200, 0)
+		insertLatencySession(t, db, "overall-3", "default", 300, 0)
+		insertLatencySession(t, db, "overall-4", "default", 400, 0)
+		insertLatencySession(t, db, "overall-5", "default", 500, 0)
 
 		// When: P95Latency is called without byProfile
 		window := 7 * 24 * time.Hour
 		result, err := stats.P95Latency(ctx, db, window, false)
 
-		// Then: returns overall P95
+		// Then: returns deterministic P95
 		if err != nil {
 			t.Fatalf("P95Latency failed: %v", err)
 		}
-		if result == nil {
-			t.Error("expected non-nil result")
-		}
-		if _, ok := result["overall"]; !ok {
-			t.Error("expected 'overall' key in result")
+		if got := result["overall"]; got != 500 {
+			t.Fatalf("expected overall P95 to be 500, got %d", got)
 		}
 	})
 
@@ -172,17 +172,24 @@ func TestP95Latency(t *testing.T) {
 		// Given: database with multi-profile sessions
 		db := setupTestDB(t)
 		ctx := context.Background()
+		insertLatencySession(t, db, "alpha-1", "alpha", 80, 0)
+		insertLatencySession(t, db, "alpha-2", "alpha", 200, 0)
+		insertLatencySession(t, db, "beta-1", "beta", 400, 0)
+		insertLatencySession(t, db, "beta-2", "beta", 800, 0)
 
 		// When: P95Latency is called with byProfile=true
 		window := 7 * 24 * time.Hour
 		result, err := stats.P95Latency(ctx, db, window, true)
 
-		// Then: returns per-profile P95
+		// Then: returns per-profile P95 values
 		if err != nil {
 			t.Fatalf("P95Latency failed: %v", err)
 		}
-		if result == nil {
-			t.Error("expected non-nil result")
+		if result["alpha"] != 200 {
+			t.Fatalf("expected alpha=200, got %d", result["alpha"])
+		}
+		if result["beta"] != 800 {
+			t.Fatalf("expected beta=800, got %d", result["beta"])
 		}
 	})
 
@@ -203,4 +210,31 @@ func TestP95Latency(t *testing.T) {
 			t.Errorf("expected 0 for empty dataset, got %d", result["overall"])
 		}
 	})
+
+	t.Run("errors when schema is too old", func(t *testing.T) {
+		// Given: database downgraded to schema version 2
+		db := setupTestDB(t)
+		ctx := context.Background()
+		if err := db.Exec("PRAGMA user_version = 2;"); err != nil {
+			t.Fatalf("downgrade schema: %v", err)
+		}
+
+		// When: P95Latency is called
+		_, err := stats.P95Latency(ctx, db, 24*time.Hour, false)
+
+		// Then: returns schema too old error
+		if !errors.Is(err, stats.ErrSchemaTooOld) {
+			t.Fatalf("expected ErrSchemaTooOld, got %v", err)
+		}
+	})
+}
+
+func insertLatencySession(t *testing.T, db *sqlite.DB, sessionID, profile string, latencyMS int, daysAgo int) {
+	t.Helper()
+	timestamp := time.Now().AddDate(0, 0, -daysAgo).Unix()
+	query := fmt.Sprintf(`INSERT INTO sessions (id, started_at, ended_at, profile, success, latency_ms)
+        VALUES ('%s', %d, %d, '%s', 1, %d);`, sessionID, timestamp, timestamp+int64(latencyMS), profile, latencyMS)
+	if err := db.Exec(query); err != nil {
+		t.Fatalf("insert latency session: %v", err)
+	}
 }

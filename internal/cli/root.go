@@ -22,11 +22,12 @@ import (
 	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
-	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/logging"
+	"github.com/royisme/bobamixer/internal/settings"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/svc"
@@ -64,6 +65,9 @@ func Run(args []string) error {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Join(home, "logs"), 0o700); err != nil {
+		return err
+	}
+	if err := settings.InitHome(home); err != nil {
 		return err
 	}
 
@@ -117,6 +121,8 @@ func Run(args []string) error {
 		return runAction(home, args[1:])
 	case "report":
 		return runReport(home, args[1:])
+	case "init":
+		return runInit(home, args[1:])
 	case "route":
 		return runRoute(home, args[1:])
 	case "completions":
@@ -149,6 +155,7 @@ func printUsage() {
 	fmt.Println("  boba report [--format json|csv] [--out file]   Generate usage report")
 	fmt.Println()
 	fmt.Println("Configuration:")
+	fmt.Println("  boba init                                     Initialize ~/.boba with defaults")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
 	fmt.Println("  boba doctor                                   Run diagnostics")
 	fmt.Println("  boba doctor --pricing                         Run pricing validation")
@@ -241,39 +248,25 @@ func runStats(home string, args []string) error {
 		return err
 	}
 
+	ctx := context.Background()
 	dbPath := filepath.Join(home, "usage.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		return err
 	}
 
-	// Handle today stats
 	if *today {
-		totalTokens, err := db.QueryRow("SELECT COALESCE(SUM(input_tokens + output_tokens),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
+		summary, err := stats.Today(ctx, db)
 		if err != nil {
 			return err
 		}
-		totalCost, err := db.QueryRow("SELECT COALESCE(SUM(input_cost + output_cost),0) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
-		if err != nil {
-			return err
-		}
-		sessions, err := db.QueryRow("SELECT COUNT(DISTINCT session_id) FROM usage_records WHERE date(ts,'unixepoch') = date('now');")
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("Today's Usage")
-		fmt.Println("=============")
-		fmt.Printf("Tokens:   %s\n", strings.TrimSpace(totalTokens))
-		fmt.Printf("Cost:     $%s\n", strings.TrimSpace(totalCost))
-		fmt.Printf("Sessions: %s\n", strings.TrimSpace(sessions))
+		printTodaySummary(summary)
 		return nil
 	}
 
-	// Handle 7-day stats
 	if *days7 {
 		start := time.Now()
-		err := showPeriodStats(db, 7, *byProfile)
+		err := showWindowStats(ctx, db, 7, *byProfile)
 		logCommandDuration("stats", start, statsSlowThreshold,
 			logging.String("window", "7d"),
 			logging.Bool("by_profile", *byProfile),
@@ -281,12 +274,10 @@ func runStats(home string, args []string) error {
 		return err
 	}
 
-	// Handle 30-day stats
 	if *days30 {
-		return showPeriodStats(db, 30, *byProfile)
+		return showWindowStats(ctx, db, 30, *byProfile)
 	}
 
-	// Default: show today
 	return runStats(home, []string{"--today"})
 }
 
@@ -307,54 +298,95 @@ func logCommandDuration(command string, start time.Time, threshold time.Duration
 	}
 }
 
-func showPeriodStats(db *sqlite.DB, days int, byProfile bool) error {
-	// Calculate period stats
-	query := fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(input_tokens + output_tokens), 0) as tokens,
-			COALESCE(SUM(input_cost + output_cost), 0) as cost,
-			COUNT(DISTINCT session_id) as sessions
-		FROM usage_records
-		WHERE date(ts, 'unixepoch') >= date('now', '-%d days');
-	`, days)
-
-	row, err := db.QueryRow(query)
+func showWindowStats(ctx context.Context, db *sqlite.DB, days int, byProfile bool) error {
+	to := time.Now()
+	from := to.AddDate(0, 0, -days)
+	summary, err := stats.Window(ctx, db, from, to)
 	if err != nil {
 		return err
 	}
+	printWindowSummary(days, summary)
 
-	// Parse results (simplified)
-	var tokens, cost, sessions string
-	parts := strings.Split(strings.TrimSpace(row), "|")
-	if len(parts) >= 3 {
-		tokens = parts[0]
-		cost = parts[1]
-		sessions = parts[2]
+	latencies, err := stats.P95Latency(ctx, db, time.Duration(days)*24*time.Hour, byProfile)
+	if err != nil {
+		if errors.Is(err, stats.ErrSchemaTooOld) {
+			fmt.Println()
+			fmt.Println("P95 latency requires database schema v3 or newer. Run 'boba doctor --db' to upgrade.")
+		} else {
+			return err
+		}
+	} else {
+		printP95Latency(latencies)
 	}
 
+	if !byProfile {
+		return nil
+	}
+
+	profiles, err := stats.NewAnalyzer(db).GetProfileStats(days)
+	if err != nil {
+		return err
+	}
+	printProfileBreakdown(profiles)
+	return nil
+}
+
+func printTodaySummary(summary stats.Summary) {
+	title := "Today's Usage"
+	fmt.Println(title)
+	fmt.Println(strings.Repeat("=", len(title)))
+	fmt.Printf("Tokens:   %d\n", summary.TotalTokens)
+	fmt.Printf("Cost:     $%.4f\n", summary.TotalCost)
+	fmt.Printf("Sessions: %d\n", summary.TotalSessions)
+}
+
+func printWindowSummary(days int, summary stats.Summary) {
 	fmt.Printf("Last %d Days Usage\n", days)
 	fmt.Println(strings.Repeat("=", 20))
-	fmt.Printf("Total Tokens:   %s\n", tokens)
-	fmt.Printf("Total Cost:     $%s\n", cost)
-	fmt.Printf("Total Sessions: %s\n", sessions)
+	fmt.Printf("Total Tokens:   %d\n", summary.TotalTokens)
+	fmt.Printf("Total Cost:     $%.4f\n", summary.TotalCost)
+	fmt.Printf("Total Sessions: %d\n", summary.TotalSessions)
+	fmt.Printf("Avg Daily Tokens: %.2f\n", summary.AvgDailyTokens)
+	fmt.Printf("Avg Daily Cost:   $%.4f\n", summary.AvgDailyCost)
+}
+
+func printP95Latency(latencies map[string]int64) {
+	if len(latencies) == 0 {
+		return
+	}
 	fmt.Println()
-
-	// Calculate daily average
-	if cost != "" && cost != "0" {
-		// Would calculate actual average here
-		fmt.Printf("Daily Average:  ~$%.4f\n", 0.0)
+	fmt.Println("P95 Latency (ms):")
+	fmt.Println("-----------------")
+	keys := make([]string, 0, len(latencies))
+	for k := range latencies {
+		keys = append(keys, k)
 	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		fmt.Printf("- %s: %dms\n", key, latencies[key])
+	}
+}
 
-	// Show profile breakdown if requested
-	if byProfile {
+func printProfileBreakdown(statsByProfile []stats.ProfileStats) {
+	if len(statsByProfile) == 0 {
 		fmt.Println()
-		fmt.Println("By Profile:")
-		fmt.Println("-----------")
-		// Would show profile breakdown here
-		fmt.Println("(Profile breakdown not yet implemented)")
+		fmt.Println("By Profile: (no data)")
+		return
 	}
-
-	return nil
+	fmt.Println()
+	fmt.Println("By Profile:")
+	fmt.Println("-----------")
+	for _, ps := range statsByProfile {
+		fmt.Printf("- %s: tokens=%d cost=$%.4f sessions=%d avg_latency=%.0fms usage=%.1f%% cost=%.1f%%\n",
+			ps.ProfileName,
+			ps.TotalTokens,
+			ps.TotalCost,
+			ps.SessionCount,
+			ps.AvgLatencyMS,
+			ps.UsagePercent,
+			ps.CostPercent,
+		)
+	}
 }
 
 func runEdit(home string, args []string) error {
@@ -1190,6 +1222,46 @@ func runReport(home string, args []string) error {
 	}
 
 	fmt.Printf("Report exported to %s\n", fileName)
+	return nil
+}
+
+func runInit(home string, args []string) error {
+	flags := flag.NewFlagSet("init", flag.ContinueOnError)
+	mode := flags.String("mode", "", "operation mode: observer|suggest|apply")
+	theme := flags.String("theme", "", "ui theme: auto|dark|light")
+	disableExplore := flags.Bool("disable-explore", false, "disable exploration suggestions")
+	exploreRate := flags.Float64("explore-rate", -1, "exploration rate between 0 and 1")
+	flags.SetOutput(io.Discard)
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if err := settings.InitHome(home); err != nil {
+		return err
+	}
+	ctx := context.Background()
+	current, err := settings.Load(ctx, home)
+	if err != nil {
+		return err
+	}
+	if *mode != "" {
+		current.Mode = settings.Mode(*mode)
+	} else if current.Mode == "" {
+		current.Mode = settings.ModeObserver
+	}
+	if *theme != "" {
+		current.Theme = *theme
+	}
+	if *disableExplore {
+		current.Explore.Enabled = false
+	}
+	if *exploreRate >= 0 {
+		current.Explore.Rate = *exploreRate
+		current.Explore.Enabled = true
+	}
+	if err := settings.Save(ctx, home, current); err != nil {
+		return err
+	}
+	fmt.Println("Settings initialized in", filepath.Join(home, "settings.yaml"))
 	return nil
 }
 

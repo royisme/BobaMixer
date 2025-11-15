@@ -152,6 +152,25 @@ func TestSaveAndLoad(t *testing.T) {
 		}
 	})
 
+	t.Run("rejects invalid explore rate", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		home := filepath.Join(tmpDir, ".boba")
+		if err := settings.InitHome(home); err != nil {
+			t.Fatalf("InitHome failed: %v", err)
+		}
+		ctx := context.Background()
+		err := settings.Save(ctx, home, settings.Settings{
+			Mode: settings.ModeObserver,
+			Explore: settings.ExploreSettings{
+				Enabled: true,
+				Rate:    1.5,
+			},
+		})
+		if err == nil {
+			t.Fatal("expected error for invalid explore rate")
+		}
+	})
+
 	t.Run("supports all three modes", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		home := filepath.Join(tmpDir, ".boba")
