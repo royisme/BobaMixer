@@ -28,11 +28,23 @@ type Table struct {
 }
 
 // Load loads pricing table with fallback strategy:
-// 1. Try new loader (OpenRouter + vendor JSON + cache)
-// 2. Fallback to legacy sources (pricing.yaml, pricing.local.json)
-// 3. Fallback to profiles.yaml cost_per_1k
+// 1. If pricing.yaml has sources configured, use legacy loader (backward compatibility)
+// 2. Otherwise, try new loader (OpenRouter + vendor JSON + cache)
+// 3. Fallback to legacy sources (pricing.local.json, pricing.yaml models)
+// 4. Fallback to profiles.yaml cost_per_1k
 func Load(home string) (*Table, error) {
-	// Try new loader first
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		pricingCfg = nil
+	}
+
+	// If user has configured sources in pricing.yaml, use legacy loader to respect their config
+	// This ensures backward compatibility with existing setups
+	if pricingCfg != nil && len(pricingCfg.Sources) > 0 {
+		return loadLegacy(home)
+	}
+
+	// Otherwise, try new loader (OpenRouter + vendor JSON)
 	table, err := LoadV2(home)
 	if err == nil && table != nil && len(table.Models) > 0 {
 		return table, nil
