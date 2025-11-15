@@ -272,7 +272,8 @@ func ensureLogFile(path string) error {
 	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("stat log file: %w", err)
 	}
-	f, createErr := os.OpenFile(path, os.O_CREATE|os.O_APPEND, 0o600)
+	cleanPath := filepath.Clean(path)
+	f, createErr := os.OpenFile(cleanPath, os.O_CREATE|os.O_APPEND, 0o600) // #nosec G304 -- path already validated via resolvePath/ensureLogFile
 	if createErr != nil {
 		return fmt.Errorf("create log file: %w", createErr)
 	}
