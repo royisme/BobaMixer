@@ -28,12 +28,52 @@ type Table struct {
 }
 
 // Load loads pricing table with fallback strategy:
-// 1. Fetch from remote sources (if configured)
-// 2. Try cache (~/.boba/pricing.cache.json, valid for 24h)
-// 3. Load from local file (~/.boba/pricing.local.json)
-// 4. Load from pricing.yaml
-// 5. Fallback to profiles.yaml cost_per_1k
+// 1. Try new loader (OpenRouter + vendor JSON + cache)
+// 2. Fallback to legacy sources (pricing.yaml, pricing.local.json)
+// 3. Fallback to profiles.yaml cost_per_1k
 func Load(home string) (*Table, error) {
+	// Try new loader first
+	table, err := LoadV2(home)
+	if err == nil && table != nil && len(table.Models) > 0 {
+		return table, nil
+	}
+
+	// Fallback to legacy loader
+	return loadLegacy(home)
+}
+
+// LoadV2 uses the new pricing loader with OpenRouter and vendor JSON support
+func LoadV2(home string) (*Table, error) {
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		pricingCfg = nil
+	}
+
+	// Build loader config
+	loaderCfg := DefaultLoaderConfig()
+	if pricingCfg != nil {
+		loaderCfg.RefreshOnStartup = pricingCfg.Refresh.OnStartup
+		if pricingCfg.Refresh.IntervalHours > 0 {
+			loaderCfg.CacheTTLHours = pricingCfg.Refresh.IntervalHours
+		}
+	}
+
+	// Create loader
+	loader := NewLoader(home, loaderCfg)
+
+	// Load with fallback
+	ctx := context.Background()
+	schema, err := loader.LoadWithFallback(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to legacy table format
+	return schema.ToLegacyTable(), nil
+}
+
+// loadLegacy uses the legacy loading strategy for backward compatibility
+func loadLegacy(home string) (*Table, error) {
 	pricingCfg, err := config.LoadPricing(home)
 	if err != nil {
 		pricingCfg = nil
