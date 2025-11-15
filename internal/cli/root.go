@@ -24,6 +24,7 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/store/config"
@@ -150,6 +151,7 @@ func printUsage() {
 	fmt.Println("Configuration:")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
 	fmt.Println("  boba doctor                                   Run diagnostics")
+	fmt.Println("  boba doctor --pricing                         Run pricing validation")
 	fmt.Println()
 	fmt.Println("Budget & Optimization:")
 	fmt.Println("  boba budget [--status]                        Show budget status")
@@ -388,7 +390,20 @@ func runEdit(home string, args []string) error {
 }
 
 //nolint:unparam // Keeping error return for consistency with other command handlers
-func runDoctor(home string, _ []string) error {
+func runDoctor(home string, args []string) error {
+	// Parse flags
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	pricingFlag := fs.Bool("pricing", false, "Run detailed pricing validation")
+	verboseFlag := fs.Bool("v", false, "Verbose output")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	// If --pricing flag is set, run detailed pricing diagnostics
+	if *pricingFlag {
+		return runDoctorPricing(home, *verboseFlag)
+	}
+
 	fmt.Println("BobaMixer Doctor")
 	fmt.Println("================")
 	fmt.Println()
@@ -1703,5 +1718,131 @@ func runSuggest(_ []string) error {
 	fmt.Println("No specific profile recommendation configured for this project.")
 	fmt.Println("Tip: Add preferred_profiles to .boba-project.yaml")
 
+	return nil
+}
+
+//nolint:gocyclo // Doctor command logic is complex but necessary for comprehensive diagnostics
+func runDoctorPricing(home string, verbose bool) error {
+	fmt.Println("BobaMixer Doctor - Pricing Validation")
+	fmt.Println("=====================================")
+	fmt.Println()
+
+	// Load pricing configuration
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		fmt.Printf("%s Failed to load pricing configuration: %v\n", statusError, err)
+		return nil // Don't fail, just report
+	}
+
+	// Create loader
+	loaderCfg := pricing.DefaultLoaderConfig()
+	if pricingCfg != nil {
+		loaderCfg.RefreshOnStartup = pricingCfg.Refresh.OnStartup
+		if pricingCfg.Refresh.IntervalHours > 0 {
+			loaderCfg.CacheTTLHours = pricingCfg.Refresh.IntervalHours
+		}
+	}
+
+	loader := pricing.NewLoader(home, loaderCfg)
+
+	// Check cache status
+	fmt.Println("Cache Status:")
+	isFresh, meta, err := loader.GetCacheStatus()
+	if err != nil {
+		fmt.Printf("%s Cache not found or invalid: %v\n", statusWarning, err)
+	} else {
+		if isFresh {
+			fmt.Printf("%s Cache is fresh\n", statusOK)
+		} else {
+			fmt.Printf("%s Cache is expired\n", statusWarning)
+		}
+		fmt.Printf("  Source: %s\n", meta.SourceKind)
+		fmt.Printf("  Fetched at: %s\n", meta.FetchedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("  Expires at: %s\n", meta.ExpiresAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("  TTL: %d hours\n", meta.TTLHours)
+	}
+
+	fmt.Println()
+
+	// Load pricing schema
+	fmt.Println("Loading Pricing Data:")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	schema, err := loader.LoadWithFallback(ctx)
+	if err != nil {
+		fmt.Printf("%s Failed to load pricing: %v\n", statusError, err)
+		return nil
+	}
+
+	fmt.Printf("%s Successfully loaded %d models\n", statusOK, len(schema.Models))
+
+	if len(schema.Models) == 0 {
+		fmt.Printf("%s No pricing models found\n", statusWarning)
+		fmt.Println("  Tip: Configure OpenRouter API or add pricing.vendor.json")
+		return nil
+	}
+
+	// Group by provider
+	providerCount := make(map[string]int)
+	for _, model := range schema.Models {
+		providerCount[model.Provider]++
+	}
+
+	fmt.Println("\nModels by Provider:")
+	providers := make([]string, 0, len(providerCount))
+	for provider := range providerCount {
+		providers = append(providers, provider)
+	}
+	sort.Strings(providers)
+
+	for _, provider := range providers {
+		fmt.Printf("  %s: %d models\n", provider, providerCount[provider])
+	}
+
+	// Validate pricing
+	fmt.Println("\nValidating Pricing:")
+	validator := pricing.NewPricingValidator()
+	warnings := validator.ValidateAgainstRefs(schema)
+
+	if len(warnings) == 0 {
+		fmt.Printf("%s No validation warnings\n", statusOK)
+	} else {
+		fmt.Printf("%s Found %d validation warnings\n", statusWarning, len(warnings))
+		fmt.Println()
+
+		// Group warnings by severity
+		errors := 0
+		for _, w := range warnings {
+			if strings.Contains(w.Message, "zero or negative") || strings.Contains(w.Message, "missing") {
+				errors++
+			}
+		}
+
+		if errors > 0 {
+			fmt.Printf("  Critical issues: %d\n", errors)
+		}
+		fmt.Printf("  Total warnings: %d\n", len(warnings))
+
+		// Show warnings
+		if verbose || errors > 0 {
+			fmt.Println("\nDetailed Warnings:")
+			fmt.Println(pricing.FormatWarnings(warnings))
+		} else {
+			fmt.Println("\nSample Warnings (first 5):")
+			sampleWarnings := warnings
+			if len(warnings) > 5 {
+				sampleWarnings = warnings[:5]
+			}
+			fmt.Println(pricing.FormatWarnings(sampleWarnings))
+			fmt.Printf("\n  Use 'boba doctor --pricing -v' to see all %d warnings\n", len(warnings))
+		}
+	}
+
+	// Show official references
+	fmt.Println("\nOfficial Pricing References:")
+	fmt.Println(validator.GetReferenceList())
+
+	fmt.Println("Pricing validation complete.")
 	return nil
 }

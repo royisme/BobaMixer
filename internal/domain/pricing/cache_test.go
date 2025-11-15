@@ -95,7 +95,7 @@ func TestCacheManagerExpiry(t *testing.T) {
 	// Manually modify cache to be expired
 	cachePath := filepath.Join(tmpDir, "pricing.cache.json")
 	// #nosec G304 -- test file
-	data, _ := os.ReadFile(cachePath)
+	data, _ := os.ReadFile(cachePath) //nolint:errcheck // test code, not critical
 
 	// Create expired cache
 	expiredCache := CachedPricing{
@@ -123,7 +123,7 @@ func TestCacheManagerExpiry(t *testing.T) {
 		}
 
 		// Write expired cache manually
-		expiredData, _ := json.Marshal(cached)
+		expiredData, _ := json.Marshal(cached) //nolint:errcheck // test code
 		//nolint:errcheck,gosec // test code
 		os.WriteFile(cachePath, expiredData, 0600)
 	}

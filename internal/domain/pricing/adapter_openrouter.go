@@ -80,7 +80,7 @@ func (a *OpenRouterAdapter) Fetch(ctx context.Context) (*PricingSchema, error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body) //nolint:errcheck // Error message is best-effort
 		return nil, fmt.Errorf("OpenRouter API returned status %d: %s", resp.StatusCode, string(body))
 	}
 

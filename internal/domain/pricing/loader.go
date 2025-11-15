@@ -50,6 +50,8 @@ func NewLoader(homeDir string, config LoaderConfig) *Loader {
 // 2. Try cache (if fresh)
 // 3. Try vendor JSON
 // 4. Return empty schema (will fallback to profiles)
+//
+//nolint:gocyclo // Fallback chain logic is inherently complex but clear
 func (l *Loader) LoadWithFallback(ctx context.Context) (*PricingSchema, error) {
 	var schema *PricingSchema
 	var err error

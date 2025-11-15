@@ -7,6 +7,7 @@ import (
 	"testing"
 )
 
+//nolint:gocyclo // Test function complexity is acceptable for thorough testing
 func TestOpenRouterAdapterFetch(t *testing.T) {
 	// Create a mock server
 	mockResponse := `{
