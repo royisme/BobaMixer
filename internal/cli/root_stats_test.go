@@ -70,7 +70,9 @@ func captureStdout(t *testing.T, fn func()) string {
 	}
 	os.Stdout = w
 	fn()
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close stdout pipe: %v", err)
+	}
 	os.Stdout = orig
 	data, err := io.ReadAll(r)
 	if err != nil {

@@ -78,10 +78,11 @@ func Window(ctx context.Context, db *sqlite.DB, from, to time.Time) (Summary, er
 	}, nil
 }
 
-// P95Latency returns the 95th percentile latency for a given time window.
-// If byProfile is true, returns per-profile latencies; otherwise returns overall P95.
+// ErrSchemaTooOld indicates the SQLite schema version is below the minimum supported level.
 var ErrSchemaTooOld = errors.New("stats schema version too old")
 
+// P95Latency returns the 95th percentile latency for a given time window.
+// If byProfile is true, returns per-profile latencies; otherwise returns overall P95.
 func P95Latency(ctx context.Context, db *sqlite.DB, window time.Duration, byProfile bool) (map[string]int64, error) {
 	if err := requireSchemaVersion(db, 3); err != nil {
 		return nil, err

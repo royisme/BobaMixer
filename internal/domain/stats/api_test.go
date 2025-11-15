@@ -149,11 +149,11 @@ func TestP95Latency(t *testing.T) {
 		// Given: database with session latencies
 		db := setupTestDB(t)
 		ctx := context.Background()
-		insertLatencySession(t, db, "overall-1", "default", 100, 0)
-		insertLatencySession(t, db, "overall-2", "default", 200, 0)
-		insertLatencySession(t, db, "overall-3", "default", 300, 0)
-		insertLatencySession(t, db, "overall-4", "default", 400, 0)
-		insertLatencySession(t, db, "overall-5", "default", 500, 0)
+		insertLatencySession(t, db, "overall-1", "default", 100)
+		insertLatencySession(t, db, "overall-2", "default", 200)
+		insertLatencySession(t, db, "overall-3", "default", 300)
+		insertLatencySession(t, db, "overall-4", "default", 400)
+		insertLatencySession(t, db, "overall-5", "default", 500)
 
 		// When: P95Latency is called without byProfile
 		window := 7 * 24 * time.Hour
@@ -172,10 +172,10 @@ func TestP95Latency(t *testing.T) {
 		// Given: database with multi-profile sessions
 		db := setupTestDB(t)
 		ctx := context.Background()
-		insertLatencySession(t, db, "alpha-1", "alpha", 80, 0)
-		insertLatencySession(t, db, "alpha-2", "alpha", 200, 0)
-		insertLatencySession(t, db, "beta-1", "beta", 400, 0)
-		insertLatencySession(t, db, "beta-2", "beta", 800, 0)
+		insertLatencySession(t, db, "alpha-1", "alpha", 80)
+		insertLatencySession(t, db, "alpha-2", "alpha", 200)
+		insertLatencySession(t, db, "beta-1", "beta", 400)
+		insertLatencySession(t, db, "beta-2", "beta", 800)
 
 		// When: P95Latency is called with byProfile=true
 		window := 7 * 24 * time.Hour
@@ -229,9 +229,9 @@ func TestP95Latency(t *testing.T) {
 	})
 }
 
-func insertLatencySession(t *testing.T, db *sqlite.DB, sessionID, profile string, latencyMS int, daysAgo int) {
+func insertLatencySession(t *testing.T, db *sqlite.DB, sessionID, profile string, latencyMS int) {
 	t.Helper()
-	timestamp := time.Now().AddDate(0, 0, -daysAgo).Unix()
+	timestamp := time.Now().Unix()
 	query := fmt.Sprintf(`INSERT INTO sessions (id, started_at, ended_at, profile, success, latency_ms)
         VALUES ('%s', %d, %d, '%s', 1, %d);`, sessionID, timestamp, timestamp+int64(latencyMS), profile, latencyMS)
 	if err := db.Exec(query); err != nil {
