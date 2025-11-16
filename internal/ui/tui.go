@@ -622,8 +622,12 @@ func Run(home string) error {
 	theme := GetTheme("default") // TODO: Load from settings
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
-		// Fallback to English
-		localizer, _ = NewLocalizer("en")
+		// Fallback to English - this should never fail with embedded locales
+		var fallbackErr error
+		localizer, fallbackErr = NewLocalizer("en")
+		if fallbackErr != nil {
+			return fmt.Errorf("failed to initialize localizer: %w (fallback also failed: %w)", err, fallbackErr)
+		}
 	}
 
 	// Initialize model
@@ -674,8 +678,12 @@ func runWelcomeScreen(home string, configErr error) error {
 	// Initialize i18n and theme
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
-		// Fallback to English if i18n fails
-		localizer, _ = NewLocalizer("en")
+		// Fallback to English if i18n fails - this should never fail with embedded locales
+		var fallbackErr error
+		localizer, fallbackErr = NewLocalizer("en")
+		if fallbackErr != nil {
+			return fmt.Errorf("failed to initialize localizer: %w (fallback also failed: %w)", err, fallbackErr)
+		}
 	}
 	theme := GetTheme("default")
 

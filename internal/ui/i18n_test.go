@@ -6,7 +6,9 @@ import (
 )
 
 func TestI18nEnglish(t *testing.T) {
-	os.Setenv("LANG", "en_US.UTF-8")
+	if err := os.Setenv("LANG", "en_US.UTF-8"); err != nil {
+		t.Fatalf("Failed to set LANG: %v", err)
+	}
 
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
@@ -22,7 +24,9 @@ func TestI18nEnglish(t *testing.T) {
 }
 
 func TestI18nChinese(t *testing.T) {
-	os.Setenv("LANG", "zh_CN.UTF-8")
+	if err := os.Setenv("LANG", "zh_CN.UTF-8"); err != nil {
+		t.Fatalf("Failed to set LANG: %v", err)
+	}
 
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
@@ -43,18 +47,22 @@ func TestGetUserLanguage(t *testing.T) {
 		lang string
 		want string
 	}{
-		{"English US", "en_US.UTF-8", "en"},
+		{"English US", "en_US.UTF-8", "en-US"},
 		{"Chinese Simplified", "zh_CN.UTF-8", "zh-CN"},
-		{"Japanese", "ja_JP.UTF-8", "ja"},
+		{"Japanese", "ja_JP.UTF-8", "ja-JP"},
 		{"Default fallback", "", "en"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.lang != "" {
-				os.Setenv("LANG", tt.lang)
+				if err := os.Setenv("LANG", tt.lang); err != nil {
+					t.Fatalf("Failed to set LANG: %v", err)
+				}
 			} else {
-				os.Unsetenv("LANG")
+				if err := os.Unsetenv("LANG"); err != nil {
+					t.Fatalf("Failed to unset LANG: %v", err)
+				}
 			}
 
 			got := GetUserLanguage()

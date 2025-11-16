@@ -44,8 +44,8 @@ func NewLocalizer(lang string) (*Localizer, error) {
 	externalLocales := []string{"en.json", "zh-CN.json"}
 	for _, file := range externalLocales {
 		path := filepath.Join("locales", file)
-		if data, err := os.ReadFile(path); err == nil {
-			bundle.ParseMessageFileBytes(data, file)
+		if data, err := os.ReadFile(path); err == nil { //nolint:gosec // G304: intentional external locale override support
+			_, _ = bundle.ParseMessageFileBytes(data, file) //nolint:errcheck // Ignore errors for optional locale overrides
 		}
 	}
 
