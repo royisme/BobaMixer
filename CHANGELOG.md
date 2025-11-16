@@ -1,6 +1,23 @@
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-16)
 
 
+### Bug Fixes
+
+* resolve all CI lint issues (54 total) ([3a27f0b](https://github.com/royisme/BobaMixer/commit/3a27f0b23f7ff6c18db73ed437536d08522197b5))
+
+
+### Features
+
+* add interactive setup wizard for first-run experience ([02a46a3](https://github.com/royisme/BobaMixer/commit/02a46a33f236ac941517311b02adc3d40c9933cb))
+* add Phase 1 domain models and config loaders ([6a18f4a](https://github.com/royisme/BobaMixer/commit/6a18f4a6dea6b21eb2c4d7304148907160919059))
+* complete Phase 1 control plane implementation ([2bd10d4](https://github.com/royisme/BobaMixer/commit/2bd10d4e0b468434d5a79e1bb6cdd21c5f725ebb))
+* implement Phase 1 CLI commands (providers, tools, bind, doctor) ([53392b1](https://github.com/royisme/BobaMixer/commit/53392b1bb4278bfde98aa2c827b608bd2506a217))
+
+
+
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-16)
+
+
 
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-16)
 
