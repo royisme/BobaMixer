@@ -1,7 +1,39 @@
 下面我把刚才那份架构文档拆成了一个「可执行的任务列表」，每个任务都带有开发目标和 Review/验收标准。你可以直接把它当成 backlog / roadmap，用 issue tracker 去落地（比如 GitHub Projects）。
 
 我按阶段分：Phase 1 → Phase 2 → Phase 3。
-Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细。
+Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
+
+---
+
+## 🎯 进度总结
+
+### Phase 1 状态：✅ **已完成**（Claude Only）
+
+**完成时间**: 2025-11-16
+**提交**: `2bd10d4` - feat: complete Phase 1 control plane implementation
+**分支**: `claude/redesign-tui-onboarding-017wA8dpXTCb5qoWvaeSNngn`
+
+**调整说明**：
+- Phase 1 专注于 **Claude Code CLI** 集成，奠定架构基础
+- Epic 4 (Codex) 和 Epic 5 (Gemini) 推迟到 Phase 1.5
+- 新增：完整的交互式 Onboarding 向导（未在原任务列表中）
+
+**已交付功能**：
+- ✅ 完整的 Domain 模型 (Provider/Tool/Binding/Secrets)
+- ✅ 4 个配置文件的加载/保存/校验 (providers.yaml, tools.yaml, bindings.yaml, secrets.yaml)
+- ✅ 5 个 CLI 命令 (`providers`, `tools`, `bind`, `run`, `doctor`)
+- ✅ Runner 系统 + ClaudeRunner (env 注入: ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL)
+- ✅ 交互式 Onboarding 向导 (工具扫描、Provider 选择、API Key 输入)
+- ✅ Dashboard TUI (Bubble Tea table 组件，支持查看/编辑绑定/运行工具)
+
+**技术亮点**：
+- 使用 Bubble Tea 官方组件 (table, list, textinput, spinner)
+- 遵循 CLAUDE.md UI/UX 标准 (研究优先、设计先行、现代 TUI 体验)
+- Runner 注册表模式，易扩展到其他 Provider
+- 环境变量优先级：env > secrets.yaml
+- 安全的密钥管理 (0600 文件权限)
+
+**下一步**: Phase 1.5 或 Phase 2
 
 ---
 
@@ -14,9 +46,9 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 * 能用 `boba run <tool>` 实际影响 `claude / codex / gemini` 这些 CLI 的行为
 * 有一个最小 TUI Dashboard 让你看清楚「Tool → Provider」绑定并编辑
 
-### Epic 1：Domain & 配置加载
+### Epic 1：Domain & 配置加载 ✅
 
-**P1-E1-1：定义 Domain 类型与配置 Schema**
+**P1-E1-1：定义 Domain 类型与配置 Schema** ✅
 
 * 内容：
 
@@ -32,7 +64,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E1-2：实现 `providers.yaml` 的加载与校验**
+**P1-E1-2：实现 `providers.yaml` 的加载与校验** ✅
 
 * 内容：
 
@@ -50,7 +82,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E1-3：实现 `tools.yaml` 的加载与校验**
+**P1-E1-3：实现 `tools.yaml` 的加载与校验** ✅
 
 * 内容：
 
@@ -67,7 +99,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E1-4：实现 `bindings.yaml` 的加载与校验**
+**P1-E1-4：实现 `bindings.yaml` 的加载与校验** ✅
 
 * 内容：
 
@@ -82,7 +114,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E1-5：实现 `secrets.yaml` + env 优先级策略**
+**P1-E1-5：实现 `secrets.yaml` + env 优先级策略** ✅
 
 * 内容：
 
@@ -105,9 +137,9 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-### Epic 2：核心 CLI 命令（providers / tools / bind / run / doctor）
+### Epic 2：核心 CLI 命令（providers / tools / bind / run / doctor）✅
 
-**P1-E2-1：实现 `boba providers` 命令**
+**P1-E2-1：实现 `boba providers` 命令** ✅
 
 * 内容：
 
@@ -119,7 +151,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E2-2：实现 `boba tools` 命令**
+**P1-E2-2：实现 `boba tools` 命令** ✅
 
 * 内容：
 
@@ -130,7 +162,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E2-3：实现 `boba bind <tool> <provider> [--proxy=on|off]`**
+**P1-E2-3：实现 `boba bind <tool> <provider> [--proxy=on|off]`** ✅
 
 * 内容：
 
@@ -145,7 +177,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E2-4：实现 `boba doctor`（基础版）**
+**P1-E2-4：实现 `boba doctor`（基础版）** ✅
 
 * 内容：
 
@@ -163,9 +195,9 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-### Epic 3：`boba run` 核心管线 + Claude 集成
+### Epic 3：`boba run` 核心管线 + Claude 集成 ✅
 
-**P1-E3-1：定义 `Runner` 抽象与执行上下文**
+**P1-E3-1：定义 `Runner` 抽象与执行上下文** ✅
 
 * 内容：
 
@@ -194,7 +226,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E3-2：实现 Claude Runner（env 注入逻辑）**
+**P1-E3-2：实现 Claude Runner（env 注入逻辑）** ✅
 
 * 内容：
 
@@ -215,7 +247,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E3-3：实现 `boba run` 顶层命令**
+**P1-E3-3：实现 `boba run` 顶层命令** ✅
 
 * 内容：
 
@@ -239,9 +271,11 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-### Epic 4：Codex Runner 集成（基础版）
+### Epic 4：Codex Runner 集成（基础版）⏸️ **推迟到 Phase 1.5**
 
-**P1-E4-1：实现 Codex Runner（env + 可选 config 写入）**
+**说明**: Phase 1 专注 Claude，为其他 Provider 奠定基础。Codex/OpenAI 集成移到 Phase 1.5。
+
+**P1-E4-1：实现 Codex Runner（env + 可选 config 写入）** ⏸️
 
 * 内容：
 
@@ -257,7 +291,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E4-2：给 Codex 加最小的 model 覆盖能力（可选）**
+**P1-E4-2：给 Codex 加最小的 model 覆盖能力（可选）** ⏸️
 
 * 内容：
 
@@ -268,9 +302,11 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-### Epic 5：Gemini Runner 集成（基础 env 管理）
+### Epic 5：Gemini Runner 集成（基础 env 管理）⏸️ **推迟到 Phase 1.5**
 
-**P1-E5-1：实现 Gemini Runner（env 注入）**
+**说明**: Phase 1 专注 Claude，为其他 Provider 奠定基础。Gemini 集成移到 Phase 1.5。
+
+**P1-E5-1：实现 Gemini Runner（env 注入）** ⏸️
 
 * 内容：
 
@@ -285,9 +321,9 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-### Epic 6：最小 TUI Dashboard（Bubble Tea）
+### Epic 6：最小 TUI Dashboard（Bubble Tea）✅
 
-**P1-E6-1：框架搭建：rootModel & mode 切换**
+**P1-E6-1：框架搭建：rootModel & mode 切换** ✅
 
 * 内容：
 
@@ -301,7 +337,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E6-2：Dashboard 列出 Tool ↔ Provider**
+**P1-E6-2：Dashboard 列出 Tool ↔ Provider** ✅
 
 * 内容：
 
@@ -322,7 +358,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E6-3：Dashboard 支持绑定编辑（只改 bindings）**
+**P1-E6-3：Dashboard 支持绑定编辑（只改 bindings）** ✅
 
 * 内容：
 
@@ -340,7 +376,7 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 
 ---
 
-**P1-E6-4：Dashboard 支持一键 Run（调用 `boba run` pipeline）**
+**P1-E6-4：Dashboard 支持一键 Run（调用 `boba run` pipeline）** ✅
 
 * 内容：
 
@@ -430,6 +466,128 @@ Phase 1 是“必须先做完才能真正用起来”的部分，会写得最细
 * Git Hooks 集成：
 
   * `boba hooks install` 在 repo 中安装预设 hooks，让 commit 过程中可以自动带上一些 Agent 调用控制。
+
+---
+
+## 📋 下一阶段启动 Prompt
+
+### Phase 1.5: OpenAI/Codex & Gemini 集成
+
+**使用以下 prompt 启动下一阶段**：
+
+```
+请实现 BobaMixer Phase 1.5：OpenAI/Codex 和 Gemini CLI 集成
+
+背景：
+- Phase 1 (Claude only) 已完成，提交在 2bd10d4
+- 架构基础已就绪：Runner 系统、配置加载、TUI Dashboard
+- 需要为其他 AI Provider 添加支持
+
+本阶段目标：
+1. 实现 OpenAI Runner（支持 codex CLI）
+2. 实现 Gemini Runner（支持 gemini CLI）
+3. 更新 Onboarding 向导支持多 Provider 检测
+4. 确保所有 Runner 遵循统一的 env 注入模式
+
+任务列表（按优先级）：
+
+Epic 4: Codex/OpenAI 集成
+- [ ] P1-E4-1: 实现 Codex Runner（env 注入 OPENAI_API_KEY）
+- [ ] P1-E4-2: 支持 model 覆盖能力（通过 Binding.options.model）
+- [ ] 在 Onboarding 中添加 OpenAI Provider 检测
+- [ ] 更新 Dashboard 支持 OpenAI Provider 显示
+
+Epic 5: Gemini 集成
+- [ ] P1-E5-1: 实现 Gemini Runner（env 注入 GEMINI_API_KEY/GOOGLE_API_KEY）
+- [ ] 在 Onboarding 中添加 Gemini Provider 检测
+- [ ] 更新 Dashboard 支持 Gemini Provider 显示
+
+技术要求：
+- 遵循 ClaudeRunner 的实现模式（参考 internal/runner/claude.go）
+- 使用 Runner 注册表模式，保持扩展性
+- 所有新 Provider 定义在 providers.yaml 中（参考现有 OpenAI/Gemini 定义）
+- 更新 boba doctor 支持新 Provider 检测
+- 遵循 CLAUDE.md UI/UX 标准
+
+验收标准：
+1. `boba run codex --version` 可以正常工作
+2. `boba run gemini --version` 可以正常工作
+3. Onboarding 向导可以检测 PATH 中的 codex/gemini CLI
+4. Dashboard 显示所有三种 Provider 的绑定状态
+5. `boba doctor` 可以诊断 OpenAI/Gemini Provider 配置问题
+
+参考文档：
+- spec/boba-control-plane.md - 架构设计
+- spec/task/boba-control-plane.md - 任务列表（本文档）
+- CLAUDE.md - UI/UX 开发规范
+```
+
+---
+
+### Phase 2: HTTP Proxy & 监控系统
+
+**使用以下 prompt 启动 Phase 2**：
+
+```
+请实现 BobaMixer Phase 2：HTTP Proxy 服务和使用监控
+
+背景：
+- Phase 1 (Claude) 和 Phase 1.5 (OpenAI/Gemini) 已完成
+- 目前通过 env 注入直连各 Provider，缺乏统一出口和监控能力
+- 需要引入本地 Proxy 实现请求拦截、转发、监控
+
+本阶段目标：
+1. 实现本地 HTTP Proxy 服务（127.0.0.1:7777）
+2. 支持 OpenAI 和 Anthropic API 转发
+3. 记录 usage 数据到 SQLite
+4. 提供基础统计命令和 TUI 视图
+
+任务列表：
+
+Epic 7: HTTP Proxy 服务
+- [ ] P2-E7-1: 实现 `boba proxy serve` 监听 127.0.0.1:7777
+- [ ] P2-E7-2: 支持 OpenAI-style endpoint 转发（/openai/v1/*）
+- [ ] P2-E7-3: 支持 Anthropic-style endpoint 转发（/anthropic/v1/*）
+- [ ] P2-E7-4: 实现请求/响应日志记录
+
+Epic 8: boba run 与 Proxy 集成
+- [ ] P2-E8-1: Binding.use_proxy=true 时自动使用 Proxy
+- [ ] P2-E8-2: 实现 `boba proxy status` 命令
+- [ ] P2-E8-3: Dashboard 显示 Proxy 状态和 per-tool 开关
+
+Epic 9: Usage 记录与统计
+- [ ] P2-E9-1: 设计 usage.db schema（requests, tokens, cost）
+- [ ] P2-E9-2: 实现 `boba stats` 命令（--today, --7d, --30d）
+- [ ] P2-E9-3: Dashboard 添加 Stats 视图
+
+技术要求：
+- 使用 Go 标准库 net/http 实现 Proxy
+- 使用 SQLite 存储 usage 数据（database/sql + modernc.org/sqlite）
+- Proxy 支持优雅关闭和错误恢复
+- 性能要求：单机支持 1000+ RPS
+
+验收标准：
+1. `boba proxy serve` 可以在后台运行
+2. 通过 Proxy 的请求正常转发到目标 Provider
+3. usage.db 正确记录每次请求
+4. `boba stats --by-tool` 显示准确的统计数据
+5. Dashboard Proxy 开关可以切换并立即生效
+
+参考文档：
+- spec/boba-control-plane.md - Proxy 架构设计
+- spec/task/boba-control-plane.md - 任务列表（本文档）
+```
+
+---
+
+## 🔄 阶段总结
+
+| Phase | 状态 | 完成时间 | 提交 | 核心功能 |
+|-------|------|----------|------|----------|
+| Phase 1 | ✅ 已完成 | 2025-11-16 | 2bd10d4 | Claude 集成、Domain 模型、CLI 命令、TUI Dashboard |
+| Phase 1.5 | ⏸️ 待启动 | - | - | OpenAI/Codex + Gemini 集成 |
+| Phase 2 | ⏸️ 待启动 | - | - | HTTP Proxy + Usage 监控 |
+| Phase 3 | 📝 规划中 | - | - | 高级路由、预算控制、Git Hooks |
 
 ---
 

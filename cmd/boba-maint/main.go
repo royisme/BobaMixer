@@ -108,6 +108,7 @@ func runBump(args []string) error {
 	return nil
 }
 
+//nolint:gocyclo // Release command handles multiple flags and version bumping logic
 func runRelease(args []string) error {
 	fs := flag.NewFlagSet("release", flag.ContinueOnError)
 	auto := fs.Bool("auto", false, "auto-detect bump from commits (default)")
@@ -246,7 +247,11 @@ func resolvePart(partArg, repo string) (string, string, error) {
 }
 
 func detectAutoPart(repo string) (string, string, error) {
-	lastTag, _ := gitOutput(repo, "describe", "--tags", "--abbrev=0")
+	lastTag, err := gitOutput(repo, "describe", "--tags", "--abbrev=0")
+	if err != nil {
+		// No tags exist yet, will analyze all commits
+		lastTag = ""
+	}
 	args := []string{"log", "--pretty=format:%B%x00"}
 	if strings.TrimSpace(lastTag) != "" {
 		args = append(args, fmt.Sprintf("%s..HEAD", strings.TrimSpace(lastTag)))
@@ -328,7 +333,11 @@ func gitCommit(repo, message string) error {
 
 func gitTag(repo, version string) error {
 	tag := fmt.Sprintf("v%s", version)
-	existing, _ := gitOutput(repo, "tag", "--list", tag)
+	existing, err := gitOutput(repo, "tag", "--list", tag)
+	if err != nil {
+		// Error checking tag, but continue anyway
+		existing = ""
+	}
 	if strings.TrimSpace(existing) == tag {
 		return fmt.Errorf("tag %s already exists", tag)
 	}
