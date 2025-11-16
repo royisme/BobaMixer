@@ -585,23 +585,31 @@ func (m Model) saveActiveProfile() tea.Msg {
 
 // Run starts the TUI
 func Run(home string) error {
+	// Load profiles (gracefully handle missing/invalid config)
+	profiles, err := config.LoadProfiles(home)
+	if err != nil || len(profiles) == 0 {
+		// First-run: launch interactive setup wizard
+		shouldContinue, wizardErr := RunWizard(home)
+		if wizardErr != nil {
+			return fmt.Errorf("setup wizard failed: %w", wizardErr)
+		}
+		if !shouldContinue {
+			// User cancelled wizard
+			return nil
+		}
+
+		// Wizard completed successfully, reload profiles
+		profiles, err = config.LoadProfiles(home)
+		if err != nil {
+			return fmt.Errorf("failed to load profiles after setup: %w", err)
+		}
+	}
+
 	// Open database
 	dbPath := filepath.Join(home, "usage.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
-	}
-
-	// Load profiles (gracefully handle missing/invalid config)
-	profiles, err := config.LoadProfiles(home)
-	if err != nil {
-		// Instead of failing, show helpful welcome screen
-		return runWelcomeScreen(home, err)
-	}
-
-	// Check if profiles is empty (valid YAML but no profiles defined)
-	if len(profiles) == 0 {
-		return runWelcomeScreen(home, fmt.Errorf("no profiles configured"))
 	}
 
 	// Build profile list
