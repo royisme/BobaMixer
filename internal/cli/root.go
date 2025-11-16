@@ -101,6 +101,15 @@ func Run(args []string) error {
 	}
 
 	switch args[0] {
+	// Control Plane Commands (Phase 1)
+	case "providers":
+		return runProviders(home, args[1:])
+	case "tools":
+		return runTools(home, args[1:])
+	case "bind":
+		return runBind(home, args[1:])
+
+	// Legacy Profile Commands
 	case "ls":
 		return runLS(home, args[1:])
 	case "use":
@@ -112,7 +121,7 @@ func Run(args []string) error {
 	case "edit":
 		return runEdit(home, args[1:])
 	case "doctor":
-		return runDoctor(home, args[1:])
+		return runDoctorV2(home, args[1:])
 	case "budget":
 		return runBudget(home, args[1:])
 	case "hooks":
@@ -137,13 +146,19 @@ func Run(args []string) error {
 }
 
 func printUsage() {
-	fmt.Println("BobaMixer - Smart AI Adapter Router")
+	fmt.Println("BobaMixer - AI CLI Control Plane")
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  boba                                          Launch TUI dashboard")
 	fmt.Println("  boba --help                                   Show this help")
 	fmt.Println()
-	fmt.Println("Profile Management:")
+	fmt.Println("Control Plane (Phase 1):")
+	fmt.Println("  boba providers                                List AI providers")
+	fmt.Println("  boba tools                                    List CLI tools")
+	fmt.Println("  boba bind <tool> <provider> [--proxy=on|off]  Bind tool to provider")
+	fmt.Println("  boba doctor                                   Run diagnostics")
+	fmt.Println()
+	fmt.Println("Profile Management (Legacy):")
 	fmt.Println("  boba ls --profiles                            List available profiles")
 	fmt.Println("  boba use <profile>                            Activate a profile")
 	fmt.Println()
@@ -157,8 +172,6 @@ func printUsage() {
 	fmt.Println("Configuration:")
 	fmt.Println("  boba init                                     Initialize ~/.boba with defaults")
 	fmt.Println("  boba edit <profiles|routes|pricing|secrets>  Edit configuration files")
-	fmt.Println("  boba doctor                                   Run diagnostics")
-	fmt.Println("  boba doctor --pricing                         Run pricing validation")
 	fmt.Println()
 	fmt.Println("Budget & Optimization:")
 	fmt.Println("  boba budget [--status]                        Show budget status")
