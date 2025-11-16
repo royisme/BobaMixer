@@ -1,3 +1,7 @@
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.14...v1.0.0) (2025-11-16)
+
+
+
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.13...v1.0.0) (2025-11-16)
 
 
