@@ -15,6 +15,23 @@
 
 
 
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.10...v1.0.0) (2025-11-16)
+
+
+### Bug Fixes
+
+* address golint errors in i18n implementation ([e6f9da5](https://github.com/royisme/BobaMixer/commit/e6f9da57a0c7c29648615c563dc7e8dd28260a2c))
+* provide valid default profiles.yaml template on first initialization ([1e39d64](https://github.com/royisme/BobaMixer/commit/1e39d64636cf7ad8eae304f0fe31d3dc83b6c8fe))
+
+
+### Features
+
+* add adaptive theme system and i18n support following Bubble Tea best practices ([64688b0](https://github.com/royisme/BobaMixer/commit/64688b0f56f35f260d5c12fb5e43d74974b61ec1))
+* add friendly welcome screen for TUI when profiles are missing ([c234408](https://github.com/royisme/BobaMixer/commit/c234408c556e53a77267f471ae66ab39992490db))
+* integrate adaptive theme and i18n into TUI ([0fd193f](https://github.com/royisme/BobaMixer/commit/0fd193fc5209ab0815447f5ceac1d654d2241381))
+
+
+
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.9...v1.0.0) (2025-11-16)
 
 
