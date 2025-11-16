@@ -585,6 +585,7 @@ func (m Model) saveActiveProfile() tea.Msg {
 }
 
 // Run starts the TUI
+//nolint:gocyclo // Entry point handles multiple modes and fallback logic
 func Run(home string) error {
 	// Check if we should use new control plane or legacy profile system
 	// New system uses tools.yaml and bindings.yaml
@@ -612,7 +613,7 @@ func Run(home string) error {
 			return fmt.Errorf("onboarding failed: %w", onboardErr)
 		}
 		if !shouldContinue {
-			// User cancelled onboarding
+			// User canceled onboarding
 			return nil
 		}
 
@@ -629,7 +630,7 @@ func Run(home string) error {
 			return fmt.Errorf("setup wizard failed: %w", wizardErr)
 		}
 		if !shouldContinue {
-			// User cancelled wizard
+			// User canceled wizard
 			return nil
 		}
 
@@ -731,86 +732,4 @@ func (m Model) watchNotifications() tea.Cmd {
 		events, err := m.notifier.Poll()
 		return notificationMsg{events: events, err: err}
 	})
-}
-
-// runWelcomeScreen displays a friendly welcome/setup screen for first-time users
-func runWelcomeScreen(home string, configErr error) error {
-	// Initialize i18n and theme
-	localizer, err := NewLocalizer(GetUserLanguage())
-	if err != nil {
-		// Fallback to English if i18n fails - this should never fail with embedded locales
-		var fallbackErr error
-		localizer, fallbackErr = NewLocalizer("en")
-		if fallbackErr != nil {
-			return fmt.Errorf("failed to initialize localizer: %w (fallback also failed: %w)", err, fallbackErr)
-		}
-	}
-	theme := loadTheme(home)
-
-	// Create adaptive styles
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.Primary)
-	warningStyle := lipgloss.NewStyle().Foreground(theme.Warning)
-	primaryStyle := lipgloss.NewStyle().Foreground(theme.Primary)
-	mutedStyle := lipgloss.NewStyle().Foreground(theme.Muted).Italic(true)
-
-	profilesPath := filepath.Join(home, "profiles.yaml")
-	secretsPath := filepath.Join(home, "secrets.yaml")
-
-	// Build welcome message
-	var msg strings.Builder
-	msg.WriteString("\n")
-	msg.WriteString(titleStyle.Render(localizer.T("welcome.title")))
-	msg.WriteString("\n\n")
-
-	// Explain the issue
-	msg.WriteString(warningStyle.Render(localizer.T("welcome.config_required")))
-	msg.WriteString("\n\n")
-	if configErr != nil {
-		msg.WriteString(localizer.TP("welcome.config_issue", map[string]interface{}{
-			"Error": configErr.Error(),
-		}))
-		msg.WriteString("\n\n")
-	}
-
-	// Provide setup instructions
-	msg.WriteString(mutedStyle.Render(localizer.T("welcome.setup_instructions")))
-	msg.WriteString("\n\n")
-
-	// Step 1
-	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step1_title")))
-	msg.WriteString("\n")
-	msg.WriteString(localizer.TP("welcome.step1_location", map[string]interface{}{
-		"Path": profilesPath,
-	}))
-	msg.WriteString("\n\n")
-	msg.WriteString(localizer.T("welcome.step1_desc"))
-	msg.WriteString("\n\n")
-
-	// Step 2
-	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step2_title")))
-	msg.WriteString("\n")
-	msg.WriteString(localizer.TP("welcome.step2_desc", map[string]interface{}{
-		"Path": secretsPath,
-	}))
-	msg.WriteString("\n\n")
-
-	// Step 3
-	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step3_title")))
-	msg.WriteString("\n")
-	msg.WriteString(localizer.T("welcome.step3_desc"))
-	msg.WriteString("\n\n")
-
-	// Step 4
-	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step4_title")))
-	msg.WriteString("\n")
-	msg.WriteString(localizer.T("welcome.step4_desc"))
-	msg.WriteString("\n\n")
-
-	msg.WriteString(mutedStyle.Render(localizer.T("welcome.help_link")))
-	msg.WriteString("\n")
-
-	// Print the welcome screen
-	fmt.Println(msg.String())
-
-	return nil
 }

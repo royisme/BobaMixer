@@ -12,6 +12,7 @@ import (
 func LoadProviders(home string) (*ProvidersConfig, error) {
 	path := filepath.Join(home, "providers.yaml")
 
+	//nolint:gosec // Reading from trusted config directory
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -46,7 +47,7 @@ func SaveProviders(home string, config *ProvidersConfig) error {
 		return fmt.Errorf("failed to marshal providers: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write providers.yaml: %w", err)
 	}
 
@@ -57,6 +58,7 @@ func SaveProviders(home string, config *ProvidersConfig) error {
 func LoadTools(home string) (*ToolsConfig, error) {
 	path := filepath.Join(home, "tools.yaml")
 
+	//nolint:gosec // Reading from trusted config directory
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -91,7 +93,7 @@ func SaveTools(home string, config *ToolsConfig) error {
 		return fmt.Errorf("failed to marshal tools: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write tools.yaml: %w", err)
 	}
 
@@ -102,6 +104,7 @@ func SaveTools(home string, config *ToolsConfig) error {
 func LoadBindings(home string) (*BindingsConfig, error) {
 	path := filepath.Join(home, "bindings.yaml")
 
+	//nolint:gosec // Reading from trusted config directory
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -128,7 +131,7 @@ func SaveBindings(home string, config *BindingsConfig) error {
 		return fmt.Errorf("failed to marshal bindings: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write bindings.yaml: %w", err)
 	}
 

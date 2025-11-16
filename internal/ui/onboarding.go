@@ -118,6 +118,7 @@ func (m OnboardingModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the wizard state
+//nolint:gocyclo // Bubble Tea Update function handles multiple stages and message types
 func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
@@ -360,7 +361,11 @@ func (m *OnboardingModel) initializeProviderList() {
 
 // checkAPIKey checks if API key is available in environment
 func (m *OnboardingModel) checkAPIKey() {
-	secrets, _ := core.LoadSecrets(m.home)
+	secrets, err := core.LoadSecrets(m.home)
+	if err != nil {
+		// Secrets file doesn't exist yet, use empty config
+		secrets = &core.SecretsConfig{}
+	}
 	if key, err := core.ResolveAPIKey(m.selectedProvider, secrets); err == nil {
 		// Key found in env
 		m.apiKeyFromEnv = true
@@ -387,6 +392,7 @@ func (m *OnboardingModel) initializeAPIKeyInput() {
 }
 
 // saveConfiguration saves the configuration and creates bindings
+//nolint:gocyclo // Configuration saving involves multiple files and validation steps
 func (m *OnboardingModel) saveConfiguration() (tea.Model, tea.Cmd) {
 	// Initialize default configs if they don't exist
 	if err := core.InitDefaultConfigs(m.home); err != nil {

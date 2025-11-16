@@ -13,7 +13,7 @@ import (
 )
 
 // runProviders lists all configured providers
-func runProviders(home string, args []string) error {
+func runProviders(home string, _ []string) error {
 	logging.Info("Running providers command")
 
 	providers, err := core.LoadProviders(home)
@@ -34,8 +34,8 @@ func runProviders(home string, args []string) error {
 
 	// Print providers in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED")
-	fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────")
+	_, _ = fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED")
+	_, _ = fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────")
 
 	for _, provider := range providers.Providers {
 		// Determine key status
@@ -60,7 +60,7 @@ func runProviders(home string, args []string) error {
 			baseURL = baseURL[:32] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			provider.ID,
 			provider.Kind,
 			provider.DisplayName,
@@ -69,7 +69,7 @@ func runProviders(home string, args []string) error {
 			enabledStatus,
 		)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	fmt.Println()
 	fmt.Println("✓ = Configured   ✗ = Missing   env = From environment   secrets = From secrets.yaml")
@@ -78,7 +78,7 @@ func runProviders(home string, args []string) error {
 }
 
 // runTools lists all configured tools and their detection status
-func runTools(home string, args []string) error {
+func runTools(home string, _ []string) error {
 	logging.Info("Running tools command")
 
 	tools, err := core.LoadTools(home)
@@ -99,8 +99,8 @@ func runTools(home string, args []string) error {
 
 	// Print tools in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO")
-	fmt.Fprintln(w, "────────────────────────────────────────────────────────────────")
+	_, _ = fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO")
+	_, _ = fmt.Fprintln(w, "────────────────────────────────────────────────────────────────")
 
 	for _, tool := range tools.Tools {
 		// Check if tool executable exists in PATH
@@ -115,7 +115,7 @@ func runTools(home string, args []string) error {
 			boundTo = binding.ProviderID
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			tool.ID,
 			tool.Name,
 			tool.Exec,
@@ -123,12 +123,13 @@ func runTools(home string, args []string) error {
 			boundTo,
 		)
 	}
-	w.Flush()
+	_ = w.Flush()
 
 	return nil
 }
 
 // runBind creates or updates a binding between a tool and a provider
+//nolint:gocyclo // Command logic requires multiple validation steps
 func runBind(home string, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("usage: boba bind <tool> <provider> [--proxy=on|off]")
@@ -185,7 +186,11 @@ func runBind(home string, args []string) error {
 	}
 
 	// Check if binding already exists
-	existingBinding, _ := bindings.FindBinding(toolID)
+	existingBinding, err := bindings.FindBinding(toolID)
+	if err != nil {
+		// Binding doesn't exist, will create new one below
+		existingBinding = nil
+	}
 	if existingBinding != nil {
 		// Update existing binding
 		existingBinding.ProviderID = providerID
@@ -218,6 +223,7 @@ func runBind(home string, args []string) error {
 }
 
 // runDoctorV2 runs diagnostics for the control plane configuration
+//nolint:gocyclo // Comprehensive diagnostics require checking multiple components
 func runDoctorV2(home string, args []string) error {
 	logging.Info("Running doctor (control plane)")
 
@@ -242,7 +248,11 @@ func runDoctorV2(home string, args []string) error {
 		fmt.Printf("  %s Found %d provider(s)\n", statusOK, len(providers.Providers))
 
 		// Check each provider's API key
-		secrets, _ := core.LoadSecrets(home)
+		secrets, err := core.LoadSecrets(home)
+		if err != nil {
+			logging.Warn("Failed to load secrets", logging.String("error", err.Error()))
+			secrets = &core.SecretsConfig{} // Use empty secrets
+		}
 		for _, provider := range providers.Providers {
 			if !provider.Enabled {
 				continue

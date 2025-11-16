@@ -71,6 +71,7 @@ type BaseRunner struct{}
 
 // Exec implements the default execution logic
 func (b *BaseRunner) Exec(ctx *RunContext) error {
+	//nolint:gosec // Executing configured CLI tools is the intended behavior
 	cmd := exec.Command(ctx.Tool.Exec, ctx.Args...)
 
 	// Merge environment variables

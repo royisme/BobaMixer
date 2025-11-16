@@ -28,7 +28,6 @@ type DashboardModel struct {
 	// State
 	width    int
 	height   int
-	err      error
 	quitting bool
 }
 
@@ -38,7 +37,12 @@ func NewDashboard(home string) (*DashboardModel, error) {
 	theme := loadTheme(home)
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
-		localizer, _ = NewLocalizer("en")
+		// Fallback to English if user language is not available
+		localizer, err = NewLocalizer("en")
+		if err != nil {
+			// Should not happen with English, but handle it
+			return nil, fmt.Errorf("failed to load localizer: %w", err)
+		}
 	}
 
 	// Load all configurations
