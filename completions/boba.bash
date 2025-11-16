@@ -7,7 +7,7 @@ _boba_completions() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
     # Main commands
-    local commands="ls use stats edit doctor budget hooks action report release route"
+    local commands="ls use stats edit doctor budget hooks action report route"
 
     case "${prev}" in
         boba)

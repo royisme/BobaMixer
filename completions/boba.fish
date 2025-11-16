@@ -10,7 +10,6 @@ complete -c boba -f -n '__fish_use_subcommand' -a budget -d 'Manage budgets'
 complete -c boba -f -n '__fish_use_subcommand' -a hooks -d 'Manage git hooks'
 complete -c boba -f -n '__fish_use_subcommand' -a action -d 'View and apply suggestions'
 complete -c boba -f -n '__fish_use_subcommand' -a report -d 'Generate usage reports'
-complete -c boba -f -n '__fish_use_subcommand' -a release -d 'Release management'
 complete -c boba -f -n '__fish_use_subcommand' -a route -d 'Test routing rules'
 
 # ls subcommand

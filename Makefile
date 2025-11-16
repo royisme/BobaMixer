@@ -4,6 +4,7 @@ export GOTOOLCHAIN=auto
 
 # Variables
 BINARY_NAME=boba
+MAINT_BINARY=boba-maint
 GO=go
 GOFLAGS=-v
 LDFLAGS=-s -w
@@ -34,6 +35,7 @@ build: ## Build the binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GO) build $(GOFLAGS) -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/boba
+	$(GO) build $(GOFLAGS) -trimpath $(BUILD_FLAGS) -o $(BUILD_DIR)/$(MAINT_BINARY) ./cmd/boba-maint
 
 build-all: ## Build for all platforms
 	@echo "Building for all platforms..."
@@ -140,25 +142,49 @@ version: ## Show current version
 	@echo "Current version: $(shell git describe --tags --abbrev=0 2>/dev/null || echo 'v1.0.0-dev')"
 	@./dist/boba version 2>/dev/null || echo "Build the binary first with 'make build'"
 
-bump: ## Show version bump information (same as 'boba bump --dry-run')
+bump: ## Show version bump information (same as 'boba-maint bump --dry-run')
 	@echo "Analyzing changes since last tag..."
-	@./dist/boba bump --dry-run || echo "Build the binary first with 'make build'"
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) bump --dry-run
 
-bump-patch: ## Bump patch version and commit changes
-	@./dist/boba bump patch || echo "Build the binary first with 'make build'"
+bump-patch: ## Bump patch version and update version files
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) bump patch
 
-bump-minor: ## Bump minor version and commit changes
-	@./dist/boba bump minor || echo "Build the binary first with 'make build'"
+bump-minor: ## Bump minor version and update version files
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) bump minor
 
-bump-major: ## Bump major version and commit changes
-	@./dist/boba bump major || echo "Build the binary first with 'make build'"
+bump-major: ## Bump major version and update version files
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) bump major
 
 bump-auto: ## Auto-detect version bump type based on conventional commits
-	@./dist/boba bump auto || echo "Build the binary first with 'make build'"
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) bump auto
 
 # Release targets
-release: ## Auto-detect version and create release tag
-	@./dist/boba release --auto || echo "Build the binary first with 'make build'"
+release: ## Auto-detect version, commit, tag, and push to origin
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) release --auto
 
 release-auto: ## Auto-detect version and create release tag (alias for release)
 	@$(MAKE) release
@@ -174,13 +200,22 @@ tag: ## Create and push a new version tag
 	@echo "Tag $(VERSION) pushed successfully!"
 
 release-patch: ## Create patch release (vX.Y.Z+1)
-	@$(MAKE) bump-patch
-	@$(MAKE) release
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) release --part patch
 
 release-minor: ## Create minor release (vX.Y+1.0)
-	@$(MAKE) bump-minor
-	@$(MAKE) release
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) release --part minor
 
 release-major: ## Create major release (vX+1.0.0)
-	@$(MAKE) bump-major
-	@$(MAKE) release
+	@if [ ! -x ./dist/$(MAINT_BINARY) ]; then \
+		echo "Build the maintainer tool first with 'make build'"; \
+		exit 1; \
+	fi
+	@./dist/$(MAINT_BINARY) release --part major

@@ -164,12 +164,13 @@ We use automated releases based on conventional commits:
    git push origin main
    ```
 
-2. **Create release tag** (optional, goreleaser can auto-create)
-   ```bash
-   # Goreleaser will create this automatically
-   # Or manually: git tag v1.2.3
-   # git push origin v1.2.3
-   ```
+2. **Create release tag**
+   - Running `make release-auto` (or `make release-patch/minor/major`) now bumps the version, creates the annotated tag, and pushes that tag to `origin`, so GitHub Actions will start automatically.
+   - To tag manually instead:
+     ```bash
+     git tag v1.2.3
+     git push origin v1.2.3
+     ```
 
 3. **Release artifacts are automatically created**
    - GitHub Release with changelog

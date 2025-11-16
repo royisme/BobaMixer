@@ -9,7 +9,7 @@ This guide covers BobaMixer's automated release workflow and version management 
 # Automatic release with version detection from conventional commits
 make release-auto
 # or
-./dist/boba release --auto
+./dist/boba-maint release --auto
 ```
 
 ### Manual Version Bumps
@@ -29,16 +29,16 @@ make release-major
 ### Version Bump Commands
 ```bash
 # Preview version bump without applying
-./dist/boba bump patch --dry-run
-./dist/boba bump minor --dry-run
-./dist/boba bump major --dry-run
-./dist/boba bump auto --dry-run  # Auto-detect from commits
+./dist/boba-maint bump patch --dry-run
+./dist/boba-maint bump minor --dry-run
+./dist/boba-maint bump major --dry-run
+./dist/boba-maint bump auto --dry-run  # Auto-detect from commits
 
 # Apply version bump
-./dist/boba bump patch
-./dist/boba bump minor
-./dist/boba bump major
-./dist/boba bump auto  # Smart detection based on commits
+./dist/boba-maint bump patch
+./dist/boba-maint bump minor
+./dist/boba-maint bump major
+./dist/boba-maint bump auto  # Smart detection based on commits
 ```
 
 ### Automatic Version Detection
@@ -71,6 +71,7 @@ BREAKING CHANGE: change configuration format
 3. **Build & Test**: Run tests and build binaries
 4. **GitHub Release**: Create GitHub release with changelog
 5. ** Goreleaser**: Build and distribute binaries
+   > `make release-auto` (and the `release-patch/minor/major` targets) now perform these steps and push the new tag to `origin`, so GitHub Actions starts automatically without a separate `git push`.
 
 ### Manual Release Steps
 ```bash
@@ -78,16 +79,13 @@ BREAKING CHANGE: change configuration format
 make build
 
 # 2. Determine version bump type
-./dist/boba bump auto --dry-run
+./dist/boba-maint bump auto --dry-run
 
 # 3. Apply version bump  
-./dist/boba bump auto
+./dist/boba-maint bump auto
 
-# 4. Create and push release tag
-git push origin main --tags
-
-# 5. Trigger goreleaser (manual if needed)
-goreleaser release --clean
+# 4. Create and push release commit/tag
+./dist/boba-maint release --part patch   # or --auto, --part minor, etc.
 ```
 
 ## Development Scripts
@@ -200,7 +198,7 @@ git commit -m "chore: prepare for release"
 # Check recent commits
 git log --oneline -10
 # Manual version bump
-./dist/boba bump patch
+./dist/boba-maint bump patch
 ```
 
 **"Tag already exists"**

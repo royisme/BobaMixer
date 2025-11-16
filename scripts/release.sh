@@ -20,7 +20,7 @@ make version
 # Analyze what would be bumped
 echo ""
 echo "🔍 Analyzing changes since last tag..."
-./dist/boba bump --dry-run
+./dist/boba-maint bump --dry-run
 
 # Interactive prompt for release type
 echo ""
@@ -55,7 +55,7 @@ echo "🎯 Selected release type: $TYPE"
 # Show what will happen
 echo ""
 echo "📝 Version bump preview:"
-./dist/boba bump $TYPE --dry-run
+./dist/boba-maint bump $TYPE --dry-run
 
 # Confirmation
 echo ""
@@ -68,26 +68,15 @@ fi
 
 # Perform version bump
 echo ""
-echo "📈 Bumping version..."
-./dist/boba bump $TYPE
-
-# Create and push release tag
-echo ""
-echo "🏷️ Creating release tag..."
-make tag VERSION=v$(./dist/boba bump $TYPE --dry-run | grep "Next version:" | awk '{print $3}')
+echo "🚢 Executing release..."
+./dist/boba-maint release --part "$TYPE"
 
 echo ""
 echo "✅ Release preparation complete!"
 echo ""
 echo "📋 Summary:"
 echo "  - Version has been bumped"
-echo "  - Changes have been committed"
-echo "  - Ready to create release tag"
+echo "  - Release commit + tag created"
+echo "  - Changes pushed to origin"
 echo ""
-echo "🚀 Next steps:"
-echo "  1. Review the commits with: git log --oneline -5"
-echo "  2. If everything looks good, push changes: git push origin main"
-echo "  "
-echo " 3. Create and push the release tag:"
-echo "     make release-$TYPE"
-echo "     or manually: git tag vVERSION && git push origin vVERSION"
+echo "🚀 GitHub Actions is now building and publishing the release."

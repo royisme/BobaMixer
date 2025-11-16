@@ -35,10 +35,10 @@ show_help() {
     echo "Examples:"
     echo "  $0 build              # Build project"
     echo "  $0 bump patch        # Bump patch version"
-    "  $0 bump minor        # Bump minor version"
-    "  $0 bump auto         # Auto-detect and bump version"
-    "  $0 release --auto     # Auto-release"
-    ""
+    echo "  $0 bump minor        # Bump minor version"
+    echo "  $0 bump auto         # Auto-detect and bump version"
+    echo "  $0 release --auto    # Auto-release"
+    echo ""
 }
 
 # Function to show status
@@ -47,13 +47,13 @@ show_status() {
     echo "📋 Project Status"
     echo "=============="
     echo ""
-    "Git status:"
+    echo "Git status:"
     git status --porcelain
     echo ""
-    "Current version:"
+    echo "Current version:"
     make version
     echo ""
-    "Last 5 commits:"
+    echo "Last 5 commits:"
     git log --oneline -5
 }
 
@@ -87,20 +87,19 @@ case "${1:-help}" in
         ;;
     bump)
         if [ -z "$2" ]; then
-            echo "❌ Please specify bump type: patch, minor, major, or auto"
+            echo "❌ Please specify bump type or flags (e.g. patch, minor, auto, --dry-run)."
             echo "   $0 bump patch  # Bump patch version"
             exit 1
         fi
         make build
-        ./dist/boba bump "$2"
+        ./dist/boba-maint bump "${@:2}"
         ;;
     release)
-        if [ "$2" = "--auto" ]; then
-            make build
-            ./dist/boba release --auto
+        make build
+        if [ $# -eq 1 ]; then
+            ./dist/boba-maint release --auto
         else
-            echo "💡 Use './scripts/release.sh' for interactive release"
-            echo "   or 'make release-patch/minor/major' for quick releases"
+            ./dist/boba-maint release "${@:2}"
         fi
         ;;
     status)

@@ -12,7 +12,6 @@ _boba() {
         'hooks:Manage git hooks'
         'action:View and apply suggestions'
         'report:Generate usage reports'
-        'release:Release management'
         'route:Test routing rules'
     )
 
