@@ -74,24 +74,18 @@ changelog:
     - title: Others
 
 # New v2 homebrew section
-homebrew_casks:
-  - name: boba
-    tap:
-      owner: royisme
+homebrew:
+  taps:
+    - owner: royisme
       name: homebrew-tap
-    homepage: "https://github.com/royisme/BobaMixer"
-    description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
-    license: "MIT"
 
-    # artifact output from your build
-    # 如果你使用的是 archives + builds，建议这样：
-    artifact: "boba_Darwin_all.tar.gz"
+  name: boba
+  description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
+  license: MIT
+  test: |
+    system "#{bin}/boba", "version"
 
-    # 装什么
-    install: |
-      bin.install "boba"
-
-    # 测试
-    test: |
-      system "#{bin}/boba", "version"
+  commit_author:
+    name: goreleaserbot
+    email: bot@goreleaser.com
 
