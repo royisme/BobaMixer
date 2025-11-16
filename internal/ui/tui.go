@@ -43,6 +43,8 @@ type Model struct {
 	trend7d       *stats.Trend
 	budgetStatus  *budget.Status
 	notifier      *notifications.Notifier
+	theme         Theme
+	localizer     *Localizer
 	home          string
 	activeProfile string
 	flashMessage  string
@@ -53,53 +55,45 @@ type Model struct {
 	err           error
 }
 
-// Colors and styles
-var (
-	primaryColor = lipgloss.Color("#7C3AED")
-	successColor = lipgloss.Color("#10B981")
-	warningColor = lipgloss.Color("#F59E0B")
-	dangerColor  = lipgloss.Color("#EF4444")
-	mutedColor   = lipgloss.Color("#6B7280")
+// Style helper methods using adaptive theme
+func (m Model) titleStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).MarginBottom(1)
+}
 
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(primaryColor).
-			MarginBottom(1)
+func (m Model) headerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Text).
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(m.theme.Border).
+		Padding(0, 1)
+}
 
-	headerStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#E5E7EB")).
-			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(primaryColor).
-			Padding(0, 1)
+func (m Model) selectedStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true).PaddingLeft(2)
+}
 
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(primaryColor).
-			Bold(true).
-			PaddingLeft(2)
+func (m Model) normalStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Muted).PaddingLeft(2)
+}
 
-	normalStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#9CA3AF")).
-			PaddingLeft(2)
+func (m Model) budgetOKStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Success).Bold(true)
+}
 
-	budgetOKStyle = lipgloss.NewStyle().
-			Foreground(successColor).
-			Bold(true)
+func (m Model) budgetWarningStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Warning).Bold(true)
+}
 
-	budgetWarningStyle = lipgloss.NewStyle().
-				Foreground(warningColor).
-				Bold(true)
+func (m Model) budgetDangerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Danger).Bold(true)
+}
 
-	budgetDangerStyle = lipgloss.NewStyle().
-			Foreground(dangerColor).
-			Bold(true)
+func (m Model) helpStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(m.theme.Muted).Italic(true)
+}
 
-	helpStyle = lipgloss.NewStyle().
-		Foreground(mutedColor).
-		Italic(true)
-)
-
-func colorize(color lipgloss.Color, text string) string {
+func (m Model) colorize(color lipgloss.AdaptiveColor, text string) string {
 	return lipgloss.NewStyle().Foreground(color).Render(text)
 }
 
@@ -215,29 +209,38 @@ func (m Model) View() string {
 }
 
 func (m Model) renderHeader() string {
-	title := titleStyle.Render("🧋 BobaMixer")
+	title := m.titleStyle().Render("🧋 BobaMixer")
 
 	var profileInfo string
 	if m.activeProfile != "" {
 		prof, ok := m.profiles[m.activeProfile]
 		if ok {
-			profileInfo = fmt.Sprintf("Active: %s (%s)", prof.Name, prof.Model)
+			profileInfo = m.localizer.TP("tui.active_profile", map[string]interface{}{
+				"Name":  prof.Name,
+				"Model": prof.Model,
+			})
 		}
 	} else {
-		profileInfo = "No active profile"
+		profileInfo = m.localizer.T("tui.no_active_profile")
 	}
 
 	// View mode indicator
-	viewNames := []string{"Dashboard", "Profiles", "Budget", "Trends", "Sessions"}
+	viewNames := []string{
+		m.localizer.T("tui.dashboard"),
+		m.localizer.T("tui.profiles"),
+		m.localizer.T("tui.budget"),
+		m.localizer.T("tui.trends"),
+		m.localizer.T("tui.sessions"),
+	}
 	viewIndicator := fmt.Sprintf("[%s]", viewNames[m.viewMode])
 
 	return lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		title,
 		"  ",
-		normalStyle.Render(profileInfo),
+		m.normalStyle().Render(profileInfo),
 		"  ",
-		helpStyle.Render(viewIndicator),
+		m.helpStyle().Render(viewIndicator),
 	)
 }
 
@@ -271,7 +274,7 @@ func (m Model) renderDashboard() string {
 	}
 
 	if len(sections) == 0 {
-		return helpStyle.Render("No data available. Use 'r' to refresh.")
+		return m.helpStyle().Render("No data available. Use 'r' to refresh.")
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
@@ -279,7 +282,7 @@ func (m Model) renderDashboard() string {
 
 func (m Model) renderProfiles() string {
 	var lines []string
-	lines = append(lines, headerStyle.Render("Available Profiles"))
+	lines = append(lines, m.headerStyle().Render("Available Profiles"))
 	lines = append(lines, "")
 
 	for i, profileName := range m.profileList {
@@ -291,35 +294,35 @@ func (m Model) renderProfiles() string {
 		}
 
 		if i == m.selectedIdx {
-			lines = append(lines, selectedStyle.Render("▶ "+line))
+			lines = append(lines, m.selectedStyle().Render("▶ "+line))
 		} else {
-			lines = append(lines, normalStyle.Render("  "+line))
+			lines = append(lines, m.normalStyle().Render("  "+line))
 		}
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, helpStyle.Render("↑/↓: Navigate  Enter: Select  Tab: Switch view"))
+	lines = append(lines, m.helpStyle().Render("↑/↓: Navigate  Enter: Select  Tab: Switch view"))
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m Model) renderBudget() string {
 	if m.budgetStatus == nil {
-		return helpStyle.Render("No budget configured. Use 'boba budget' to set up.")
+		return m.helpStyle().Render("No budget configured. Use 'boba budget' to set up.")
 	}
 
 	var lines []string
-	lines = append(lines, headerStyle.Render("Budget Status"))
+	lines = append(lines, m.headerStyle().Render("Budget Status"))
 	lines = append(lines, "")
 
 	// Daily limit
 	dailyPercent := m.budgetStatus.DailyProgress
 	dailyBar := m.renderProgressBar(dailyPercent, 30)
-	dailyStyle := budgetOKStyle
+	dailyStyle := m.budgetOKStyle()
 	if m.budgetStatus.IsOverDaily {
-		dailyStyle = budgetDangerStyle
+		dailyStyle = m.budgetDangerStyle()
 	} else if dailyPercent > 80 {
-		dailyStyle = budgetWarningStyle
+		dailyStyle = m.budgetWarningStyle()
 	}
 
 	lines = append(lines, fmt.Sprintf("Daily Limit: %s / %s",
@@ -332,11 +335,11 @@ func (m Model) renderBudget() string {
 	// Hard cap
 	totalPercent := m.budgetStatus.TotalProgress
 	totalBar := m.renderProgressBar(totalPercent, 30)
-	totalStyle := budgetOKStyle
+	totalStyle := m.budgetOKStyle()
 	if m.budgetStatus.IsOverCap {
-		totalStyle = budgetDangerStyle
+		totalStyle = m.budgetDangerStyle()
 	} else if totalPercent > 80 {
-		totalStyle = budgetWarningStyle
+		totalStyle = m.budgetWarningStyle()
 	}
 
 	// Calculate total spent
@@ -353,11 +356,11 @@ func (m Model) renderBudget() string {
 	var warningMsg string
 	switch warningLevel {
 	case "critical":
-		warningMsg = budgetDangerStyle.Render("⚠ CRITICAL: Budget limit exceeded!")
+		warningMsg = m.budgetDangerStyle().Render("⚠ CRITICAL: Budget limit exceeded!")
 	case "warning":
-		warningMsg = budgetWarningStyle.Render("⚡ WARNING: Approaching budget limit")
+		warningMsg = m.budgetWarningStyle().Render("⚡ WARNING: Approaching budget limit")
 	default:
-		warningMsg = budgetOKStyle.Render("✓ Budget healthy")
+		warningMsg = m.budgetOKStyle().Render("✓ Budget healthy")
 	}
 	lines = append(lines, warningMsg)
 
@@ -366,11 +369,11 @@ func (m Model) renderBudget() string {
 
 func (m Model) renderTrends() string {
 	if m.trend7d == nil {
-		return helpStyle.Render("No trend data available.")
+		return m.helpStyle().Render("No trend data available.")
 	}
 
 	var lines []string
-	lines = append(lines, headerStyle.Render("Usage Trends (7 Days)"))
+	lines = append(lines, m.headerStyle().Render("Usage Trends (7 Days)"))
 	lines = append(lines, "")
 
 	// Sparkline
@@ -394,11 +397,11 @@ func (m Model) renderTrends() string {
 	var trendMsg string
 	switch trendDir {
 	case "increasing":
-		trendMsg = colorize(warningColor, "📈 Increasing")
+		trendMsg = m.colorize(m.theme.Warning, "📈 Increasing")
 	case "decreasing":
-		trendMsg = colorize(successColor, "📉 Decreasing")
+		trendMsg = m.colorize(m.theme.Success, "📉 Decreasing")
 	default:
-		trendMsg = colorize(mutedColor, "➡ Stable")
+		trendMsg = m.colorize(m.theme.Muted, "➡ Stable")
 	}
 	lines = append(lines, fmt.Sprintf("Trend: %s", trendMsg))
 
@@ -407,15 +410,15 @@ func (m Model) renderTrends() string {
 
 func (m Model) renderSessions() string {
 	if len(m.sessionList) == 0 {
-		return helpStyle.Render("No sessions recorded yet.")
+		return m.helpStyle().Render("No sessions recorded yet.")
 	}
 
-	lines := []string{headerStyle.Render("Recent Sessions"), ""}
+	lines := []string{m.headerStyle().Render("Recent Sessions"), ""}
 	for _, sess := range m.sessionList {
 		started := time.Unix(sess.StartedAt, 0).Format("01-02 15:04")
-		status := colorize(successColor, "✓")
+		status := m.colorize(m.theme.Success, "✓")
 		if !sess.Success {
-			status = colorize(dangerColor, "✗")
+			status = m.colorize(m.theme.Danger, "✗")
 		}
 		dur := fmt.Sprintf("%dms", sess.LatencyMS)
 		lines = append(lines,
@@ -423,13 +426,13 @@ func (m Model) renderSessions() string {
 		)
 	}
 	lines = append(lines, "")
-	lines = append(lines, helpStyle.Render("Tab: Switch view  r: Refresh"))
+	lines = append(lines, m.helpStyle().Render("Tab: Switch view  r: Refresh"))
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func (m Model) renderStatsBox(title string, lines []string) string {
 	content := []string{
-		headerStyle.Render(title),
+		m.headerStyle().Render(title),
 		"",
 	}
 	content = append(content, lines...)
@@ -447,13 +450,13 @@ func (m Model) renderBudgetStatusBox() string {
 
 	switch warningLevel {
 	case "critical":
-		statusStyle = budgetDangerStyle
+		statusStyle = m.budgetDangerStyle()
 		statusIcon = "🔴"
 	case "warning":
-		statusStyle = budgetWarningStyle
+		statusStyle = m.budgetWarningStyle()
 		statusIcon = "🟡"
 	default:
-		statusStyle = budgetOKStyle
+		statusStyle = m.budgetOKStyle()
 		statusIcon = "🟢"
 	}
 
@@ -485,11 +488,11 @@ func (m Model) renderProgressBar(percent float64, width int) string {
 
 	var style lipgloss.Style
 	if percent > 100 {
-		style = budgetDangerStyle
+		style = m.budgetDangerStyle()
 	} else if percent > 80 {
-		style = budgetWarningStyle
+		style = m.budgetWarningStyle()
 	} else {
-		style = budgetOKStyle
+		style = m.budgetOKStyle()
 	}
 
 	return style.Render(bar) + fmt.Sprintf(" %.1f%%", percent)
@@ -499,20 +502,20 @@ func (m Model) renderFooter() string {
 	var parts []string
 
 	if m.err != nil {
-		parts = append(parts, colorize(dangerColor, "Error: "+m.err.Error()))
+		parts = append(parts, m.colorize(m.theme.Danger, "Error: "+m.err.Error()))
 	}
 
 	if m.flashMessage != "" {
-		parts = append(parts, colorize(successColor, m.flashMessage))
+		parts = append(parts, m.colorize(m.theme.Success, m.flashMessage))
 	}
 
 	if !m.lastUpdate.IsZero() {
-		parts = append(parts, helpStyle.Render(
+		parts = append(parts, m.helpStyle().Render(
 			fmt.Sprintf("Last updated: %s", m.lastUpdate.Format("15:04:05")),
 		))
 	}
 
-	parts = append(parts, helpStyle.Render("Tab: Switch view • r: Refresh • q: Quit"))
+	parts = append(parts, m.helpStyle().Render(m.localizer.T("tui.quit")))
 
 	return strings.Join(parts, " | ")
 }
@@ -615,6 +618,14 @@ func Run(home string) error {
 		}
 	}
 
+	// Initialize theme and i18n
+	theme := GetTheme("default") // TODO: Load from settings
+	localizer, err := NewLocalizer(GetUserLanguage())
+	if err != nil {
+		// Fallback to English
+		localizer, _ = NewLocalizer("en")
+	}
+
 	// Initialize model
 	tracker := budget.NewTracker(db)
 	suggEngine := suggestions.NewEngine(db)
@@ -630,6 +641,8 @@ func Run(home string) error {
 		budgetTracker: tracker,
 		statsAnalyzer: stats.NewAnalyzer(db),
 		notifier:      notifications.NewNotifier(tracker, suggEngine, nil),
+		theme:         theme,
+		localizer:     localizer,
 	}
 
 	// Run the program
@@ -658,54 +671,74 @@ func (m Model) watchNotifications() tea.Cmd {
 
 // runWelcomeScreen displays a friendly welcome/setup screen for first-time users
 func runWelcomeScreen(home string, configErr error) error {
+	// Initialize i18n and theme
+	localizer, err := NewLocalizer(GetUserLanguage())
+	if err != nil {
+		// Fallback to English if i18n fails
+		localizer, _ = NewLocalizer("en")
+	}
+	theme := GetTheme("default")
+
+	// Create adaptive styles
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.Primary)
+	warningStyle := lipgloss.NewStyle().Foreground(theme.Warning)
+	primaryStyle := lipgloss.NewStyle().Foreground(theme.Primary)
+	mutedStyle := lipgloss.NewStyle().Foreground(theme.Muted).Italic(true)
+
 	profilesPath := filepath.Join(home, "profiles.yaml")
 	secretsPath := filepath.Join(home, "secrets.yaml")
 
 	// Build welcome message
 	var msg strings.Builder
 	msg.WriteString("\n")
-	msg.WriteString(titleStyle.Render("🧋 Welcome to BobaMixer!"))
+	msg.WriteString(titleStyle.Render(localizer.T("welcome.title")))
 	msg.WriteString("\n\n")
 
 	// Explain the issue
-	msg.WriteString(colorize(warningColor, "⚠ Configuration Required"))
+	msg.WriteString(warningStyle.Render(localizer.T("welcome.config_required")))
 	msg.WriteString("\n\n")
 	if configErr != nil {
-		msg.WriteString(fmt.Sprintf("Configuration issue: %v\n\n", configErr))
+		msg.WriteString(localizer.TP("welcome.config_issue", map[string]interface{}{
+			"Error": configErr.Error(),
+		}))
+		msg.WriteString("\n\n")
 	}
 
 	// Provide setup instructions
-	msg.WriteString(helpStyle.Render("To get started, you need to configure at least one AI profile:"))
+	msg.WriteString(mutedStyle.Render(localizer.T("welcome.setup_instructions")))
 	msg.WriteString("\n\n")
 
-	msg.WriteString(colorize(primaryColor, "Step 1: Review profiles.yaml"))
+	// Step 1
+	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step1_title")))
 	msg.WriteString("\n")
-	msg.WriteString(fmt.Sprintf("  Location: %s\n", profilesPath))
-	msg.WriteString("\n")
-	msg.WriteString("  A default profile has been created for you.\n")
-	msg.WriteString("  You can customize it or add more profiles:\n")
-	msg.WriteString(fmt.Sprintf("    Run: boba edit profiles\n"))
-	msg.WriteString("\n")
-
-	msg.WriteString(colorize(primaryColor, "Step 2: Add your API key"))
-	msg.WriteString("\n")
-	msg.WriteString(fmt.Sprintf("  Run: boba edit secrets\n"))
-	msg.WriteString(fmt.Sprintf("  Or edit directly: %s\n", secretsPath))
-	msg.WriteString("\n")
-	msg.WriteString("  Add your API key (e.g., anthropic: \"sk-ant-...\")\n")
-	msg.WriteString("\n")
-
-	msg.WriteString(colorize(primaryColor, "Step 3: Verify setup"))
-	msg.WriteString("\n")
-	msg.WriteString("  Run: boba doctor\n")
-	msg.WriteString("\n")
-
-	msg.WriteString(colorize(primaryColor, "Step 4: Start using BobaMixer"))
-	msg.WriteString("\n")
-	msg.WriteString("  Run: boba\n")
+	msg.WriteString(localizer.TP("welcome.step1_location", map[string]interface{}{
+		"Path": profilesPath,
+	}))
+	msg.WriteString("\n\n")
+	msg.WriteString(localizer.T("welcome.step1_desc"))
 	msg.WriteString("\n\n")
 
-	msg.WriteString(helpStyle.Render("For more help, see: https://royisme.github.io/BobaMixer/"))
+	// Step 2
+	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step2_title")))
+	msg.WriteString("\n")
+	msg.WriteString(localizer.TP("welcome.step2_desc", map[string]interface{}{
+		"Path": secretsPath,
+	}))
+	msg.WriteString("\n\n")
+
+	// Step 3
+	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step3_title")))
+	msg.WriteString("\n")
+	msg.WriteString(localizer.T("welcome.step3_desc"))
+	msg.WriteString("\n\n")
+
+	// Step 4
+	msg.WriteString(primaryStyle.Render(localizer.T("welcome.step4_title")))
+	msg.WriteString("\n")
+	msg.WriteString(localizer.T("welcome.step4_desc"))
+	msg.WriteString("\n\n")
+
+	msg.WriteString(mutedStyle.Render(localizer.T("welcome.help_link")))
 	msg.WriteString("\n")
 
 	// Print the welcome screen

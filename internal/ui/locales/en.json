@@ -1,0 +1,90 @@
+[
+  {
+    "id": "welcome.title",
+    "translation": "🧋 Welcome to BobaMixer!"
+  },
+  {
+    "id": "welcome.config_required",
+    "translation": "⚠ Configuration Required"
+  },
+  {
+    "id": "welcome.config_issue",
+    "translation": "Configuration issue: {{.Error}}"
+  },
+  {
+    "id": "welcome.setup_instructions",
+    "translation": "To get started, you need to configure at least one AI profile:"
+  },
+  {
+    "id": "welcome.step1_title",
+    "translation": "Step 1: Review profiles.yaml"
+  },
+  {
+    "id": "welcome.step1_location",
+    "translation": "Location: {{.Path}}"
+  },
+  {
+    "id": "welcome.step1_desc",
+    "translation": "A default profile has been created for you.\nYou can customize it or add more profiles:\n  Run: boba edit profiles"
+  },
+  {
+    "id": "welcome.step2_title",
+    "translation": "Step 2: Add your API key"
+  },
+  {
+    "id": "welcome.step2_desc",
+    "translation": "Run: boba edit secrets\nOr edit directly: {{.Path}}\nAdd your API key (e.g., anthropic: \"sk-ant-...\")"
+  },
+  {
+    "id": "welcome.step3_title",
+    "translation": "Step 3: Verify setup"
+  },
+  {
+    "id": "welcome.step3_desc",
+    "translation": "Run: boba doctor"
+  },
+  {
+    "id": "welcome.step4_title",
+    "translation": "Step 4: Start using BobaMixer"
+  },
+  {
+    "id": "welcome.step4_desc",
+    "translation": "Run: boba"
+  },
+  {
+    "id": "welcome.help_link",
+    "translation": "For more help, see: https://royisme.github.io/BobaMixer/"
+  },
+  {
+    "id": "tui.dashboard",
+    "translation": "Dashboard"
+  },
+  {
+    "id": "tui.profiles",
+    "translation": "Profiles"
+  },
+  {
+    "id": "tui.budget",
+    "translation": "Budget"
+  },
+  {
+    "id": "tui.trends",
+    "translation": "Trends"
+  },
+  {
+    "id": "tui.sessions",
+    "translation": "Sessions"
+  },
+  {
+    "id": "tui.active_profile",
+    "translation": "Active: {{.Name}} ({{.Model}})"
+  },
+  {
+    "id": "tui.no_active_profile",
+    "translation": "No active profile"
+  },
+  {
+    "id": "tui.quit",
+    "translation": "Tab: Switch view • r: Refresh • q: Quit"
+  }
+]

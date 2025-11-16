@@ -4,7 +4,6 @@ package ui
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,7 +11,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-//go:embed ../../locales/*.json
+//go:embed locales/*.json
 var localesFS embed.FS
 
 // Localizer wraps i18n.Localizer for easier usage
@@ -29,8 +28,8 @@ func NewLocalizer(lang string) (*Localizer, error) {
 
 	// Load embedded locale files
 	localeFiles := []string{
-		"../../locales/en.json",
-		"../../locales/zh-CN.json",
+		"locales/en.json",
+		"locales/zh-CN.json",
 	}
 
 	for _, file := range localeFiles {

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "welcome.title",
+    "translation": "🧋 欢迎使用 BobaMixer！"
+  },
+  {
+    "id": "welcome.config_required",
+    "translation": "⚠ 需要配置"
+  },
+  {
+    "id": "welcome.config_issue",
+    "translation": "配置问题：{{.Error}}"
+  },
+  {
+    "id": "welcome.setup_instructions",
+    "translation": "开始使用前，您需要配置至少一个 AI 配置文件："
+  },
+  {
+    "id": "welcome.step1_title",
+    "translation": "步骤 1：查看 profiles.yaml"
+  },
+  {
+    "id": "welcome.step1_location",
+    "translation": "位置：{{.Path}}"
+  },
+  {
+    "id": "welcome.step1_desc",
+    "translation": "系统已为您创建默认配置。\n您可以自定义或添加更多配置：\n  运行：boba edit profiles"
+  },
+  {
+    "id": "welcome.step2_title",
+    "translation": "步骤 2：添加 API 密钥"
+  },
+  {
+    "id": "welcome.step2_desc",
+    "translation": "运行：boba edit secrets\n或直接编辑：{{.Path}}\n添加您的 API 密钥（例如：anthropic: \"sk-ant-...\"）"
+  },
+  {
+    "id": "welcome.step3_title",
+    "translation": "步骤 3：验证设置"
+  },
+  {
+    "id": "welcome.step3_desc",
+    "translation": "运行：boba doctor"
+  },
+  {
+    "id": "welcome.step4_title",
+    "translation": "步骤 4：开始使用 BobaMixer"
+  },
+  {
+    "id": "welcome.step4_desc",
+    "translation": "运行：boba"
+  },
+  {
+    "id": "welcome.help_link",
+    "translation": "更多帮助请访问：https://royisme.github.io/BobaMixer/"
+  },
+  {
+    "id": "tui.dashboard",
+    "translation": "仪表盘"
+  },
+  {
+    "id": "tui.profiles",
+    "translation": "配置文件"
+  },
+  {
+    "id": "tui.budget",
+    "translation": "预算"
+  },
+  {
+    "id": "tui.trends",
+    "translation": "趋势"
+  },
+  {
+    "id": "tui.sessions",
+    "translation": "会话"
+  },
+  {
+    "id": "tui.active_profile",
+    "translation": "当前：{{.Name}} ({{.Model}})"
+  },
+  {
+    "id": "tui.no_active_profile",
+    "translation": "未选择配置"
+  },
+  {
+    "id": "tui.quit",
+    "translation": "Tab: 切换视图 • r: 刷新 • q: 退出"
+  }
+]
