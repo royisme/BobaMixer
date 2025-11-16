@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/notifications"
+	"github.com/royisme/bobamixer/internal/settings"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -28,6 +30,8 @@ const (
 	ViewTrends
 	ViewSessions
 )
+
+const viewCount = int(ViewSessions) + 1
 
 // Model represents the TUI state
 type Model struct {
@@ -99,17 +103,17 @@ func (m Model) colorize(color lipgloss.AdaptiveColor, text string) string {
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.loadData, tea.EnterAltScreen}
-	if m.notifier != nil {
-		cmds = append(cmds, m.watchNotifications())
-	}
-	return tea.Batch(cmds...)
+        cmds := []tea.Cmd{m.loadData, tea.EnterAltScreen}
+        if m.notifier != nil {
+                cmds = append(cmds, m.watchNotifications())
+        }
+        return tea.Batch(cmds...)
 }
 
 // Update handles messages
 //nolint:gocyclo // Complex TUI event handling with multiple message types and view modes
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+        switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -117,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab":
 			// Cycle through views
-			m.viewMode = ViewMode((int(m.viewMode) + 1) % 4)
+			m.viewMode = ViewMode((int(m.viewMode) + 1) % viewCount)
 			return m, m.loadData
 
 		case "up", "k":
@@ -619,7 +623,7 @@ func Run(home string) error {
 	}
 
 	// Initialize theme and i18n
-	theme := GetTheme("default") // TODO: Load from settings
+	theme := loadTheme(home)
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
 		// Fallback to English - this should never fail with embedded locales
@@ -655,6 +659,22 @@ func Run(home string) error {
 	return err
 }
 
+func loadTheme(home string) Theme {
+	ctx := context.Background()
+
+	userSettings, err := settings.Load(ctx, home)
+	if err != nil {
+		return GetTheme(settings.DefaultSettings().Theme)
+	}
+
+	themeName := userSettings.Theme
+	if themeName == "" {
+		themeName = settings.DefaultSettings().Theme
+	}
+
+	return GetTheme(themeName)
+}
+
 func getActiveProfile(home string) string {
 	prof, err := config.LoadActiveProfile(home)
 	if err != nil {
@@ -685,7 +705,7 @@ func runWelcomeScreen(home string, configErr error) error {
 			return fmt.Errorf("failed to initialize localizer: %w (fallback also failed: %w)", err, fallbackErr)
 		}
 	}
-	theme := GetTheme("default")
+	theme := loadTheme(home)
 
 	// Create adaptive styles
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.Primary)

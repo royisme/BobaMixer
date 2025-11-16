@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"golang.org/x/text/language"
@@ -81,31 +82,45 @@ func (l *Localizer) TP(messageID string, templateData map[string]interface{}) st
 // GetUserLanguage determines the user's preferred language from environment
 func GetUserLanguage() string {
 	// Check LANG environment variable
-	if lang := os.Getenv("LANG"); lang != "" {
-		// Extract language code (e.g., "zh_CN.UTF-8" -> "zh-CN")
-		if len(lang) >= 5 {
-			langCode := lang[:5]
-			// Convert underscore to hyphen for BCP 47 format
-			if langCode[2] == '_' {
-				return langCode[:2] + "-" + langCode[3:5]
-			}
-		}
-		// Return first 2 chars if format is different
-		if len(lang) >= 2 {
-			return lang[:2]
-		}
+	if lang := normalizeLang(os.Getenv("LANG")); lang != "" {
+		return lang
 	}
 
 	// Check LC_ALL or LC_MESSAGES
-	if lang := os.Getenv("LC_ALL"); lang != "" {
-		return lang[:2]
+	if lang := normalizeLang(os.Getenv("LC_ALL")); lang != "" {
+		return lang
 	}
-	if lang := os.Getenv("LC_MESSAGES"); lang != "" {
-		return lang[:2]
+	if lang := normalizeLang(os.Getenv("LC_MESSAGES")); lang != "" {
+		return lang
 	}
 
 	// Default to English
 	return "en"
+}
+
+func normalizeLang(lang string) string {
+	if lang == "" {
+		return ""
+	}
+
+	if lang == "C" || strings.HasPrefix(lang, "C.") || strings.EqualFold(lang, "POSIX") {
+		return "en"
+	}
+
+	// Extract language code (e.g., "zh_CN.UTF-8" -> "zh-CN")
+	if len(lang) >= 5 {
+		langCode := lang[:5]
+		// Convert underscore to hyphen for BCP 47 format
+		if langCode[2] == '_' {
+			return langCode[:2] + "-" + langCode[3:5]
+		}
+	}
+	// Return first 2 chars if format is different
+	if len(lang) >= 2 {
+		return lang[:2]
+	}
+
+	return ""
 }
 
 // Example usage in welcome screen:
