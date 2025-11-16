@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.16 - 2025-11-16
+- (notes pending)
+
 ## 1.0.15 - 2025-11-16
 - (notes pending)
 
