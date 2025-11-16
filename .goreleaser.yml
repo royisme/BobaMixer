@@ -27,9 +27,10 @@ builds:
 
 archives:
   - id: default
-    builds:
+    ids:
       - boba
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
@@ -38,7 +39,7 @@ archives:
     wrap_in_directory: true
 
   - id: windows
-    builds:
+    ids:
       - boba
     formats:
       - zip
