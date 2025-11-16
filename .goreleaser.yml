@@ -1,11 +1,29 @@
 version: 2
 
-ldflags:
-  - -s -w
-  - -X github.com/royisme/bobamixer/internal/version.Version={{.Version}}
-  - -X github.com/royisme/bobamixer/internal/version.Commit={{.Commit}}
-  - -X github.com/royisme/bobamixer/internal/version.Date={{.Date}}
-  - -X github.com/royisme/bobamixer/internal/version.BuiltBy=goreleaser
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: boba
+    main: ./cmd/boba
+    binary: boba
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/royisme/bobamixer/internal/version.Version={{.Version}}
+      - -X github.com/royisme/bobamixer/internal/version.Commit={{.Commit}}
+      - -X github.com/royisme/bobamixer/internal/version.Date={{.Date}}
+      - -X github.com/royisme/bobamixer/internal/version.BuiltBy=goreleaser
 
 archives:
   - id: default
@@ -22,13 +40,15 @@ archives:
   - id: windows
     builds:
       - boba
-    formats: ["zip"]
+    formats:
+      - zip
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
       - LICENSE
       - configs/examples/**
     wrap_in_directory: true
+    # windows archives auto-detect .exe
 
 checksum:
   name_template: "checksums.txt"
@@ -54,7 +74,7 @@ changelog:
       regexp: "^.*fix[(\\w)]*:+.*$"
     - title: Others
 
-# New v2 homebrew section
+# GoReleaser v2 的 Homebrew Casks 配置
 homebrew_casks:
   - name: boba
     description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
