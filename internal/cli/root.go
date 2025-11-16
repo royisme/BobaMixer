@@ -106,6 +106,8 @@ func Run(args []string) error {
 		return runBind(home, args[1:])
 	case "run":
 		return runRun(home, args[1:])
+	case "proxy":
+		return runProxy(home, args[1:])
 
 	// Legacy Profile Commands
 	case "ls":
@@ -150,11 +152,13 @@ func printUsage() {
 	fmt.Println("  boba                                          Launch TUI dashboard")
 	fmt.Println("  boba --help                                   Show this help")
 	fmt.Println()
-	fmt.Println("Control Plane (Phase 1):")
+	fmt.Println("Control Plane (Phase 1 & 2):")
 	fmt.Println("  boba providers                                List AI providers")
 	fmt.Println("  boba tools                                    List CLI tools")
 	fmt.Println("  boba bind <tool> <provider> [--proxy=on|off]  Bind tool to provider")
 	fmt.Println("  boba run <tool> [args...]                     Run CLI tool with injected config")
+	fmt.Println("  boba proxy serve                              Start local proxy server")
+	fmt.Println("  boba proxy status                             Check proxy server status")
 	fmt.Println("  boba doctor                                   Run diagnostics")
 	fmt.Println()
 	fmt.Println("Profile Management (Legacy):")

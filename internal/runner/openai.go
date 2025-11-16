@@ -62,8 +62,13 @@ func (o *OpenAIRunner) Prepare(ctx *RunContext) error {
 		}
 	}
 
-	// TODO: If use_proxy is true, modify base URL to point to local proxy
-	// For Phase 1.5, we're not implementing proxy yet
+	// Handle proxy mode
+	if ctx.Binding.UseProxy {
+		// Route requests through local proxy
+		ctx.Env["OPENAI_BASE_URL"] = "http://127.0.0.1:7777/openai/v1"
+		// Preserve the API key for proxy authentication
+		// The proxy will forward it to the actual provider
+	}
 
 	return nil
 }

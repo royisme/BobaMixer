@@ -60,8 +60,13 @@ func (g *GeminiRunner) Prepare(ctx *RunContext) error {
 		}
 	}
 
-	// TODO: If use_proxy is true, modify base URL to point to local proxy
-	// For Phase 1.5, we're not implementing proxy yet
+	// Handle proxy mode
+	// Note: Gemini CLI may not support custom base URLs as well as OpenAI/Anthropic
+	// This is a best-effort implementation
+	if ctx.Binding.UseProxy {
+		ctx.Env["GEMINI_BASE_URL"] = "http://127.0.0.1:7777/gemini/v1"
+		// Preserve the API keys for proxy authentication
+	}
 
 	return nil
 }

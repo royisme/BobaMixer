@@ -2,13 +2,17 @@ package cli
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/logging"
+	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/runner"
 )
 
@@ -129,6 +133,7 @@ func runTools(home string, _ []string) error {
 }
 
 // runBind creates or updates a binding between a tool and a provider
+//
 //nolint:gocyclo // Command logic requires multiple validation steps
 func runBind(home string, args []string) error {
 	if len(args) < 2 {
@@ -223,6 +228,7 @@ func runBind(home string, args []string) error {
 }
 
 // runDoctorV2 runs diagnostics for the control plane configuration
+//
 //nolint:gocyclo // Comprehensive diagnostics require checking multiple components
 func runDoctorV2(home string, args []string) error {
 	logging.Info("Running doctor (control plane)")
@@ -394,6 +400,86 @@ func runRun(home string, args []string) error {
 	if err := runner.Run(ctx); err != nil {
 		return fmt.Errorf("failed to run %s: %w", tool.Name, err)
 	}
+
+	return nil
+}
+
+// runProxy handles proxy subcommands
+func runProxy(home string, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("proxy subcommand required: serve, status, stop")
+	}
+
+	switch args[0] {
+	case "serve":
+		return runProxyServe(home, args[1:])
+	case "status":
+		return runProxyStatus(home, args[1:])
+	case "stop":
+		return runProxyStop(home, args[1:])
+	default:
+		return fmt.Errorf("unknown proxy subcommand: %s", args[0])
+	}
+}
+
+// runProxyServe starts the proxy server
+func runProxyServe(home string, _ []string) error {
+	logging.Info("Starting proxy server")
+
+	dbPath := filepath.Join(home, "usage.db")
+	server, err := proxy.NewServer(proxy.DefaultAddr, dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to create proxy server: %w", err)
+	}
+
+	if err := server.Start(); err != nil {
+		return fmt.Errorf("failed to start proxy server: %w", err)
+	}
+
+	fmt.Printf("✓ Proxy server started on %s\n", server.Addr())
+	fmt.Println("\nPress Ctrl+C to stop...")
+
+	// Wait for interrupt signal
+	select {}
+}
+
+// runProxyStatus shows the proxy server status
+func runProxyStatus(home string, _ []string) error {
+	logging.Info("Checking proxy status")
+
+	// Try to connect to the proxy to check if it's running
+	addr := proxy.DefaultAddr
+	client := &http.Client{
+		Timeout: 1 * time.Second,
+	}
+
+	// Try a simple health check (we'll add a health endpoint later)
+	resp, err := client.Get("http://" + addr + "/health")
+	if err != nil {
+		fmt.Println("Proxy Status: ❌ Not running")
+		fmt.Printf("Address: %s\n", addr)
+		fmt.Println("\nTo start: boba proxy serve")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("Proxy Status: ✅ Running")
+	fmt.Printf("Address: %s\n", addr)
+	fmt.Println("\nEndpoints:")
+	fmt.Println("  - http://127.0.0.1:7777/openai/v1/*")
+	fmt.Println("  - http://127.0.0.1:7777/anthropic/v1/*")
+
+	return nil
+}
+
+// runProxyStop stops the proxy server
+func runProxyStop(home string, _ []string) error {
+	logging.Info("Stopping proxy server")
+
+	// For now, just inform the user
+	// In a production implementation, we'd use a PID file or similar
+	fmt.Println("To stop the proxy server, press Ctrl+C in the terminal where it's running")
+	fmt.Println("Or use: killall -SIGTERM boba")
 
 	return nil
 }
