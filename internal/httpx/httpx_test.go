@@ -3,6 +3,7 @@ package httpx_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,6 +49,40 @@ func TestExecute(t *testing.T) {
 		}
 		if result.ErrorClass != "" {
 			t.Errorf("error class = %s, want empty", result.ErrorClass)
+		}
+	})
+
+	t.Run("supports GET requests", func(t *testing.T) {
+		// Given: GET request without payload
+		var gotMethod string
+		var gotBody string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotMethod = r.Method
+			data, _ := io.ReadAll(r.Body) //nolint:errcheck // best-effort for test
+			gotBody = string(data)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer server.Close()
+
+		ctx := context.Background()
+		req := httpx.HTTPRequest{
+			Endpoint: server.URL,
+			Method:   http.MethodGet,
+			Timeout:  time.Second,
+		}
+
+		result, err := httpx.Execute(ctx, req)
+		if err != nil {
+			t.Fatalf("Execute failed: %v", err)
+		}
+		if !result.Success {
+			t.Fatal("expected GET request to succeed")
+		}
+		if gotMethod != http.MethodGet {
+			t.Fatalf("method = %s, want %s", gotMethod, http.MethodGet)
+		}
+		if gotBody != "" {
+			t.Fatalf("expected empty body for GET, got %q", gotBody)
 		}
 	})
 
