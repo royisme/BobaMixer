@@ -32,24 +32,15 @@ archives:
     formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
     files:
       - README.md
       - LICENSE
       - configs/examples/**
     wrap_in_directory: true
-
-  - id: windows
-    ids:
-      - boba
-    formats:
-      - zip
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - README.md
-      - LICENSE
-      - configs/examples/**
-    wrap_in_directory: true
-    # windows archives auto-detect .exe
 
 checksum:
   name_template: "checksums.txt"
