@@ -18,6 +18,7 @@ type HTTPRequest struct {
 	Endpoint  string
 	Headers   map[string]string
 	Payload   []byte
+	Method    string
 	Timeout   time.Duration
 	Retries   int // Maximum number of retries (default 2)
 }
@@ -32,11 +33,11 @@ type Usage struct {
 
 // HTTPResult represents the result of an HTTP request.
 type HTTPResult struct {
-	Success     bool
-	StatusCode  int
-	Body        []byte
-	Usage       Usage
-	ErrorClass  string // "timeout" | "5xx" | "4xx" | "network" | ""
+	Success    bool
+	StatusCode int
+	Body       []byte
+	Usage      Usage
+	ErrorClass string // "timeout" | "5xx" | "4xx" | "network" | ""
 }
 
 // Execute performs an HTTP request with retry logic and error classification.
@@ -49,6 +50,9 @@ func Execute(ctx context.Context, req HTTPRequest) (*HTTPResult, error) {
 	}
 	if req.Retries == 0 {
 		req.Retries = 2
+	}
+	if req.Method == "" {
+		req.Method = http.MethodPost
 	}
 
 	var lastResult *HTTPResult
@@ -95,7 +99,12 @@ func executeOnce(ctx context.Context, req HTTPRequest) *HTTPResult {
 	}
 
 	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, req.Endpoint, bytes.NewReader(req.Payload))
+	var bodyReader io.Reader = bytes.NewReader(req.Payload)
+	if len(req.Payload) == 0 && (req.Method == http.MethodGet || req.Method == http.MethodHead) {
+		bodyReader = http.NoBody
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.Endpoint, bodyReader)
 	if err != nil {
 		return &HTTPResult{
 			Success:    false,
