@@ -4,6 +4,7 @@ package settings
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,18 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed templates/profiles.yaml.tmpl
+var profilesTemplate string
+
+//go:embed templates/secrets.yaml.tmpl
+var secretsTemplate string
+
+//go:embed templates/routes.yaml.tmpl
+var routesTemplate string
+
+//go:embed templates/pricing.yaml.tmpl
+var pricingTemplate string
 
 // Mode represents the operation mode of BobaMixer.
 type Mode string
@@ -50,64 +63,27 @@ func InitHome(home string) error {
 		return fmt.Errorf("create home directory: %w", err)
 	}
 
-	// Initialize four config files with placeholders
+	// Initialize config files from embedded templates
+	// Templates are embedded from configs/templates/*.tmpl files
 	files := map[string]struct {
 		content string
 		mode    os.FileMode
 	}{
 		"profiles.yaml": {
-			content: `# BobaMixer Profiles Configuration
-# Define your AI provider profiles here
-# Example:
-# work-heavy:
-#   adapter: http
-#   provider: anthropic
-#   model: claude-sonnet-4
-#   endpoint: https://api.anthropic.com/v1/messages
-#   cost_per_1k:
-#     input: 0.003
-#     output: 0.015
-#   env:
-#     - ANTHROPIC_API_KEY=secret://anthropic_key
-`,
-			mode: 0644,
+			content: profilesTemplate,
+			mode:    0644,
 		},
 		"routes.yaml": {
-			content: `# BobaMixer Routing Rules
-# Define context-aware routing rules
-# Example:
-# rules:
-#   - id: quick-tasks
-#     if: "ctx_chars<1000"
-#     use: quick-tasks
-#     explain: "Small context, use faster model"
-#
-# explore:
-#   enabled: true
-#   rate: 0.03
-`,
-			mode: 0644,
+			content: routesTemplate,
+			mode:    0644,
 		},
 		"pricing.yaml": {
-			content: `# BobaMixer Pricing Configuration
-# Local pricing fallback (used when remote pricing is unavailable)
-# Example:
-# models:
-#   anthropic/claude-sonnet-4:
-#     input_per_1k: 0.003
-#     output_per_1k: 0.015
-`,
-			mode: 0644,
+			content: pricingTemplate,
+			mode:    0644,
 		},
 		"secrets.yaml": {
-			content: `# BobaMixer Secrets
-# Store API keys and sensitive values here
-# This file must have 0600 permissions
-# Example:
-# anthropic_key: sk-ant-...
-# openai_key: sk-...
-`,
-			mode: 0600,
+			content: secretsTemplate,
+			mode:    0600,
 		},
 	}
 
