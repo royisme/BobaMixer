@@ -108,6 +108,8 @@ func Run(args []string) error {
 		return runTools(home, args[1:])
 	case "bind":
 		return runBind(home, args[1:])
+	case "run":
+		return runRun(home, args[1:])
 
 	// Legacy Profile Commands
 	case "ls":
@@ -156,6 +158,7 @@ func printUsage() {
 	fmt.Println("  boba providers                                List AI providers")
 	fmt.Println("  boba tools                                    List CLI tools")
 	fmt.Println("  boba bind <tool> <provider> [--proxy=on|off]  Bind tool to provider")
+	fmt.Println("  boba run <tool> [args...]                     Run CLI tool with injected config")
 	fmt.Println("  boba doctor                                   Run diagnostics")
 	fmt.Println()
 	fmt.Println("Profile Management (Legacy):")

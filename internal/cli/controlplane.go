@@ -9,6 +9,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/logging"
+	"github.com/royisme/bobamixer/internal/runner"
 )
 
 // runProviders lists all configured providers
@@ -329,6 +330,59 @@ func runDoctorV2(home string, args []string) error {
 		fmt.Printf("%s Configuration is valid but has warnings.\n", statusWarning)
 	} else {
 		fmt.Printf("%s All checks passed! Your configuration is healthy.\n", statusOK)
+	}
+
+	return nil
+}
+
+// runRun executes a CLI tool with injected configuration
+func runRun(home string, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: boba run <tool> [args...]")
+	}
+
+	toolID := args[0]
+	toolArgs := args[1:]
+
+	logging.Info("Running tool", logging.String("tool", toolID))
+
+	// Load configurations
+	providers, tools, bindings, secrets, err := core.LoadAll(home)
+	if err != nil {
+		return fmt.Errorf("failed to load configurations: %w", err)
+	}
+
+	// Find the tool
+	tool, err := tools.FindTool(toolID)
+	if err != nil {
+		return fmt.Errorf("tool not found: %s\nRun 'boba tools' to list available tools", toolID)
+	}
+
+	// Find the binding
+	binding, err := bindings.FindBinding(toolID)
+	if err != nil {
+		return fmt.Errorf("tool %s is not bound to any provider\nRun 'boba bind %s <provider>' to create a binding", toolID, toolID)
+	}
+
+	// Find the provider
+	provider, err := providers.FindProvider(binding.ProviderID)
+	if err != nil {
+		return fmt.Errorf("provider %s not found\nRun 'boba providers' to list available providers", binding.ProviderID)
+	}
+
+	// Create run context
+	ctx := &runner.RunContext{
+		Home:     home,
+		Tool:     tool,
+		Binding:  binding,
+		Provider: provider,
+		Secrets:  secrets,
+		Args:     toolArgs,
+	}
+
+	// Run the tool
+	if err := runner.Run(ctx); err != nil {
+		return fmt.Errorf("failed to run %s: %w", tool.Name, err)
 	}
 
 	return nil

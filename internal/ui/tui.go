@@ -4,6 +4,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -585,11 +586,45 @@ func (m Model) saveActiveProfile() tea.Msg {
 
 // Run starts the TUI
 func Run(home string) error {
-	// Load profiles (gracefully handle missing/invalid config)
+	// Check if we should use new control plane or legacy profile system
+	// New system uses tools.yaml and bindings.yaml
+	toolsPath := filepath.Join(home, "tools.yaml")
+	bindingsPath := filepath.Join(home, "bindings.yaml")
+
+	useControlPlane := false
+	if _, err := os.Stat(toolsPath); err == nil {
+		if _, err := os.Stat(bindingsPath); err == nil {
+			useControlPlane = true
+		}
+	}
+
+	if useControlPlane {
+		// Use new control plane dashboard
+		return RunDashboard(home)
+	}
+
+	// Check if first-run (no configuration at all)
+	providersPath := filepath.Join(home, "providers.yaml")
+	if _, err := os.Stat(providersPath); os.IsNotExist(err) {
+		// First-run: launch interactive onboarding
+		shouldContinue, onboardErr := RunOnboarding(home)
+		if onboardErr != nil {
+			return fmt.Errorf("onboarding failed: %w", onboardErr)
+		}
+		if !shouldContinue {
+			// User cancelled onboarding
+			return nil
+		}
+
+		// Onboarding completed, launch dashboard
+		return RunDashboard(home)
+	}
+
+	// Legacy: Load profiles (gracefully handle missing/invalid config)
 	profiles, err := config.LoadProfiles(home)
 	if err != nil || len(profiles) == 0 {
-		// First-run: launch interactive setup wizard
-		shouldContinue, wizardErr := RunWizard(home)
+		// Try onboarding for legacy users
+		shouldContinue, wizardErr := RunOnboarding(home)
 		if wizardErr != nil {
 			return fmt.Errorf("setup wizard failed: %w", wizardErr)
 		}
@@ -598,11 +633,8 @@ func Run(home string) error {
 			return nil
 		}
 
-		// Wizard completed successfully, reload profiles
-		profiles, err = config.LoadProfiles(home)
-		if err != nil {
-			return fmt.Errorf("failed to load profiles after setup: %w", err)
-		}
+		// Launch dashboard after onboarding
+		return RunDashboard(home)
 	}
 
 	// Open database
