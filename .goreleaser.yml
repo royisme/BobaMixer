@@ -40,7 +40,7 @@ archives:
       - README.md
       - LICENSE
       - configs/examples/**
-    wrap_in_directory: true
+    wrap_in_directory: false
 
 checksum:
   name_template: "checksums.txt"
