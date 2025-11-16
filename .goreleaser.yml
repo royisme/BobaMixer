@@ -66,18 +66,19 @@ changelog:
       regexp: "^.*fix[(\\w)]*:+.*$"
     - title: Others
 
-# GoReleaser v2 的 Homebrew Casks 配置
-homebrew_casks:
-  - name: boba
+# GoReleaser v2 formula config (keeps brew install bobamixer working without macOS quarantine prompts)
+brews:
+  - name: bobamixer
+    homepage: "https://github.com/royisme/BobaMixer"
     description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
     license: MIT
-    # 如果以后有多个 archive id，可在这里限定：
-    # ids:
-    #   - default
-    #   - windows
+    ids:
+      - default
     repository:
       owner: royisme
       name: homebrew-tap
     commit_author:
       name: royisme
       email: imroybox@gmail.com
+    test: |
+      system "#{bin}/boba", "version"
