@@ -341,7 +341,7 @@ func gitTag(repo, version string) error {
 	if strings.TrimSpace(existing) == tag {
 		return fmt.Errorf("tag %s already exists", tag)
 	}
-	_, err := gitOutput(repo, "tag", "-a", tag, "-m", fmt.Sprintf("Release %s", tag))
+	_, err = gitOutput(repo, "tag", "-a", tag, "-m", fmt.Sprintf("Release %s", tag))
 	return err
 }
 
