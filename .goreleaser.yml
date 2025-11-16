@@ -74,17 +74,20 @@ changelog:
     - title: Others
 
 # New v2 homebrew section
-homebrew:
-  - name: boba
-    repository:
+distributions:
+  - id: homebrew
+    builds:
+      - boba
+    tap:
       owner: royisme
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
+    license: MIT
     description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
     homepage: "https://github.com/royisme/BobaMixer"
-    license: "MIT"
     install: |
       bin.install "boba"
     test: |
       system "#{bin}/boba", "version"
+
 
