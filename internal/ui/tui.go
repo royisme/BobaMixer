@@ -585,10 +585,16 @@ func Run(home string) error {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Load profiles
+	// Load profiles (gracefully handle missing/invalid config)
 	profiles, err := config.LoadProfiles(home)
 	if err != nil {
-		return fmt.Errorf("failed to load profiles: %w", err)
+		// Instead of failing, show helpful welcome screen
+		return runWelcomeScreen(home, err)
+	}
+
+	// Check if profiles is empty (valid YAML but no profiles defined)
+	if len(profiles) == 0 {
+		return runWelcomeScreen(home, fmt.Errorf("no profiles configured"))
 	}
 
 	// Build profile list
@@ -648,4 +654,62 @@ func (m Model) watchNotifications() tea.Cmd {
 		events, err := m.notifier.Poll()
 		return notificationMsg{events: events, err: err}
 	})
+}
+
+// runWelcomeScreen displays a friendly welcome/setup screen for first-time users
+func runWelcomeScreen(home string, configErr error) error {
+	profilesPath := filepath.Join(home, "profiles.yaml")
+	secretsPath := filepath.Join(home, "secrets.yaml")
+
+	// Build welcome message
+	var msg strings.Builder
+	msg.WriteString("\n")
+	msg.WriteString(titleStyle.Render("🧋 Welcome to BobaMixer!"))
+	msg.WriteString("\n\n")
+
+	// Explain the issue
+	msg.WriteString(colorize(warningColor, "⚠ Configuration Required"))
+	msg.WriteString("\n\n")
+	if configErr != nil {
+		msg.WriteString(fmt.Sprintf("Configuration issue: %v\n\n", configErr))
+	}
+
+	// Provide setup instructions
+	msg.WriteString(helpStyle.Render("To get started, you need to configure at least one AI profile:"))
+	msg.WriteString("\n\n")
+
+	msg.WriteString(colorize(primaryColor, "Step 1: Review profiles.yaml"))
+	msg.WriteString("\n")
+	msg.WriteString(fmt.Sprintf("  Location: %s\n", profilesPath))
+	msg.WriteString("\n")
+	msg.WriteString("  A default profile has been created for you.\n")
+	msg.WriteString("  You can customize it or add more profiles:\n")
+	msg.WriteString(fmt.Sprintf("    Run: boba edit profiles\n"))
+	msg.WriteString("\n")
+
+	msg.WriteString(colorize(primaryColor, "Step 2: Add your API key"))
+	msg.WriteString("\n")
+	msg.WriteString(fmt.Sprintf("  Run: boba edit secrets\n"))
+	msg.WriteString(fmt.Sprintf("  Or edit directly: %s\n", secretsPath))
+	msg.WriteString("\n")
+	msg.WriteString("  Add your API key (e.g., anthropic: \"sk-ant-...\")\n")
+	msg.WriteString("\n")
+
+	msg.WriteString(colorize(primaryColor, "Step 3: Verify setup"))
+	msg.WriteString("\n")
+	msg.WriteString("  Run: boba doctor\n")
+	msg.WriteString("\n")
+
+	msg.WriteString(colorize(primaryColor, "Step 4: Start using BobaMixer"))
+	msg.WriteString("\n")
+	msg.WriteString("  Run: boba\n")
+	msg.WriteString("\n\n")
+
+	msg.WriteString(helpStyle.Render("For more help, see: https://royisme.github.io/BobaMixer/"))
+	msg.WriteString("\n")
+
+	// Print the welcome screen
+	fmt.Println(msg.String())
+
+	return nil
 }
