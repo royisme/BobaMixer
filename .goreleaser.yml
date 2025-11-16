@@ -1,29 +1,11 @@
 version: 2
 
-before:
-  hooks:
-    - go mod tidy
-    - go generate ./...
-
-builds:
-  - id: boba
-    env:
-      - CGO_ENABLED=0
-    main: ./cmd/boba
-    binary: boba
-    targets:
-      - linux_amd64
-      - linux_arm64
-      - darwin_amd64
-      - darwin_arm64
-      - windows_amd64
-      - windows_arm64
-    ldflags:
-      - -s -w
-      - -X github.com/royisme/bobamixer/internal/version.Version={{.Version}}
-      - -X github.com/royisme/bobamixer/internal/version.Commit={{.Commit}}
-      - -X github.com/royisme/bobamixer/internal/version.Date={{.Date}}
-      - -X github.com/royisme/bobamixer/internal/version.BuiltBy=goreleaser
+ldflags:
+  - -s -w
+  - -X github.com/royisme/bobamixer/internal/version.Version={{.Version}}
+  - -X github.com/royisme/bobamixer/internal/version.Commit={{.Commit}}
+  - -X github.com/royisme/bobamixer/internal/version.Date={{.Date}}
+  - -X github.com/royisme/bobamixer/internal/version.BuiltBy=goreleaser
 
 archives:
   - id: default
@@ -47,7 +29,6 @@ archives:
       - LICENSE
       - configs/examples/**
     wrap_in_directory: true
-    # windows archives auto detect .exe
 
 checksum:
   name_template: "checksums.txt"
@@ -75,17 +56,16 @@ changelog:
 
 # New v2 homebrew section
 homebrew_casks:
-  taps:
-    - owner: royisme
+  - name: boba
+    description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
+    license: MIT
+    # 如果以后有多个 archive id，可在这里限定：
+    # ids:
+    #   - default
+    #   - windows
+    repository:
+      owner: royisme
       name: homebrew-tap
-
-  name: boba
-  description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
-  license: MIT
-  test: |
-    system "#{bin}/boba", "version"
-
-  commit_author:
-    name: royisme
-    email: imroybox@gmail.com
-
+    commit_author:
+      name: royisme
+      email: imroybox@gmail.com
