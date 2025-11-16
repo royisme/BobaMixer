@@ -1,35 +1,40 @@
-# .goreleaser.yaml
-version: 2
+# .goreleaser.yml 
 
 before:
   hooks:
-    - go mod tidy
+    # 不要 go mod tidy（会污染 workspace）
     - go generate ./...
 
+# ---- Build Configuration ----
 builds:
   - id: boba
-    env:
-      - CGO_ENABLED=0
-    targets:
-      - linux_amd64
-      - linux_arm64
-      - darwin_amd64
-      - darwin_arm64
-      - windows_amd64
-      - windows_arm64
     main: ./cmd/boba
     binary: boba
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64 # Windows ARM64 不稳定，跳过
     ldflags:
       - -s -w
-      - -X github.com/royisme/bobamixer/internal/version.Version={{.Version}}
-      - -X github.com/royisme/bobamixer/internal/version.Commit={{.Commit}}
-      - -X github.com/royisme/bobamixer/internal/version.Date={{.Date}}
-      - -X github.com/royisme/bobamixer/internal/version.BuiltBy=goreleaser
+      - -X github.com/royisme/BobaMixer/internal/version.Version={{ .Version }}
+      - -X github.com/royisme/BobaMixer/internal/version.Commit={{ .Commit }}
+      - -X github.com/royisme/BobaMixer/internal/version.Date={{ .Date }}
+      - -X github.com/royisme/BobaMixer/internal/version.BuiltBy=goreleaser
 
+# ---- Archives / Packaging ----
 archives:
-  - format: tar.gz
-    name_template: >-
-      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+  - id: archive
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Target }}"
+    # 模块化布局
     files:
       - README.md
       - LICENSE
@@ -38,15 +43,18 @@ archives:
       - goos: windows
         format: zip
 
+# ---- Checksums ----
 checksum:
   name_template: "checksums.txt"
 
+# ---- Snapshot releases ----
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  name_template: "{{ .Version }}-SNAPSHOT"
 
+# ---- Changelog ----
 changelog:
-  sort: asc
   use: github
+  sort: asc
   filters:
     exclude:
       - "^docs:"
@@ -59,25 +67,24 @@ changelog:
     - title: Features
       regexp: "^.*feat[(\\w)]*:+.*$"
       order: 0
-    - title: "Bug fixes"
+    - title: Bug Fixes
       regexp: "^.*fix[(\\w)]*:+.*$"
       order: 1
     - title: Others
       order: 999
 
-# Homebrew formula configuration
+# ---- Homebrew Tap ----
 brews:
   - repository:
       owner: royisme
       name: homebrew-tap
       token: "{{ .Env.GITHUB_TOKEN }}"
+    name: boba
     homepage: "https://github.com/royisme/BobaMixer"
     description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
     license: MIT
     test: |
       system "#{bin}/boba version"
-
-# The lines beneath this are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/use them.
-# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
-# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+    # brew bottle 支持 (未来扩展)
+    install: |
+      bin.install "boba"
