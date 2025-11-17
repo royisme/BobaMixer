@@ -15,6 +15,7 @@ import (
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/runner"
+	"github.com/royisme/bobamixer/internal/store/config"
 )
 
 const (
@@ -251,8 +252,22 @@ func runBind(home string, args []string) error {
 // runDoctorV2 runs diagnostics for the control plane configuration
 //
 //nolint:gocyclo // Comprehensive diagnostics require checking multiple components
-func runDoctorV2(home string, _ []string) error {
+func runDoctorV2(home string, args []string) error {
 	logging.Info("Running doctor (control plane)")
+
+	// Parse flags
+	checkPricing := false
+	for _, arg := range args {
+		if arg == "--pricing" {
+			checkPricing = true
+			break
+		}
+	}
+
+	// If --pricing flag is set, only check pricing
+	if checkPricing {
+		return runDoctorPricing(home)
+	}
 
 	fmt.Println("BobaMixer Control Plane Diagnostics")
 	fmt.Println("═══════════════════════════════════")
@@ -516,4 +531,181 @@ func runProxyStop(_ string, _ []string) error {
 	fmt.Println("Or use: killall -SIGTERM boba")
 
 	return nil
+}
+
+// runDoctorPricing runs diagnostics specifically for pricing configuration
+//
+//nolint:gocyclo // Comprehensive pricing diagnostics require checking multiple aspects
+func runDoctorPricing(home string) error {
+	logging.Info("Running doctor --pricing")
+
+	fmt.Println("BobaMixer Pricing Diagnostics")
+	fmt.Println("══════════════════════════════")
+	fmt.Println()
+
+	hasErrors := false
+	hasWarnings := false
+
+	// Check pricing.yaml configuration
+	fmt.Println("💰 Pricing Configuration")
+	fmt.Println("────────────────────────")
+
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		fmt.Printf("  %s Failed to load pricing.yaml: %v\n", statusError, err)
+		hasErrors = true
+	} else {
+		fmt.Printf("  %s pricing.yaml loaded successfully\n", statusOK)
+
+		// Check if models are configured
+		if len(pricingCfg.Models) == 0 {
+			fmt.Printf("  %s No models configured in pricing.yaml\n", statusWarning)
+			hasWarnings = true
+		} else {
+			fmt.Printf("  %s Found %d model(s) in pricing.yaml\n", statusOK, len(pricingCfg.Models))
+		}
+
+		// Check sources configuration
+		if len(pricingCfg.Sources) == 0 {
+			fmt.Printf("  %s No remote sources configured (using local pricing only)\n", statusWarning)
+			hasWarnings = true
+		} else {
+			fmt.Printf("  %s Found %d pricing source(s)\n", statusOK, len(pricingCfg.Sources))
+
+			// Verify each source
+			for i, source := range pricingCfg.Sources {
+				switch source.Type {
+				case "http-json":
+					if source.URL == "" {
+						fmt.Printf("  %s Source #%d: missing URL\n", statusError, i+1)
+						hasErrors = true
+					} else {
+						fmt.Printf("  %s Source #%d: %s (priority: %d)\n", statusOK, i+1, source.URL, source.Priority)
+					}
+				case "file":
+					if source.Path == "" {
+						fmt.Printf("  %s Source #%d: missing file path\n", statusError, i+1)
+						hasErrors = true
+					} else {
+						fmt.Printf("  %s Source #%d: file %s (priority: %d)\n", statusOK, i+1, source.Path, source.Priority)
+					}
+				default:
+					fmt.Printf("  %s Source #%d: unknown type '%s'\n", statusWarning, i+1, source.Type)
+					hasWarnings = true
+				}
+			}
+		}
+
+		// Check refresh settings
+		if pricingCfg.Refresh.IntervalHours > 0 {
+			fmt.Printf("  %s Refresh interval: %d hours\n", statusOK, pricingCfg.Refresh.IntervalHours)
+		} else {
+			fmt.Printf("  %s Refresh interval: not configured (no automatic refresh)\n", statusWarning)
+			hasWarnings = true
+		}
+
+		if pricingCfg.Refresh.OnStartup {
+			fmt.Printf("  %s Refresh on startup: enabled\n", statusOK)
+		} else {
+			fmt.Printf("  %s Refresh on startup: disabled\n", statusWarning)
+		}
+	}
+	fmt.Println()
+
+	// Check pricing cache
+	fmt.Println("📦 Pricing Cache")
+	fmt.Println("────────────────")
+
+	cachePath := filepath.Join(home, "pricing.cache.json")
+	cacheInfo, err := os.Stat(cachePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("  %s Cache file not found (will be created on first fetch)\n", statusWarning)
+			hasWarnings = true
+		} else {
+			fmt.Printf("  %s Failed to check cache: %v\n", statusError, err)
+			hasErrors = true
+		}
+	} else {
+		cacheAge := time.Since(cacheInfo.ModTime())
+		cacheAgeHours := int(cacheAge.Hours())
+
+		if cacheAge > 24*time.Hour {
+			fmt.Printf("  %s Cache is %d hours old (stale, consider refreshing)\n", statusWarning, cacheAgeHours)
+			hasWarnings = true
+		} else {
+			fmt.Printf("  %s Cache is %d hours old (fresh)\n", statusOK, cacheAgeHours)
+		}
+		fmt.Printf("  %s Cache size: %.2f KB\n", statusOK, float64(cacheInfo.Size())/1024)
+	}
+	fmt.Println()
+
+	// Try to load pricing data
+	fmt.Println("🔍 Pricing Data Validation")
+	fmt.Println("──────────────────────────")
+
+	table, err := loadPricingTable(home)
+	if err != nil {
+		fmt.Printf("  %s Failed to load pricing table: %v\n", statusError, err)
+		hasErrors = true
+	} else {
+		if len(table) == 0 {
+			fmt.Printf("  %s No pricing data available\n", statusWarning)
+			fmt.Println("  ℹ️  Tip: Add models to pricing.yaml or configure remote sources")
+			hasWarnings = true
+		} else {
+			fmt.Printf("  %s Successfully loaded pricing for %d model(s)\n", statusOK, len(table))
+
+			// Show sample models
+			sampleCount := 0
+			for modelName, price := range table {
+				if sampleCount >= 5 {
+					fmt.Printf("  ... and %d more models\n", len(table)-5)
+					break
+				}
+				fmt.Printf("    - %s: $%.4f/$%.4f per 1K tokens\n", modelName, price.InputPer1K, price.OutputPer1K)
+				sampleCount++
+			}
+		}
+	}
+	fmt.Println()
+
+	// Summary
+	fmt.Println("Summary")
+	fmt.Println("───────")
+	if hasErrors {
+		fmt.Printf("%s Pricing configuration has errors. Please fix the issues above.\n", statusError)
+		return fmt.Errorf("pricing configuration errors detected")
+	} else if hasWarnings {
+		fmt.Printf("%s Pricing configuration is functional but has warnings.\n", statusWarning)
+		fmt.Println("\nRecommendations:")
+		fmt.Println("  1. Configure remote pricing sources in pricing.yaml")
+		fmt.Println("  2. Enable automatic refresh (refresh.on_startup and refresh.interval_hours)")
+		fmt.Println("  3. Run 'boba init' to regenerate default pricing configuration")
+	} else {
+		fmt.Printf("%s Pricing configuration is healthy!\n", statusOK)
+	}
+
+	return nil
+}
+
+// loadPricingTable is a helper function to load pricing data
+// This is a placeholder that will call the pricing package
+func loadPricingTable(home string) (map[string]struct{ InputPer1K, OutputPer1K float64 }, error) {
+	// Load pricing configuration
+	pricingCfg, err := config.LoadPricing(home)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to simple map for validation
+	result := make(map[string]struct{ InputPer1K, OutputPer1K float64 })
+	for name, price := range pricingCfg.Models {
+		result[name] = struct{ InputPer1K, OutputPer1K float64 }{
+			InputPer1K:  price.InputPer1K,
+			OutputPer1K: price.OutputPer1K,
+		}
+	}
+
+	return result, nil
 }

@@ -1,10 +1,8 @@
 name: Update Changelog
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
+    types: [closed]
     branches:
       - main
 
@@ -13,15 +11,16 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Generate changelog for main branch
-  update-main:
-    name: Update Changelog (Main)
+  # Generate changelog when PR is merged to main
+  update-on-merge:
+    name: Update Changelog on PR Merge
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event.pull_request.merged == true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -53,13 +52,13 @@ jobs:
           git config --local user.name "GitHub Action"
           git add CHANGELOG.md
           git commit -m "docs: update changelog [skip ci]"
-          git push
+          git push origin main
 
   # Preview changelog for pull requests
   preview-pr:
     name: Preview Changelog (PR)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event.pull_request.merged != true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
