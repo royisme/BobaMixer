@@ -18,6 +18,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
@@ -776,6 +777,14 @@ func runInit(home string, args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+
+	// Initialize default control plane configs
+	logging.Info("Initializing BobaMixer configuration", logging.String("home", home))
+	if err := core.InitDefaultConfigs(home); err != nil {
+		return fmt.Errorf("failed to initialize configs: %w", err)
+	}
+
+	// Initialize settings
 	if err := settings.InitHome(home); err != nil {
 		return err
 	}
@@ -802,7 +811,26 @@ func runInit(home string, args []string) error {
 	if err := settings.Save(ctx, home, current); err != nil {
 		return err
 	}
-	fmt.Println("Settings initialized in", filepath.Join(home, "settings.yaml"))
+
+	fmt.Println("✅ BobaMixer initialized successfully")
+	fmt.Println()
+	fmt.Println("Configuration directory:", home)
+	fmt.Println()
+	fmt.Println("Created files:")
+	fmt.Println("  - providers.yaml  (AI service providers)")
+	fmt.Println("  - tools.yaml      (Local CLI tools)")
+	fmt.Println("  - bindings.yaml   (Tool ↔ Provider bindings)")
+	fmt.Println("  - secrets.yaml    (API keys)")
+	fmt.Println("  - settings.yaml   (UI preferences)")
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Println("  1. Add your API keys to environment variables or secrets.yaml")
+	fmt.Println("  2. Run 'boba tools' to see detected CLI tools")
+	fmt.Println("  3. Run 'boba providers' to see available providers")
+	fmt.Println("  4. Run 'boba bind <tool> <provider>' to create bindings")
+	fmt.Println("  5. Run 'boba doctor' to verify your setup")
+	fmt.Println()
+
 	return nil
 }
 
