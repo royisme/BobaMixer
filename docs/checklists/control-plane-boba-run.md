@@ -161,7 +161,7 @@ func ResolveAPIKey(p Provider, secrets SecretsStore, env EnvReader) (string, err
 
 ### 2B. Binding 管理命令
 
-#### 2.3 boba bind <tool> <provider> [--proxy=on|off]
+#### 2.3 boba bind \<tool\> \<provider\> [--proxy=on|off]
 
 - 功能：
   - [ ] 更新 `bindings.yaml`：
@@ -224,10 +224,10 @@ func GetRunner(tool Tool) Runner // 按 Tool.Kind 返回对应 Runner
 - **Done when**:
   - 对 `claude-anthropic-official` / `claude-zai` 两种 provider，Prepare 输出的 env 符合预期
 
-#### 2.7 实现 boba run <tool> [args...] 顶层命令
+#### 2.7 实现 boba run \<tool\> [args...] 顶层命令
 
 行为：
-1. [ ] 解析 `<tool>`，加载 Tool/Provider/Binding
+1. [ ] 解析 `\<tool\>`，加载 Tool/Provider/Binding
 2. [ ] 组装 RunContext
 3. [ ] 调用 `Runner.Prepare` → `Runner.Exec`
 4. [ ] `Runner.Exec`：
@@ -349,7 +349,7 @@ gemini    gemini-official           gemini-2.0   off     [R]un [B]ind
 - [ ] 选中一行按 `B`：
   - 弹出 Provider 列表（Bubble Tea list），选中后更新 binding 并写回文件
 - [ ] 选中一行按 `R`：
-  - 调用与 `boba run <tool>` 同一 pipeline
+  - 调用与 `boba run \<tool\>` 同一 pipeline
   - 在 TUI 下方显示子进程输出（即简单的 terminal pane）
 - **Done when**:
   - 在 Dashboard 中切换 Provider 后，无需退出 TUI，按 R 就能看到 CLI 行为已经使用新的 Provider
@@ -379,7 +379,7 @@ gemini    gemini-official           gemini-2.0   off     [R]un [B]ind
 - [ ] 在 TUI 的 Dashboard 中显示 Proxy 列（on/off），允许按键切换并写回 binding
 - **Done when**:
   - Dashboard 将某 Tool 的 Proxy 切为 on
-  - `boba run <tool>` 的请求可以在 Proxy 的日志/usage 表中看到
+  - `boba run \<tool\>` 的请求可以在 Proxy 的日志/usage 表中看到
   - 切回 off 时，请求直接打到真实 Provider，不再经过 Proxy
 
 ---
@@ -479,8 +479,8 @@ boba run claude --agent=code_reiver  # 实际启动 Claude Code
 - **发现**:
   - ✅ `boba providers` - 表格输出，显示 Key 状态
   - ✅ `boba tools` - 检测 PATH，标记 missing
-  - ✅ `boba bind <tool> <provider> [--proxy]` - 完整实现
-  - ✅ `boba run <tool> [args...]` - Runner 系统完整
+  - ✅ `boba bind \<tool\> \<provider\> [--proxy]` - 完整实现
+  - ✅ `boba run \<tool\> [args...]` - Runner 系统完整
   - ✅ `boba doctor` - 健康检查完整
   - ✅ Runner 抽象（RunContext, Runner 接口, 注册表模式）
   - ✅ ClaudeRunner - 完整 env 注入逻辑
