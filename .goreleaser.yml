@@ -66,9 +66,10 @@ changelog:
       regexp: "^.*fix[(\\w)]*:+.*$"
     - title: Others
 
-# GoReleaser v2 formula config (keeps brew install bobamixer working without macOS quarantine prompts)
-brews:
+# GoReleaser v2 cask config (recommended for v2, handles macOS quarantine automatically)
+homebrew_casks:
   - name: bobamixer
+    directory: Casks
     homepage: "https://github.com/royisme/BobaMixer"
     description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
     license: MIT
@@ -80,5 +81,16 @@ brews:
     commit_author:
       name: royisme
       email: imroybox@gmail.com
-    test: |
-      system "#{bin}/boba", "version"
+
+    # Helps pass homebrew audit
+    url:
+      verified: github.com/royisme/BobaMixer
+
+    # Remove macOS quarantine attribute to avoid "unidentified developer" warnings
+    # This is necessary because the binary isn't signed and notarized
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/boba"]
+          end
