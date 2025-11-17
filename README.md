@@ -3,7 +3,7 @@
 > **Intelligent Router & Cost Optimizer for AI Workflows**
 > **AI工作流的智能路由器与成本优化引擎**
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/royisme/BobaMixer)](https://github.com/royisme/BobaMixer/releases)
 [![golangci-lint](https://img.shields.io/badge/lint-passing-brightgreen)](https://golangci-lint.run/)
@@ -265,8 +265,8 @@ BobaMixer
 
 ### Key Tech Stack | 关键技术选型
 
-- **Language**: Go 1.22+ (Type-safe, concurrency-friendly, single-binary deployment)
-  **语言**: Go 1.22+ (类型安全, 并发友好, 单文件部署)
+- **Language**: Go 1.25+ (Type-safe, concurrency-friendly, single-binary deployment)
+  **语言**: Go 1.25+ (类型安全, 并发友好, 单文件部署)
 - **TUI**: Bubble Tea (Modern terminal UI framework)
   **TUI**: Bubble Tea (现代化终端UI框架)
 - **Storage**: SQLite (Zero-config, local, SQL analytics support)
@@ -578,7 +578,7 @@ make lint
 
 ### Requirements | 环境要求
 
-- Go 1.22+ (set `GOTOOLCHAIN=auto` for auto-download)
+- Go 1.25+ (set `GOTOOLCHAIN=auto` for auto-download)
 - SQLite 3
 - golangci-lint v1.60.1
 

@@ -138,7 +138,7 @@ func (m *DashboardModel) loadStatsData() tea.Msg {
 	if err != nil {
 		return statsLoadedMsg{err: err}
 	}
-	defer db.Close()
+	// Note: sqlite.DB uses CLI-based approach, no Close() needed
 
 	ctx := context.Background()
 
@@ -330,7 +330,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case "v", "tab":
+		case "v":
 			// Toggle between dashboard and stats view
 			if m.currentView == viewDashboard {
 				m.currentView = viewStats
