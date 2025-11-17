@@ -1,13 +1,17 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
+	"github.com/royisme/bobamixer/internal/proxy"
 )
 
 // DashboardModel represents the control plane dashboard
@@ -26,9 +30,11 @@ type DashboardModel struct {
 	table table.Model
 
 	// State
-	width    int
-	height   int
-	quitting bool
+	width       int
+	height      int
+	quitting    bool
+	proxyStatus string // "running", "stopped", "checking"
+	message     string // Status message to display
 }
 
 // NewDashboard creates a new dashboard model
@@ -52,13 +58,14 @@ func NewDashboard(home string) (*DashboardModel, error) {
 	}
 
 	m := &DashboardModel{
-		home:      home,
-		theme:     theme,
-		localizer: localizer,
-		providers: providers,
-		tools:     tools,
-		bindings:  bindings,
-		secrets:   secrets,
+		home:        home,
+		theme:       theme,
+		localizer:   localizer,
+		providers:   providers,
+		tools:       tools,
+		bindings:    bindings,
+		secrets:     secrets,
+		proxyStatus: "checking",
 	}
 
 	m.initializeTable()
@@ -66,13 +73,44 @@ func NewDashboard(home string) (*DashboardModel, error) {
 	return m, nil
 }
 
+// proxyStatusMsg is sent when proxy status is checked
+type proxyStatusMsg struct {
+	running bool
+}
+
+// checkProxyStatus checks if the proxy server is running
+func checkProxyStatus() tea.Msg {
+	addr := proxy.DefaultAddr
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/health", nil)
+	if err != nil {
+		return proxyStatusMsg{running: false}
+	}
+
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	resp, err := client.Do(req)
+	if err != nil {
+		return proxyStatusMsg{running: false}
+	}
+	defer func() {
+		// Close response body; error ignored as it doesn't affect proxy status check
+		//nolint:errcheck,gosec // Error on close is not critical for status check
+		resp.Body.Close()
+	}()
+
+	return proxyStatusMsg{running: resp.StatusCode == http.StatusOK}
+}
+
 // initializeTable sets up the table with current data
 func (m *DashboardModel) initializeTable() {
 	columns := []table.Column{
-		{Title: "Tool", Width: 15},
-		{Title: "Provider", Width: 25},
-		{Title: "Model", Width: 30},
-		{Title: "Status", Width: 15},
+		{Title: "Tool", Width: 12},
+		{Title: "Provider", Width: 22},
+		{Title: "Model", Width: 25},
+		{Title: "Proxy", Width: 8},
+		{Title: "Status", Width: 13},
 	}
 
 	rows := m.buildTableRows()
@@ -116,6 +154,7 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 				tool.Name,
 				"(not bound)",
 				"-",
+				"-",
 				"⚠ Not configured",
 			})
 			continue
@@ -128,6 +167,7 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 			rows = append(rows, table.Row{
 				tool.Name,
 				fmt.Sprintf("(missing: %s)", binding.ProviderID),
+				"-",
 				"-",
 				"❌ Error",
 			})
@@ -147,19 +187,21 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 		}
 
 		// Truncate if too long
-		if len(model) > 28 {
-			model = model[:25] + "..."
+		if len(model) > 23 {
+			model = model[:20] + "..."
 		}
 
-		displayName := provider.DisplayName
+		// Proxy status
+		proxyStatus := "OFF"
 		if binding.UseProxy {
-			displayName += " (via proxy)"
+			proxyStatus = "ON"
 		}
 
 		rows = append(rows, table.Row{
 			tool.Name,
-			displayName,
+			provider.DisplayName,
 			model,
+			proxyStatus,
 			keyStatus,
 		})
 	}
@@ -167,6 +209,7 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 	if len(rows) == 0 {
 		rows = append(rows, table.Row{
 			"No tools configured",
+			"-",
 			"-",
 			"-",
 			"-",
@@ -178,7 +221,8 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 
 // Init initializes the dashboard
 func (m DashboardModel) Init() tea.Cmd {
-	return nil
+	// Check proxy status on startup
+	return checkProxyStatus
 }
 
 // Update handles messages
@@ -186,6 +230,15 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case proxyStatusMsg:
+		// Update proxy status based on check
+		if msg.running {
+			m.proxyStatus = "running"
+		} else {
+			m.proxyStatus = "stopped"
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
@@ -200,6 +253,15 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Change binding (placeholder for now)
 			// In future, this would open a binding edit view
 			return m, nil
+
+		case "x":
+			// Toggle proxy for selected tool
+			return m.handleToggleProxy()
+
+		case "s":
+			// Check proxy status
+			m.proxyStatus = "checking"
+			return m, checkProxyStatus
 
 		case "p":
 			// View providers (placeholder for now)
@@ -237,15 +299,17 @@ func (m *DashboardModel) updateTableSize() {
 	// Update column widths based on width
 	columns := m.table.Columns()
 	if m.width > 100 {
-		columns[0].Width = 20
-		columns[1].Width = 30
-		columns[2].Width = 35
-		columns[3].Width = 15
+		columns[0].Width = 15  // Tool
+		columns[1].Width = 25  // Provider
+		columns[2].Width = 28  // Model
+		columns[3].Width = 10  // Proxy
+		columns[4].Width = 15  // Status
 	} else if m.width < 80 {
-		columns[0].Width = 10
-		columns[1].Width = 20
-		columns[2].Width = 25
-		columns[3].Width = 12
+		columns[0].Width = 10  // Tool
+		columns[1].Width = 18  // Provider
+		columns[2].Width = 20  // Model
+		columns[3].Width = 8   // Proxy
+		columns[4].Width = 12  // Status
 	}
 
 	m.table.SetColumns(columns)
@@ -273,6 +337,45 @@ func (m DashboardModel) handleRun() (tea.Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
+// handleToggleProxy toggles the proxy setting for the selected tool
+func (m DashboardModel) handleToggleProxy() (tea.Model, tea.Cmd) {
+	selectedIdx := m.table.Cursor()
+
+	if selectedIdx < 0 || selectedIdx >= len(m.tools.Tools) {
+		return m, nil
+	}
+
+	tool := m.tools.Tools[selectedIdx]
+
+	// Find and toggle the binding
+	binding, err := m.bindings.FindBinding(tool.ID)
+	if err != nil {
+		m.message = fmt.Sprintf("Tool %s is not bound to any provider", tool.Name)
+		return m, nil
+	}
+
+	// Toggle proxy setting
+	binding.UseProxy = !binding.UseProxy
+
+	// Save the bindings
+	if err := core.SaveBindings(m.home, m.bindings); err != nil {
+		m.message = fmt.Sprintf("Failed to save binding: %v", err)
+		return m, nil
+	}
+
+	// Update table rows to reflect the change
+	m.table.SetRows(m.buildTableRows())
+
+	// Set success message
+	proxyState := "OFF"
+	if binding.UseProxy {
+		proxyState = "ON"
+	}
+	m.message = fmt.Sprintf("Proxy %s for %s", proxyState, tool.Name)
+
+	return m, nil
+}
+
 // View renders the dashboard
 func (m DashboardModel) View() string {
 	if m.quitting {
@@ -282,24 +385,54 @@ func (m DashboardModel) View() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary).
-		Padding(1, 2)
+		Padding(0, 2)
+
+	proxyStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 2)
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Muted).
 		Padding(1, 2)
 
+	messageStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Success).
+		Padding(0, 2)
+
 	var content strings.Builder
 
 	// Header
-	content.WriteString(titleStyle.Render("BobaMixer - AI CLI Control Plane"))
-	content.WriteString("\n")
+	title := "BobaMixer - AI CLI Control Plane"
+	content.WriteString(titleStyle.Render(title))
+
+	// Proxy status
+	proxyStatusIcon := "○"
+	proxyStatusText := "Checking..."
+	switch m.proxyStatus {
+	case "running":
+		proxyStatusIcon = "●"
+		proxyStatusText = "Running"
+	case "stopped":
+		proxyStatusIcon = "○"
+		proxyStatusText = "Stopped"
+	}
+	proxyInfo := fmt.Sprintf("  Proxy: %s %s", proxyStatusIcon, proxyStatusText)
+	content.WriteString(proxyStyle.Render(proxyInfo))
+	content.WriteString("\n\n")
 
 	// Table
 	content.WriteString(m.table.View())
 	content.WriteString("\n")
 
+	// Message
+	if m.message != "" {
+		content.WriteString(messageStyle.Render("  "+m.message))
+		content.WriteString("\n")
+	}
+
 	// Footer/Help
-	content.WriteString(helpStyle.Render("[R] Run  [B] Change Binding  [P] Providers  [?] Help  [Q] Quit"))
+	helpText := "[R] Run  [X] Toggle Proxy  [S] Check Proxy  [P] Providers  [?] Help  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
 }
