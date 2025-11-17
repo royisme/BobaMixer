@@ -9,7 +9,6 @@
 
 [**📚 Documentation**](https://royisme.github.io/BobaMixer/) | [**🚀 Quick Start**](#quick-start) | [**中文文档**](README.zh.md)
 
-**Architecture baseline:** [spec/boba-control-plane.md](spec/boba-control-plane.md) — This is the canonical spec for the control plane and `boba run` behavior.
 
 ---
 
