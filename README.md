@@ -307,49 +307,62 @@ brew tap royisme/tap
 brew install bobamixer
 ```
 
-### Initialize Configuration | 初始化配置
+### First Time Setup - Interactive Onboarding 🎯
+
+BobaMixer 会自动引导你完成所有配置，**无需手动编辑任何配置文件**：
+
+No YAML editing required! | 无需编辑 YAML 文件！
 
 ```bash
-# Initialize config files | 初始化配置文件
-$ boba init
+# 1. 启动 BobaMixer（首次运行会自动进入向导）
+$ boba
 
-✅ BobaMixer initialized successfully
+# Onboarding 向导会自动：
+# ✓ 检测本地 CLI 工具 (claude/codex/gemini)
+# ✓ 让你选择 Provider
+# ✓ 引导输入 API Key（安全输入，自动保存）
+# ✓ 创建所有配置文件
+# ✓ 验证配置
 
-Configuration directory: ~/.boba
-
-Created files:
-  - providers.yaml  (AI service providers)
-  - tools.yaml      (Local CLI tools)
-  - bindings.yaml   (Tool ↔ Provider bindings)
-  - secrets.yaml    (API keys)
-  - settings.yaml   (UI preferences)
-
-Next steps:
-  1. Add your API keys to environment variables or secrets.yaml
-  2. Run 'boba tools' to see detected CLI tools
-  3. Run 'boba providers' to see available providers
-  4. Run 'boba bind <tool> <provider>' to create bindings
-  5. Run 'boba doctor' to verify your setup
+# 2. 完成后即可使用
+$ boba run claude --version
 ```
 
-### Configure API Keys | 配置API密钥
+### Alternative: CLI Setup (for power users)
+
+如果你更喜欢命令行：
 
 ```bash
-# Method 1: Environment variables (Recommended)
+# 1. 初始化配置目录
+$ boba init
+
+# 2. 配置 API Key（安全输入，无需编辑 YAML）
+$ boba secrets set claude-anthropic-official
+Enter API key: ********
+✓ API key saved to ~/.boba/secrets.yaml (permissions: 0600)
+
+# 3. 绑定工具到 Provider
+$ boba bind claude claude-anthropic-official
+
+# 4. 验证配置
+$ boba doctor
+
+# 5. 运行
+$ boba run claude --version
+```
+
+### Environment Variables (optional)
+
+你也可以使用环境变量（适合 CI/CD 或临时使用）：
+
+```bash
+# BobaMixer 会优先使用环境变量
 export ANTHROPIC_API_KEY="sk-ant-..."
 export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="..."
 
-# Method 2: secrets.yaml
-$ boba edit secrets
-```
-
-```yaml
-# ~/.boba/secrets.yaml
-secrets:
-  anthropic-key: "sk-ant-..."
-  openai-key: "sk-..."
-  gemini-key: "..."
+# 然后直接运行
+$ boba run claude --version
 ```
 
 ### Launch TUI Dashboard | 启动TUI Dashboard
