@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/store/config"
@@ -24,10 +25,11 @@ const (
 
 // Handler handles HTTP proxy requests
 type Handler struct {
-	db           *sqlite.DB
-	stats        *Stats
-	pricingTable *pricing.Table
-	mu           sync.RWMutex
+	db            *sqlite.DB
+	stats         *Stats
+	pricingTable  *pricing.Table
+	budgetTracker *budget.Tracker
+	mu            sync.RWMutex
 }
 
 // Stats tracks proxy statistics
@@ -69,10 +71,14 @@ func NewHandler(dbPath string) (*Handler, error) {
 		Models: make(map[string]pricing.ModelPrice),
 	}
 
+	// Initialize budget tracker
+	budgetTracker := budget.NewTracker(db)
+
 	return &Handler{
-		db:           db,
-		stats:        &Stats{},
-		pricingTable: pricingTable,
+		db:            db,
+		stats:         &Stats{},
+		pricingTable:  pricingTable,
+		budgetTracker: budgetTracker,
 	}, nil
 }
 
@@ -178,6 +184,13 @@ func (h *Handler) forwardRequest(w http.ResponseWriter, r *http.Request, targetU
 			h.stats.ErrorCount++
 		}
 	}()
+
+	// Check budget before forwarding request
+	if err := h.checkBudgetBeforeRequest(bodyBytes); err != nil {
+		http.Error(w, fmt.Sprintf("Budget check failed: %s", err.Error()), http.StatusTooManyRequests)
+		logging.Warn("Budget check failed", logging.String("error", err.Error()))
+		return fmt.Errorf("budget check: %w", err)
+	}
 
 	// Build upstream URL
 	upstreamURL := targetURL + targetPath
@@ -432,6 +445,53 @@ func escapeSQLString(s string) string {
 	// Simple escape for single quotes
 	// In production, use parameterized queries
 	return strings.ReplaceAll(s, "'", "''")
+}
+
+// checkBudgetBeforeRequest checks if the request would exceed budget limits
+func (h *Handler) checkBudgetBeforeRequest(reqBody []byte) error {
+	// Parse request to extract model
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		// If we can't parse the request, allow it to proceed
+		// Budget check is best-effort
+		return nil
+	}
+
+	model, ok := req["model"].(string)
+	if !ok || model == "" {
+		// No model specified, allow request
+		return nil
+	}
+
+	// Estimate token usage based on average request
+	// For budget checking, we use conservative estimates:
+	// - Average input: 1000 tokens
+	// - Average output: 500 tokens
+	estimatedInputTokens := 1000
+	estimatedOutputTokens := 500
+
+	// Calculate estimated cost
+	h.mu.RLock()
+	profileCost := config.Cost{Input: 0, Output: 0}
+	inputCost, outputCost := h.pricingTable.CalculateCost(model, profileCost, estimatedInputTokens, estimatedOutputTokens)
+	h.mu.RUnlock()
+
+	estimatedTotalCost := inputCost + outputCost
+
+	// Check budget (global scope for now)
+	// In a real implementation, we might extract project/profile from headers
+	allowed, message, err := h.budgetTracker.CheckBudget("global", "", estimatedTotalCost)
+	if err != nil {
+		// If budget check fails (e.g., no budget configured), allow the request
+		logging.Info("Budget check error (allowing request)", logging.Err(err))
+		return nil
+	}
+
+	if !allowed {
+		return fmt.Errorf("%s", message)
+	}
+
+	return nil
 }
 
 // updateProviderStats updates provider-specific counters
