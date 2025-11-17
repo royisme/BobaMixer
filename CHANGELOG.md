@@ -1,3 +1,8 @@
+# Changelog
+
+## 2.0.0 - 2025-11-17
+- (notes pending)
+
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-17)
 
 
