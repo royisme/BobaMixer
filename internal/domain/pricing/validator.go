@@ -14,12 +14,16 @@ type ValidationWarning struct {
 	RefURL   string
 }
 
-// PricingValidator validates pricing data against known references
+// PricingValidator validates pricing data against known references.
+//
+//nolint:revive // PricingValidator is the established API name
 type PricingValidator struct {
 	references map[string]PricingReference
 }
 
-// PricingReference contains reference information for a provider
+// PricingReference contains reference information for a provider.
+//
+//nolint:revive // PricingReference is the established API name
 type PricingReference struct {
 	Provider    string
 	URL         string

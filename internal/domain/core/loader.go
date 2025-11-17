@@ -142,6 +142,7 @@ func SaveBindings(home string, config *BindingsConfig) error {
 func LoadSecrets(home string) (*SecretsConfig, error) {
 	path := filepath.Join(home, "secrets.yaml")
 
+	//nolint:gosec // G304: Reading from trusted config directory, path is constructed from user's home
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -263,6 +264,30 @@ func InitDefaultConfigs(home string) error {
 					DefaultModel: "claude-3-5-sonnet-20241022",
 					Enabled:      true,
 				},
+				{
+					ID:          "openai-official",
+					Kind:        ProviderKindOpenAI,
+					DisplayName: "OpenAI (Official)",
+					BaseURL:     "https://api.openai.com/v1",
+					APIKey: APIKeyConfig{
+						Source: APIKeySourceEnv,
+						EnvVar: "OPENAI_API_KEY",
+					},
+					DefaultModel: "gpt-4-turbo-preview",
+					Enabled:      true,
+				},
+				{
+					ID:          "gemini-official",
+					Kind:        ProviderKindGemini,
+					DisplayName: "Google Gemini (Official)",
+					BaseURL:     "https://generativelanguage.googleapis.com/v1",
+					APIKey: APIKeyConfig{
+						Source: APIKeySourceEnv,
+						EnvVar: "GEMINI_API_KEY",
+					},
+					DefaultModel: "gemini-1.5-pro",
+					Enabled:      true,
+				},
 			},
 		}
 		if err := SaveProviders(home, defaultProviders); err != nil {
@@ -284,6 +309,24 @@ func InitDefaultConfigs(home string) error {
 					ConfigType:  ConfigTypeClaudeSettingsJSON,
 					ConfigPath:  "~/.claude/settings.json",
 					Description: "Claude Code CLI for AI-assisted coding",
+				},
+				{
+					ID:          "codex",
+					Name:        "OpenAI Codex CLI",
+					Exec:        "codex",
+					Kind:        ToolKindCodex,
+					ConfigType:  ConfigTypeCodexConfigTOML,
+					ConfigPath:  "~/.codex/config.toml",
+					Description: "OpenAI Codex CLI for AI-powered development",
+				},
+				{
+					ID:          "gemini",
+					Name:        "Google Gemini CLI",
+					Exec:        "gemini",
+					Kind:        ToolKindGemini,
+					ConfigType:  ConfigTypeGeminiSettingsJSON,
+					ConfigPath:  "~/.gemini/settings.json",
+					Description: "Google Gemini CLI for multimodal AI assistance",
 				},
 			},
 		}

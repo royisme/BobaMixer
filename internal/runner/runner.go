@@ -2,6 +2,7 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -71,8 +72,9 @@ type BaseRunner struct{}
 
 // Exec implements the default execution logic
 func (b *BaseRunner) Exec(ctx *RunContext) error {
-	//nolint:gosec // Executing configured CLI tools is the intended behavior
-	cmd := exec.Command(ctx.Tool.Exec, ctx.Args...)
+	execCtx := context.Background()
+	// #nosec G204 -- ctx.Tool.Exec is from trusted tool configuration, not user input
+	cmd := exec.CommandContext(execCtx, ctx.Tool.Exec, ctx.Args...)
 
 	// Merge environment variables
 	cmd.Env = os.Environ()

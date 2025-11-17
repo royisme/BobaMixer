@@ -21,6 +21,8 @@ type Features struct {
 }
 
 // RoutingDecision represents a routing decision (TDD-spec aligned).
+//
+//nolint:revive // RoutingDecision is the established API name
 type RoutingDecision struct {
 	Profile  string // Selected profile key
 	Fallback string // Fallback profile if primary unavailable

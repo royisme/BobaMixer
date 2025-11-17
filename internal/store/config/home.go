@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 )
 
+// ResolveHome returns the BobaMixer home directory, checking BOBA_HOME env var first, then defaulting to ~/.boba.
 func ResolveHome() (string, error) {
 	if custom := os.Getenv("BOBA_HOME"); custom != "" {
 		return custom, nil

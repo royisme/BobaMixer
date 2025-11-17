@@ -13,11 +13,12 @@ import (
 // Status represents the status of a suggestion
 type Status string
 
+// Possible statuses for stored suggestions
 const (
-	StatusNew     Status = "new"
-	StatusApplied Status = "applied"
-	StatusIgnored Status = "ignored"
-	StatusSnoozed Status = "snoozed"
+	StatusNew     Status = "new"     // New suggestion not yet acted upon
+	StatusApplied Status = "applied" // Suggestion has been applied
+	StatusIgnored Status = "ignored" // Suggestion has been dismissed
+	StatusSnoozed Status = "snoozed" // Suggestion temporarily hidden
 )
 
 // StoredSuggestion represents a suggestion stored in the database

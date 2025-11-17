@@ -63,6 +63,7 @@ func (a *Adapter) Execute(ctx context.Context, req adapters.Request) (adapters.R
 	}, nil
 }
 
+// Name returns the name of this MCP adapter.
 func (a *Adapter) Name() string {
 	return "mcp"
 }

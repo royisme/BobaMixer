@@ -18,6 +18,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/adapters"
 	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/domain/hooks"
 	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/domain/stats"
@@ -51,6 +52,8 @@ const (
 
 var supportedShells = []string{shellBash, shellZsh, shellFish}
 
+// Run executes the BobaMixer CLI with the given arguments and routes to appropriate subcommands.
+//
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
 	home, err := config.ResolveHome()
@@ -106,6 +109,8 @@ func Run(args []string) error {
 		return runBind(home, args[1:])
 	case "run":
 		return runRun(home, args[1:])
+	case "proxy":
+		return runProxy(home, args[1:])
 
 	// Legacy Profile Commands
 	case "ls":
@@ -150,11 +155,13 @@ func printUsage() {
 	fmt.Println("  boba                                          Launch TUI dashboard")
 	fmt.Println("  boba --help                                   Show this help")
 	fmt.Println()
-	fmt.Println("Control Plane (Phase 1):")
+	fmt.Println("Control Plane (Phase 1 & 2):")
 	fmt.Println("  boba providers                                List AI providers")
 	fmt.Println("  boba tools                                    List CLI tools")
 	fmt.Println("  boba bind <tool> <provider> [--proxy=on|off]  Bind tool to provider")
 	fmt.Println("  boba run <tool> [args...]                     Run CLI tool with injected config")
+	fmt.Println("  boba proxy serve                              Start local proxy server")
+	fmt.Println("  boba proxy status                             Check proxy server status")
 	fmt.Println("  boba doctor                                   Run diagnostics")
 	fmt.Println()
 	fmt.Println("Profile Management (Legacy):")
@@ -772,6 +779,14 @@ func runInit(home string, args []string) error {
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
+
+	// Initialize default control plane configs
+	logging.Info("Initializing BobaMixer configuration", logging.String("home", home))
+	if err := core.InitDefaultConfigs(home); err != nil {
+		return fmt.Errorf("failed to initialize configs: %w", err)
+	}
+
+	// Initialize settings
 	if err := settings.InitHome(home); err != nil {
 		return err
 	}
@@ -798,7 +813,26 @@ func runInit(home string, args []string) error {
 	if err := settings.Save(ctx, home, current); err != nil {
 		return err
 	}
-	fmt.Println("Settings initialized in", filepath.Join(home, "settings.yaml"))
+
+	fmt.Println("✅ BobaMixer initialized successfully")
+	fmt.Println()
+	fmt.Println("Configuration directory:", home)
+	fmt.Println()
+	fmt.Println("Created files:")
+	fmt.Println("  - providers.yaml  (AI service providers)")
+	fmt.Println("  - tools.yaml      (Local CLI tools)")
+	fmt.Println("  - bindings.yaml   (Tool ↔ Provider bindings)")
+	fmt.Println("  - secrets.yaml    (API keys)")
+	fmt.Println("  - settings.yaml   (UI preferences)")
+	fmt.Println()
+	fmt.Println("Next steps:")
+	fmt.Println("  1. Add your API keys to environment variables or secrets.yaml")
+	fmt.Println("  2. Run 'boba tools' to see detected CLI tools")
+	fmt.Println("  3. Run 'boba providers' to see available providers")
+	fmt.Println("  4. Run 'boba bind <tool> <provider>' to create bindings")
+	fmt.Println("  5. Run 'boba doctor' to verify your setup")
+	fmt.Println()
+
 	return nil
 }
 

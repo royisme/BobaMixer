@@ -21,9 +21,14 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	keyCtrlC = "ctrl+c"
+)
+
 // ViewMode represents different views in the TUI
 type ViewMode int
 
+// View modes for the TUI dashboard
 const (
 	ViewDashboard ViewMode = iota
 	ViewProfiles
@@ -104,20 +109,21 @@ func (m Model) colorize(color lipgloss.AdaptiveColor, text string) string {
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-        cmds := []tea.Cmd{m.loadData, tea.EnterAltScreen}
-        if m.notifier != nil {
-                cmds = append(cmds, m.watchNotifications())
-        }
-        return tea.Batch(cmds...)
+	cmds := []tea.Cmd{m.loadData, tea.EnterAltScreen}
+	if m.notifier != nil {
+		cmds = append(cmds, m.watchNotifications())
+	}
+	return tea.Batch(cmds...)
 }
 
 // Update handles messages
+//
 //nolint:gocyclo // Complex TUI event handling with multiple message types and view modes
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-        switch msg := msg.(type) {
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case keyCtrlC, "q":
 			return m, tea.Quit
 
 		case "tab":
@@ -585,6 +591,7 @@ func (m Model) saveActiveProfile() tea.Msg {
 }
 
 // Run starts the TUI
+//
 //nolint:gocyclo // Entry point handles multiple modes and fallback logic
 func Run(home string) error {
 	// Check if we should use new control plane or legacy profile system

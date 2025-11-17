@@ -9,11 +9,12 @@ import (
 // AlertLevel represents the severity of a budget alert
 type AlertLevel int
 
+// Budget alert severity levels
 const (
-	AlertLevelNone AlertLevel = iota
-	AlertLevelInfo
-	AlertLevelWarning
-	AlertLevelCritical
+	AlertLevelNone     AlertLevel = iota // No alert
+	AlertLevelInfo                       // Informational alert
+	AlertLevelWarning                    // Warning alert
+	AlertLevelCritical                   // Critical alert
 )
 
 const (

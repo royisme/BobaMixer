@@ -16,6 +16,7 @@ import (
 // OnboardingStage represents the current stage in the setup wizard
 type OnboardingStage int
 
+// Onboarding wizard stages
 const (
 	StageWelcome OnboardingStage = iota
 	StageScanning
@@ -95,7 +96,13 @@ func NewOnboarding(home string) (*OnboardingModel, error) {
 	theme := loadTheme(home)
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
-		localizer, _ = NewLocalizer("en")
+		// Fallback to English - this should always succeed
+		var fallbackErr error
+		localizer, fallbackErr = NewLocalizer("en")
+		if fallbackErr != nil {
+			// If even English fails, something is seriously wrong
+			panic(fmt.Sprintf("failed to initialize localizer: %v (fallback to English also failed: %v)", err, fallbackErr))
+		}
 	}
 
 	// Create spinner for scanning
@@ -118,6 +125,7 @@ func (m OnboardingModel) Init() tea.Cmd {
 }
 
 // Update handles messages and updates the wizard state
+//
 //nolint:gocyclo // Bubble Tea Update function handles multiple stages and message types
 func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -146,11 +154,10 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Use env key
 					m.stage = StageComplete
 					return m.saveConfiguration()
-				} else {
-					// Enter different key
-					m.apiKeyFromEnv = false
-					m.initializeAPIKeyInput()
 				}
+				// Enter different key
+				m.apiKeyFromEnv = false
+				m.initializeAPIKeyInput()
 				return m, nil
 			}
 		}
@@ -257,7 +264,7 @@ func (m OnboardingModel) handleEnter() (tea.Model, tea.Cmd) {
 
 // scanTools scans the system for CLI tools
 func (m OnboardingModel) scanTools() tea.Msg {
-	// Define tools to scan for (Phase 1: only Claude)
+	// Define tools to scan for (Phase 1.5: Claude, Codex, Gemini)
 	toolsToScan := []core.Tool{
 		{
 			ID:          "claude",
@@ -267,6 +274,24 @@ func (m OnboardingModel) scanTools() tea.Msg {
 			ConfigType:  core.ConfigTypeClaudeSettingsJSON,
 			ConfigPath:  "~/.claude/settings.json",
 			Description: "Claude Code CLI for AI-assisted coding",
+		},
+		{
+			ID:          "codex",
+			Name:        "OpenAI Codex CLI",
+			Exec:        "codex",
+			Kind:        core.ToolKindCodex,
+			ConfigType:  core.ConfigTypeCodexConfigTOML,
+			ConfigPath:  "~/.codex/config.toml",
+			Description: "OpenAI Codex CLI for AI-powered development",
+		},
+		{
+			ID:          "gemini",
+			Name:        "Google Gemini CLI",
+			Exec:        "gemini",
+			Kind:        core.ToolKindGemini,
+			ConfigType:  core.ConfigTypeGeminiSettingsJSON,
+			ConfigPath:  "~/.gemini/settings.json",
+			Description: "Google Gemini CLI for multimodal AI assistance",
 		},
 	}
 
@@ -291,7 +316,7 @@ func (m *OnboardingModel) initializeProviderList() {
 	// Load providers from config or use defaults
 	providersConfig, err := core.LoadProviders(m.home)
 	if err != nil || len(providersConfig.Providers) == 0 {
-		// Use default Anthropic provider
+		// Use default providers for all detected tools
 		m.providers = []core.Provider{
 			{
 				ID:          "claude-anthropic-official",
@@ -317,11 +342,35 @@ func (m *OnboardingModel) initializeProviderList() {
 				DefaultModel: "glm-4.6",
 				Enabled:      true,
 			},
+			{
+				ID:          "openai-official",
+				Kind:        core.ProviderKindOpenAI,
+				DisplayName: "OpenAI (Official)",
+				BaseURL:     "https://api.openai.com/v1",
+				APIKey: core.APIKeyConfig{
+					Source: core.APIKeySourceEnv,
+					EnvVar: "OPENAI_API_KEY",
+				},
+				DefaultModel: "gpt-4-turbo-preview",
+				Enabled:      true,
+			},
+			{
+				ID:          "gemini-official",
+				Kind:        core.ProviderKindGemini,
+				DisplayName: "Google Gemini (Official)",
+				BaseURL:     "https://generativelanguage.googleapis.com/v1",
+				APIKey: core.APIKeyConfig{
+					Source: core.APIKeySourceEnv,
+					EnvVar: "GEMINI_API_KEY",
+				},
+				DefaultModel: "gemini-1.5-pro",
+				Enabled:      true,
+			},
 		}
 	} else {
-		// Use loaded providers, filter for Anthropic-compatible only
+		// Use loaded providers, include all supported provider kinds
 		for _, p := range providersConfig.Providers {
-			if p.Kind == core.ProviderKindAnthropic || p.Kind == core.ProviderKindAnthropicCompatible {
+			if p.Enabled {
 				m.providers = append(m.providers, p)
 			}
 		}
@@ -392,6 +441,7 @@ func (m *OnboardingModel) initializeAPIKeyInput() {
 }
 
 // saveConfiguration saves the configuration and creates bindings
+//
 //nolint:gocyclo // Configuration saving involves multiple files and validation steps
 func (m *OnboardingModel) saveConfiguration() (tea.Model, tea.Cmd) {
 	// Initialize default configs if they don't exist

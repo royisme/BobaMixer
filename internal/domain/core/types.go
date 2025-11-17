@@ -10,6 +10,7 @@ import (
 // ProviderKind represents the type of AI provider
 type ProviderKind string
 
+// AI provider kinds
 const (
 	ProviderKindOpenAI              ProviderKind = "openai"
 	ProviderKindAnthropic           ProviderKind = "anthropic"
@@ -21,6 +22,7 @@ const (
 // APIKeySource indicates where the API key should be retrieved from
 type APIKeySource string
 
+// API key source types
 const (
 	APIKeySourceEnv     APIKeySource = "env"     // From environment variable
 	APIKeySourceSecrets APIKeySource = "secrets" // From secrets.yaml
@@ -34,19 +36,20 @@ type APIKeyConfig struct {
 
 // Provider represents an AI service provider (e.g., OpenAI, Anthropic, Z.AI)
 type Provider struct {
-	ID           string         `yaml:"id"`            // Unique identifier (e.g., "claude-anthropic-official")
-	Kind         ProviderKind   `yaml:"kind"`          // Provider type
-	DisplayName  string         `yaml:"display_name"`  // Human-readable name
-	BaseURL      string         `yaml:"base_url"`      // API endpoint
-	APIKey       APIKeyConfig   `yaml:"api_key"`       // How to get the API key
-	DefaultModel string         `yaml:"default_model"` // Default model to use
-	Enabled      bool           `yaml:"enabled"`       // Whether this provider is active
+	ID           string         `yaml:"id"`                 // Unique identifier (e.g., "claude-anthropic-official")
+	Kind         ProviderKind   `yaml:"kind"`               // Provider type
+	DisplayName  string         `yaml:"display_name"`       // Human-readable name
+	BaseURL      string         `yaml:"base_url"`           // API endpoint
+	APIKey       APIKeyConfig   `yaml:"api_key"`            // How to get the API key
+	DefaultModel string         `yaml:"default_model"`      // Default model to use
+	Enabled      bool           `yaml:"enabled"`            // Whether this provider is active
 	Metadata     map[string]any `yaml:"metadata,omitempty"` // Additional provider-specific metadata
 }
 
 // ToolKind represents the type of CLI tool
 type ToolKind string
 
+// CLI tool kinds
 const (
 	ToolKindClaude ToolKind = "claude"
 	ToolKindCodex  ToolKind = "codex"
@@ -56,6 +59,7 @@ const (
 // ConfigType indicates how the tool's configuration should be managed
 type ConfigType string
 
+// Tool configuration types
 const (
 	ConfigTypeClaudeSettingsJSON ConfigType = "claude-settings-json" // ~/.claude/settings.json
 	ConfigTypeCodexConfigTOML    ConfigType = "codex-config-toml"    // ~/.codex/config.toml
@@ -64,12 +68,12 @@ const (
 
 // Tool represents a local CLI tool (e.g., claude, codex, gemini)
 type Tool struct {
-	ID          string     `yaml:"id"`          // Unique identifier (e.g., "claude")
-	Name        string     `yaml:"name"`        // Human-readable name
-	Exec        string     `yaml:"exec"`        // Command to execute (e.g., "claude")
-	Kind        ToolKind   `yaml:"kind"`        // Tool type
-	ConfigType  ConfigType `yaml:"config_type"` // How to manage config
-	ConfigPath  string     `yaml:"config_path"` // Path to config file
+	ID          string     `yaml:"id"`                    // Unique identifier (e.g., "claude")
+	Name        string     `yaml:"name"`                  // Human-readable name
+	Exec        string     `yaml:"exec"`                  // Command to execute (e.g., "claude")
+	Kind        ToolKind   `yaml:"kind"`                  // Tool type
+	ConfigType  ConfigType `yaml:"config_type"`           // How to manage config
+	ConfigPath  string     `yaml:"config_path"`           // Path to config file
 	Description string     `yaml:"description,omitempty"` // Optional description
 }
 
@@ -87,16 +91,16 @@ type BindingOptions struct {
 
 // Binding represents the connection between a Tool and a Provider
 type Binding struct {
-	ToolID     string         `yaml:"tool_id"`     // Tool this binding applies to
-	ProviderID string         `yaml:"provider_id"` // Provider to use for this tool
-	UseProxy   bool           `yaml:"use_proxy"`   // Whether to route through local proxy
+	ToolID     string         `yaml:"tool_id"`           // Tool this binding applies to
+	ProviderID string         `yaml:"provider_id"`       // Provider to use for this tool
+	UseProxy   bool           `yaml:"use_proxy"`         // Whether to route through local proxy
 	Options    BindingOptions `yaml:"options,omitempty"` // Tool-specific options
 }
 
 // Secret represents an API key or other sensitive credential
 type Secret struct {
-	ProviderID string `yaml:"-"`          // Provider this secret belongs to (not in YAML)
-	APIKey     string `yaml:"api_key"`    // The actual API key
+	ProviderID string            `yaml:"-"`                  // Provider this secret belongs to (not in YAML)
+	APIKey     string            `yaml:"api_key"`            // The actual API key
 	Metadata   map[string]string `yaml:"metadata,omitempty"` // Additional metadata
 }
 
@@ -120,8 +124,8 @@ type BindingsConfig struct {
 
 // SecretsConfig is the root structure for secrets.yaml
 type SecretsConfig struct {
-	Version int                `yaml:"version"`
-	Secrets map[string]Secret  `yaml:"secrets"` // provider_id -> Secret
+	Version int               `yaml:"version"`
+	Secrets map[string]Secret `yaml:"secrets"` // provider_id -> Secret
 }
 
 // Validation errors

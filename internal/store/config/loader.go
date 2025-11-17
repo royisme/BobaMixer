@@ -9,6 +9,7 @@ import (
 	"sort"
 )
 
+// Profile represents a complete AI provider profile configuration.
 type Profile struct {
 	Temperature float64
 	Tags        []string
@@ -24,32 +25,39 @@ type Profile struct {
 	MaxTokens   int
 }
 
+// Cost represents input and output pricing per 1K tokens.
 type Cost struct {
 	Input  float64
 	Output float64
 }
 
+// Profiles is a map of profile names to Profile configurations.
 type Profiles map[string]Profile
 
+// Secrets is a map of secret names to their values.
 type Secrets map[string]string
 
+// RoutesConfig contains routing rules, sub-agents, and exploration settings.
 type RoutesConfig struct {
 	SubAgents map[string]SubAgent
 	Rules     []RouteRule
 	Explore   ExploreConfig
 }
 
+// ExploreConfig controls exploration mode for routing behavior.
 type ExploreConfig struct {
 	Enabled bool
 	Rate    float64
 }
 
+// SubAgent defines a specialized agent with triggers and routing conditions.
 type SubAgent struct {
 	Triggers   []string
 	Conditions map[string]interface{}
 	Profile    string
 }
 
+// RouteRule defines a conditional routing rule with fallback behavior.
 type RouteRule struct {
 	ID       string
 	If       string
@@ -58,17 +66,20 @@ type RouteRule struct {
 	Explain  string
 }
 
+// PricingTable contains model pricing data, sources, and refresh settings.
 type PricingTable struct {
 	Models  map[string]ModelPrice
 	Sources []PricingSource
 	Refresh PricingRefresh
 }
 
+// ModelPrice represents the pricing for a specific model's input and output.
 type ModelPrice struct {
 	InputPer1K  float64
 	OutputPer1K float64
 }
 
+// PricingSource defines an external source for pricing data.
 type PricingSource struct {
 	Type     string
 	URL      string
@@ -76,11 +87,13 @@ type PricingSource struct {
 	Priority int
 }
 
+// PricingRefresh configures how often pricing data is refreshed.
 type PricingRefresh struct {
 	IntervalHours int
 	OnStartup     bool
 }
 
+// LoadProfiles reads and parses the profiles.yaml configuration file.
 func LoadProfiles(home string) (Profiles, error) {
 	data, err := readFileIfExists(filepath.Join(home, "profiles.yaml"))
 	if err != nil {
@@ -135,6 +148,7 @@ func LoadProfiles(home string) (Profiles, error) {
 	return result, nil
 }
 
+// LoadSecrets reads and parses the secrets.yaml configuration file.
 func LoadSecrets(home string) (Secrets, error) {
 	data, err := readFileIfExists(filepath.Join(home, "secrets.yaml"))
 	if err != nil {
@@ -158,6 +172,7 @@ func LoadSecrets(home string) (Secrets, error) {
 	return out, nil
 }
 
+// LoadRoutes reads and parses the routes.yaml configuration file.
 func LoadRoutes(home string) (*RoutesConfig, error) {
 	data, err := readFileIfExists(filepath.Join(home, "routes.yaml"))
 	if err != nil {
@@ -214,6 +229,7 @@ func LoadRoutes(home string) (*RoutesConfig, error) {
 	return cfg, nil
 }
 
+// LoadPricing reads and parses the pricing.yaml configuration file.
 func LoadPricing(home string) (*PricingTable, error) {
 	data, err := readFileIfExists(filepath.Join(home, "pricing.yaml"))
 	if err != nil {

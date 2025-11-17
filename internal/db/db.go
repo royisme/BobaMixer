@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	_ "github.com/royisme/bobamixer/internal/db/sqlitecli"
+	_ "github.com/royisme/bobamixer/internal/db/sqlitecli" // Register SQLite CLI driver
 
 	"github.com/royisme/bobamixer/internal/bobaerrors"
 )

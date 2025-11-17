@@ -11,12 +11,13 @@ import (
 // SuggestionType represents the type of suggestion
 type SuggestionType int
 
+// Types of suggestions for usage optimization
 const (
-	SuggestionCostOptimization SuggestionType = iota
-	SuggestionProfileSwitch
-	SuggestionBudgetAdjust
-	SuggestionUsagePattern
-	SuggestionAnomaly
+	SuggestionCostOptimization SuggestionType = iota // Cost reduction suggestions
+	SuggestionProfileSwitch                          // Profile switching recommendations
+	SuggestionBudgetAdjust                           // Budget adjustment suggestions
+	SuggestionUsagePattern                           // Usage pattern insights
+	SuggestionAnomaly                                // Anomaly detection alerts
 )
 
 // Suggestion represents a usage optimization suggestion

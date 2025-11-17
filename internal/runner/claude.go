@@ -66,8 +66,13 @@ func (c *ClaudeRunner) Prepare(ctx *RunContext) error {
 		ctx.Env["ANTHROPIC_MODEL"] = ctx.Binding.Options.Model
 	}
 
-	// TODO: If use_proxy is true, modify base URL to point to local proxy
-	// For Phase 1, we're not implementing proxy yet
+	// Handle proxy mode
+	if ctx.Binding.UseProxy {
+		// Route requests through local proxy
+		ctx.Env["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:7777/anthropic/v1"
+		// Preserve the API key for proxy authentication
+		// The proxy will forward it to the actual provider
+	}
 
 	return nil
 }

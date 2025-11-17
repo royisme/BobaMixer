@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,11 @@ import (
 	"strings"
 
 	version "github.com/royisme/bobamixer/internal/domain/version"
+)
+
+const (
+	bumpTypeAuto  = "auto"
+	bumpTypePatch = "patch"
 )
 
 func main() {
@@ -61,7 +67,7 @@ func runBump(args []string) error {
 		return err
 	}
 
-	partArg := "auto"
+	partArg := bumpTypeAuto
 	if fs.NArg() > 0 {
 		partArg = fs.Arg(0)
 	}
@@ -126,7 +132,7 @@ func runRelease(args []string) error {
 	partArg := strings.TrimSpace(*partFlag)
 	if partArg == "" {
 		if *auto || fs.NArg() == 0 {
-			partArg = "auto"
+			partArg = bumpTypeAuto
 		} else if fs.NArg() > 0 {
 			partArg = fs.Arg(0)
 		}
@@ -212,7 +218,8 @@ func runRelease(args []string) error {
 }
 
 func repoRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err == nil {
 		root := strings.TrimSpace(string(out))
@@ -237,9 +244,9 @@ func ensureClean(repo string) error {
 func resolvePart(partArg, repo string) (string, string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(partArg))
 	switch normalized {
-	case "major", "minor", "patch":
+	case "major", "minor", bumpTypePatch:
 		return normalized, "specified", nil
-	case "", "auto":
+	case "", bumpTypeAuto:
 		return detectAutoPart(repo)
 	default:
 		return "", "", fmt.Errorf("invalid bump type %q (use patch, minor, major, or auto)", partArg)
@@ -281,7 +288,7 @@ func detectAutoPart(repo string) (string, string, error) {
 		}
 		if strings.HasPrefix(strings.ToLower(subject), "fix") || strings.HasPrefix(strings.ToLower(subject), "perf") {
 			if level == "" {
-				level = "patch"
+				level = bumpTypePatch
 				reason = fmt.Sprintf("patch commit '%s'", subject)
 			}
 		}
@@ -290,7 +297,7 @@ func detectAutoPart(repo string) (string, string, error) {
 		return "", "", errors.New("no commits found to analyze for auto bump")
 	}
 	if level == "" {
-		level = "patch"
+		level = bumpTypePatch
 		reason = "defaulting to patch (no feat/fix commits detected)"
 	}
 	return level, reason, nil
@@ -341,7 +348,7 @@ func gitTag(repo, version string) error {
 	if strings.TrimSpace(existing) == tag {
 		return fmt.Errorf("tag %s already exists", tag)
 	}
-	_, err := gitOutput(repo, "tag", "-a", tag, "-m", fmt.Sprintf("Release %s", tag))
+	_, err = gitOutput(repo, "tag", "-a", tag, "-m", fmt.Sprintf("Release %s", tag))
 	return err
 }
 
@@ -369,7 +376,8 @@ func gitOutput(repo string, args ...string) (string, error) {
 }
 
 func gitRaw(repo string, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", args...)
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = repo
 	out, err := cmd.CombinedOutput()
 	if err != nil {

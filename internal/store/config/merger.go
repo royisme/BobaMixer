@@ -21,7 +21,9 @@ type BudgetConfig struct {
 	Source     string // "global", "project", "branch", or "session"
 }
 
-// ConfigMerger handles configuration merging from multiple sources
+// ConfigMerger handles configuration merging from multiple sources.
+//
+//nolint:revive // ConfigMerger is the established API name
 type ConfigMerger struct {
 	home string
 }
