@@ -25,7 +25,9 @@ func TestRunDoctorPricingFetchesOpenRouterData(t *testing.T) {
 	// Mock OpenRouter endpoint
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"data":[{"id":"mock/provider-model","name":"Mock Model","context_length":4096,"pricing":{"prompt":"0.00001","completion":"0.00002"}}]}`)
+		if _, err := fmt.Fprint(w, `{"data":[{"id":"mock/provider-model","name":"Mock Model","context_length":4096,"pricing":{"prompt":"0.00001","completion":"0.00002"}}]}`); err != nil {
+			t.Fatalf("failed to write mock response: %v", err)
+		}
 	}))
 	t.Cleanup(server.Close)
 
