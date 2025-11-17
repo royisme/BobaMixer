@@ -134,9 +134,13 @@ func runSecretsSet(home string, args []string) error {
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 		for _, p := range providers.Providers {
-			fmt.Fprintf(w, "  %s\t%s\n", p.ID, p.DisplayName)
+			if _, err := fmt.Fprintf(w, "  %s\t%s\n", p.ID, p.DisplayName); err != nil {
+				return fmt.Errorf("failed to write provider: %w", err)
+			}
 		}
-		w.Flush()
+		if err := w.Flush(); err != nil {
+			return fmt.Errorf("failed to flush output: %w", err)
+		}
 
 		fmt.Println("\nRun 'boba providers' to see more details")
 		return fmt.Errorf("provider not found: %s", providerID)

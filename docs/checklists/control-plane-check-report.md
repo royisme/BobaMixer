@@ -277,7 +277,7 @@ BobaMixer 项目的 Control Plane + boba run 主线已经**完整实现**，所�
 
 ### 2B. Binding 管理命令
 
-#### 2.3 boba bind <tool> <provider> [--proxy=on|off]
+#### 2.3 boba bind \<tool\> \<provider\> [--proxy=on|off]
 
 **状态**: ✅ **完成**
 
@@ -365,7 +365,7 @@ BobaMixer 项目的 Control Plane + boba run 主线已经**完整实现**，所�
 
 ---
 
-#### 2.7 实现 boba run <tool> [args...]
+#### 2.7 实现 boba run \<tool\> [args...]
 
 **状态**: ✅ **完成**
 
@@ -662,7 +662,7 @@ $ boba stats --today
 3. **动态路由引擎**
    - `evaluateRouting()` - 基于内容路由
    - routes.yaml 配置文件支持
-   - `boba route test <text>` 命令
+   - `boba route test \<text\>` 命令
    - Epsilon-Greedy 探索模式
 
 4. **Pricing 自动获取**
