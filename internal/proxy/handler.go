@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	providerOpenAI    = "openai"
 	providerAnthropic = "anthropic"
 )
 
@@ -105,7 +106,7 @@ func (h *Handler) parseRoute(path string) (providerType, targetPath string) {
 	targetPath = "/" + parts[1]
 
 	// Validate provider type
-	if providerType != "openai" && providerType != providerAnthropic {
+	if providerType != providerOpenAI && providerType != providerAnthropic {
 		return "", ""
 	}
 
@@ -121,7 +122,7 @@ func (h *Handler) getTargetURL(r *http.Request, providerType string) string {
 
 	// Default upstream URLs
 	switch providerType {
-	case "openai":
+	case providerOpenAI:
 		return "https://api.openai.com"
 	case providerAnthropic:
 		return "https://api.anthropic.com"
@@ -262,7 +263,7 @@ func (h *Handler) updateProviderStats(providerType string) {
 	defer h.stats.mu.Unlock()
 
 	switch providerType {
-	case "openai":
+	case providerOpenAI:
 		h.stats.OpenAIRequests++
 	case providerAnthropic:
 		h.stats.AnthropicRequests++
@@ -333,7 +334,7 @@ func ParseProxyURL(rawURL string) (baseURL string, err error) {
 
 		providerType := parts[0]
 		switch providerType {
-		case "openai":
+		case providerOpenAI:
 			return "http://127.0.0.1:7777/openai", nil
 		case providerAnthropic:
 			return "http://127.0.0.1:7777/anthropic", nil

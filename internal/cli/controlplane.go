@@ -43,8 +43,12 @@ func runProviders(home string, _ []string) error {
 
 	// Print providers in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED")
-	fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────")
+	if _, err := fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────"); err != nil {
+		return fmt.Errorf("failed to write separator: %w", err)
+	}
 
 	for _, provider := range providers.Providers {
 		// Determine key status
@@ -69,14 +73,16 @@ func runProviders(home string, _ []string) error {
 			baseURL = baseURL[:32] + "..."
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			provider.ID,
 			provider.Kind,
 			provider.DisplayName,
 			baseURL,
 			keyStatus,
 			enabledStatus,
-		)
+		); err != nil {
+			return fmt.Errorf("failed to write provider row: %w", err)
+		}
 	}
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("failed to flush output: %w", err)
@@ -110,8 +116,12 @@ func runTools(home string, _ []string) error {
 
 	// Print tools in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO")
-	fmt.Fprintln(w, "────────────────────────────────────────────────────────────────")
+	if _, err := fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO"); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+	if _, err := fmt.Fprintln(w, "────────────────────────────────────────────────────────────────"); err != nil {
+		return fmt.Errorf("failed to write separator: %w", err)
+	}
 
 	for _, tool := range tools.Tools {
 		// Check if tool executable exists in PATH
@@ -126,13 +136,15 @@ func runTools(home string, _ []string) error {
 			boundTo = binding.ProviderID
 		}
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			tool.ID,
 			tool.Name,
 			tool.Exec,
 			status,
 			boundTo,
-		)
+		); err != nil {
+			return fmt.Errorf("failed to write tool row: %w", err)
+		}
 	}
 	if err := w.Flush(); err != nil {
 		return fmt.Errorf("failed to flush output: %w", err)
