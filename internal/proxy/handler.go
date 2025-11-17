@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,7 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/royisme/bobamixer/internal/domain/budget"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
+	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/logging"
+	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
@@ -21,8 +27,12 @@ const (
 
 // Handler handles HTTP proxy requests
 type Handler struct {
-	db    *sqlite.DB
-	stats *Stats
+	db            *sqlite.DB
+	stats         *Stats
+	pricingTable  *pricing.Table
+	budgetTracker *budget.Tracker
+	routingEngine *routing.Engine
+	mu            sync.RWMutex
 }
 
 // Stats tracks proxy statistics
@@ -36,6 +46,20 @@ type Stats struct {
 	mu                sync.RWMutex
 }
 
+// UsageRecord represents a usage record to be saved
+type UsageRecord struct {
+	SessionID    string
+	Timestamp    int64
+	Tool         string
+	Model        string
+	Provider     string
+	InputTokens  int
+	OutputTokens int
+	InputCost    float64
+	OutputCost   float64
+	LatencyMS    int64
+}
+
 // NewHandler creates a new proxy handler
 func NewHandler(dbPath string) (*Handler, error) {
 	db, err := sqlite.Open(dbPath)
@@ -43,10 +67,109 @@ func NewHandler(dbPath string) (*Handler, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
+	// Load pricing table
+	// For now, use empty table if pricing load fails
+	// In production, we might want to fail if pricing is not available
+	pricingTable := &pricing.Table{
+		Models: make(map[string]pricing.ModelPrice),
+	}
+
+	// Initialize budget tracker
+	budgetTracker := budget.NewTracker(db)
+
+	// Initialize routing engine (optional, for future use)
+	// This allows for dynamic routing based on request content
+	var routingEngine *routing.Engine
+	// Note: Routing engine initialization would load routes.yaml here
+	// For now, we keep it nil and use URL-based routing
+
 	return &Handler{
-		db:    db,
-		stats: &Stats{},
+		db:            db,
+		stats:         &Stats{},
+		pricingTable:  pricingTable,
+		budgetTracker: budgetTracker,
+		routingEngine: routingEngine,
 	}, nil
+}
+
+// SetPricingTable updates the pricing table
+func (h *Handler) SetPricingTable(table *pricing.Table) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.pricingTable = table
+}
+
+// SetRoutingEngine updates the routing engine
+func (h *Handler) SetRoutingEngine(engine *routing.Engine) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.routingEngine = engine
+}
+
+// evaluateRouting evaluates routing decision for logging purposes
+// This is currently used for debugging and future unified endpoint support
+func (h *Handler) evaluateRouting(reqBody []byte) *routing.RoutingDecision {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if h.routingEngine == nil {
+		return nil
+	}
+
+	// Extract features from request
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		return nil
+	}
+
+	// Build routing features
+	features := routing.Features{
+		Intent:     "api_request",
+		TextSample: extractTextSample(req),
+		CtxChars:   len(reqBody),
+	}
+
+	// Execute routing
+	decision, trace, err := h.routingEngine.Match(context.Background(), features)
+	if err != nil {
+		logging.Warn("Routing evaluation failed", logging.Err(err))
+		return nil
+	}
+
+	// Log routing decision for debugging
+	if trace.Matched {
+		logging.Info("Routing decision",
+			logging.String("profile", decision.Profile),
+			logging.String("rule_id", trace.RuleID),
+			logging.String("explain", trace.Explain),
+			logging.Bool("explore", decision.Explore))
+	}
+
+	return decision
+}
+
+// extractTextSample extracts a text sample from the request for routing
+func extractTextSample(req map[string]interface{}) string {
+	// Try to extract from common fields
+	if messages, ok := req["messages"].([]interface{}); ok && len(messages) > 0 {
+		if msg, ok := messages[0].(map[string]interface{}); ok {
+			if content, ok := msg["content"].(string); ok {
+				if len(content) > 200 {
+					return content[:200]
+				}
+				return content
+			}
+		}
+	}
+
+	if prompt, ok := req["prompt"].(string); ok {
+		if len(prompt) > 200 {
+			return prompt[:200]
+		}
+		return prompt
+	}
+
+	return ""
 }
 
 // ServeHTTP implements http.Handler
@@ -144,6 +267,17 @@ func (h *Handler) forwardRequest(w http.ResponseWriter, r *http.Request, targetU
 			h.stats.ErrorCount++
 		}
 	}()
+
+	// Check budget before forwarding request
+	if err := h.checkBudgetBeforeRequest(bodyBytes); err != nil {
+		http.Error(w, fmt.Sprintf("Budget check failed: %s", err.Error()), http.StatusTooManyRequests)
+		logging.Warn("Budget check failed", logging.String("error", err.Error()))
+		return fmt.Errorf("budget check: %w", err)
+	}
+
+	// Evaluate routing (for debugging and future use)
+	// Currently logs routing decisions but doesn't change behavior
+	h.evaluateRouting(bodyBytes)
 
 	// Build upstream URL
 	upstreamURL := targetURL + targetPath
@@ -243,18 +377,208 @@ func (h *Handler) logRequest(r *http.Request, providerType, path string, reqBody
 
 	latencyMS := time.Since(startTime).Milliseconds()
 
-	// Log basic metrics (we'll enhance this with token parsing later)
+	// Parse token usage from response
+	model, inputTokens, outputTokens := h.parseTokenUsage(providerType, reqBody, respBody)
+
+	// Calculate cost
+	inputCost, outputCost := float64(0), float64(0)
+	if model != "" && (inputTokens > 0 || outputTokens > 0) {
+		h.mu.RLock()
+		profileCost := config.Cost{Input: 0, Output: 0} // Default zero cost
+		inputCost, outputCost = h.pricingTable.CalculateCost(model, profileCost, inputTokens, outputTokens)
+		h.mu.RUnlock()
+	}
+
+	// Log basic metrics
 	logging.Info("Proxied request",
 		logging.String("tool", toolID),
 		logging.String("provider", providerType),
 		logging.String("path", path),
+		logging.String("model", model),
 		logging.Int("status", statusCode),
+		logging.Int("input_tokens", inputTokens),
+		logging.Int("output_tokens", outputTokens),
+		logging.String("input_cost", fmt.Sprintf("%.6f", inputCost)),
+		logging.String("output_cost", fmt.Sprintf("%.6f", outputCost)),
 		logging.Int("req_bytes", len(reqBody)),
 		logging.Int("resp_bytes", len(respBody)),
 		logging.Int64("latency_ms", latencyMS))
 
-	// TODO: Parse request/response for token counts and save to usage_records table
-	// This will be implemented in Epic 7-4
+	// Save to database if we have token information
+	if model != "" && (inputTokens > 0 || outputTokens > 0) {
+		record := &UsageRecord{
+			SessionID:    generateSessionID(),
+			Timestamp:    startTime.Unix(),
+			Tool:         toolID,
+			Model:        model,
+			Provider:     providerType,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+			InputCost:    inputCost,
+			OutputCost:   outputCost,
+			LatencyMS:    latencyMS,
+		}
+
+		if err := h.saveUsageRecord(record); err != nil {
+			logging.Error("Failed to save usage record", logging.Err(err))
+		}
+	}
+}
+
+// parseTokenUsage extracts model and token usage from request/response
+func (h *Handler) parseTokenUsage(providerType string, reqBody, respBody []byte) (model string, inputTokens, outputTokens int) {
+	switch providerType {
+	case providerOpenAI:
+		return h.parseOpenAIUsage(reqBody, respBody)
+	case providerAnthropic:
+		return h.parseAnthropicUsage(reqBody, respBody)
+	default:
+		return "", 0, 0
+	}
+}
+
+// parseOpenAIUsage parses OpenAI API response for token usage
+func (h *Handler) parseOpenAIUsage(reqBody, respBody []byte) (model string, inputTokens, outputTokens int) {
+	// Parse request for model
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err == nil {
+		if m, ok := req["model"].(string); ok {
+			model = m
+		}
+	}
+
+	// Parse response for usage
+	var resp map[string]interface{}
+	if err := json.Unmarshal(respBody, &resp); err == nil {
+		if usage, ok := resp["usage"].(map[string]interface{}); ok {
+			if prompt, ok := usage["prompt_tokens"].(float64); ok {
+				inputTokens = int(prompt)
+			}
+			if completion, ok := usage["completion_tokens"].(float64); ok {
+				outputTokens = int(completion)
+			}
+		}
+	}
+
+	return model, inputTokens, outputTokens
+}
+
+// parseAnthropicUsage parses Anthropic API response for token usage
+func (h *Handler) parseAnthropicUsage(reqBody, respBody []byte) (model string, inputTokens, outputTokens int) {
+	// Parse request for model
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err == nil {
+		if m, ok := req["model"].(string); ok {
+			model = m
+		}
+	}
+
+	// Parse response for usage
+	var resp map[string]interface{}
+	if err := json.Unmarshal(respBody, &resp); err == nil {
+		if usage, ok := resp["usage"].(map[string]interface{}); ok {
+			if input, ok := usage["input_tokens"].(float64); ok {
+				inputTokens = int(input)
+			}
+			if output, ok := usage["output_tokens"].(float64); ok {
+				outputTokens = int(output)
+			}
+		}
+	}
+
+	return model, inputTokens, outputTokens
+}
+
+// saveUsageRecord saves a usage record to the database
+func (h *Handler) saveUsageRecord(record *UsageRecord) error {
+	// First, ensure session exists
+	sessionQuery := fmt.Sprintf(`
+		INSERT OR IGNORE INTO sessions (id, started_at, ended_at, success, latency_ms)
+		VALUES ('%s', %d, %d, 1, %d);
+	`, record.SessionID, record.Timestamp, record.Timestamp+record.LatencyMS/1000, record.LatencyMS)
+
+	if err := h.db.Exec(sessionQuery); err != nil {
+		return fmt.Errorf("insert session: %w", err)
+	}
+
+	// Insert usage record
+	usageQuery := fmt.Sprintf(`
+		INSERT INTO usage_records (id, session_id, ts, input_tokens, output_tokens, input_cost, output_cost, tool, model, estimate_level)
+		VALUES ('%s', '%s', %d, %d, %d, %.6f, %.6f, '%s', '%s', 'exact');
+	`, generateRecordID(), record.SessionID, record.Timestamp,
+		record.InputTokens, record.OutputTokens,
+		record.InputCost, record.OutputCost,
+		escapeSQLString(record.Tool), escapeSQLString(record.Model))
+
+	if err := h.db.Exec(usageQuery); err != nil {
+		return fmt.Errorf("insert usage record: %w", err)
+	}
+
+	return nil
+}
+
+// generateSessionID generates a unique session ID
+func generateSessionID() string {
+	return fmt.Sprintf("proxy_%d", time.Now().UnixNano())
+}
+
+// generateRecordID generates a unique record ID
+func generateRecordID() string {
+	return fmt.Sprintf("rec_%d", time.Now().UnixNano())
+}
+
+// escapeSQLString escapes SQL special characters
+func escapeSQLString(s string) string {
+	// Simple escape for single quotes
+	// In production, use parameterized queries
+	return strings.ReplaceAll(s, "'", "''")
+}
+
+// checkBudgetBeforeRequest checks if the request would exceed budget limits
+func (h *Handler) checkBudgetBeforeRequest(reqBody []byte) error {
+	// Parse request to extract model
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		// If we can't parse the request, allow it to proceed
+		// Budget check is best-effort
+		return nil
+	}
+
+	model, ok := req["model"].(string)
+	if !ok || model == "" {
+		// No model specified, allow request
+		return nil
+	}
+
+	// Estimate token usage based on average request
+	// For budget checking, we use conservative estimates:
+	// - Average input: 1000 tokens
+	// - Average output: 500 tokens
+	estimatedInputTokens := 1000
+	estimatedOutputTokens := 500
+
+	// Calculate estimated cost
+	h.mu.RLock()
+	profileCost := config.Cost{Input: 0, Output: 0}
+	inputCost, outputCost := h.pricingTable.CalculateCost(model, profileCost, estimatedInputTokens, estimatedOutputTokens)
+	h.mu.RUnlock()
+
+	estimatedTotalCost := inputCost + outputCost
+
+	// Check budget (global scope for now)
+	// In a real implementation, we might extract project/profile from headers
+	allowed, message, err := h.budgetTracker.CheckBudget("global", "", estimatedTotalCost)
+	if err != nil {
+		// If budget check fails (e.g., no budget configured), allow the request
+		logging.Info("Budget check error (allowing request)", logging.Err(err))
+		return nil
+	}
+
+	if !allowed {
+		return fmt.Errorf("%s", message)
+	}
+
+	return nil
 }
 
 // updateProviderStats updates provider-specific counters

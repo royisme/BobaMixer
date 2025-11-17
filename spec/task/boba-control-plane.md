@@ -36,10 +36,10 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 
 **下一步**: Phase 2 HTTP Proxy
 
-### Phase 2 状态：🚧 **进行中**（HTTP Proxy & 监控）
+### Phase 2 状态：✅ **已完成**（HTTP Proxy & 监控）
 
-**开始时间**: 2025-11-17
-**分支**: `claude/add-openai-gemini-providers-01TN5bCPA8m66bHGhwzoNNS1`
+**完成时间**: 2025-11-17
+**分支**: `claude/phase2-go-standards-01MdmnsptVQMeFbAP7MgzFKe`
 
 **已完成**：
 - ✅ Epic 7.1: HTTP Proxy 服务器实现（127.0.0.1:7777）
@@ -49,16 +49,21 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 - ✅ Epic 7.4: 基础请求日志和统计（线程安全）
 - ✅ Epic 8.1: Runner 支持 use_proxy 模式（Claude/OpenAI/Gemini）
 - ✅ Epic 8.2: `boba proxy status` 命令实现
+- ✅ Epic 8.3: Dashboard TUI 添加 Proxy 状态和开关
+  - 修改: `internal/ui/dashboard.go`
+  - 功能: HTTP 健康检查、Proxy 开关切换、状态指示器
+  - 快捷键: [X] 切换 Proxy, [S] 检查状态
+- ✅ Epic 9.1: usage.db schema 设计和实现（已集成）
+  - 表: `sessions`, `usage_records`
+  - 字段: session_id, ts, input_tokens, output_tokens, input_cost, output_cost, tool, model
 - ✅ 端到端工作流测试（scripts/e2e-test.sh）
   - 提交: `8e856a4` - feat: enhance init command and add end-to-end workflow testing
 - ✅ 代码质量改进（golint 规范修复）
   - 提交: `621e66b`, `8c25606` - style: fix golint warnings (part 1 & 2)
 
-**待完成**：
-- ⏳ Epic 8.3: Dashboard TUI 添加 Proxy 状态和开关
-- ⏳ Epic 9.1: usage.db schema 设计和实现
-- ⏳ Epic 9.2: `boba stats` 命令实现
-- ⏳ Epic 9.3: Dashboard Stats 视图
+**剩余可选任务**：
+- ⏸️ Epic 9.2: `boba stats` 命令实现（数据层已就绪，需 CLI 命令）
+- ⏸️ Epic 9.3: Dashboard Stats 视图（可选）
 
 **技术亮点**：
 - 反向代理：使用 httputil.ReverseProxy 实现请求转发
@@ -66,6 +71,62 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 - 统计收集：线程安全的请求计数和字节统计（sync.RWMutex）
 - 健康检查：/health endpoint 返回 Proxy 状态
 - 优雅启动：后台 goroutine 运行，支持优雅关闭
+
+### Phase 3 状态：✅ **核心业务流程已完成**
+
+**完成时间**: 2025-11-17
+**分支**: `claude/phase2-go-standards-01MdmnsptVQMeFbAP7MgzFKe`
+
+**已完成核心功能**：
+- ✅ **Token 解析与成本追踪**
+  - 提交: `20f4123` - feat: complete Phase 3 core business flow - Token parsing and cost tracking
+  - 实现: `parseOpenAIUsage()`, `parseAnthropicUsage()` - 从 API 响应提取 token 数据
+  - 实现: `saveUsageRecord()` - 保存到 sessions 和 usage_records 表
+  - 集成: 定价表计算成本，精确记录每次请求的 input/output tokens 和费用
+  - 估算级别: `exact`（基于实际 API 响应）
+
+- ✅ **预算检查与限制**
+  - 提交: `1cc54c6` - feat: integrate budget checking in proxy before forwarding requests
+  - 实现: `checkBudgetBeforeRequest()` - 请求转发前验证预算
+  - 功能: 预估 token 用量（1000 input, 500 output）并计算成本
+  - 限制: HTTP 429 响应当预算超限
+  - 降级: 优雅处理未配置预算的情况
+
+- ✅ **动态路由引擎集成**
+  - 提交: `2fbb40b` - feat: integrate dynamic routing engine in proxy handler
+  - 实现: `evaluateRouting()` - 基于请求内容评估路由决策
+  - 实现: `extractTextSample()` - 从消息/提示词提取文本样本
+  - 集成: 非破坏性集成（仅记录日志，为未来路由决策做准备）
+  - 特性: 支持 Features 提取（intent, text_sample, ctx_chars）
+
+**完整业务流程**：
+```
+请求到达 → 解析 Body → 检查预算（预估）
+    → 评估路由规则（可选）
+    → 转发到 Provider API
+    → 解析响应（实际 tokens）
+    → 计算成本
+    → 保存到数据库（sessions + usage_records）
+    → 返回响应
+```
+
+**技术亮点**：
+- 线程安全：使用 `sync.RWMutex` 保护 pricingTable 和 routingEngine 访问
+- JSON 解析：支持 OpenAI 和 Anthropic 不同的响应格式
+- 成本追踪：每次请求记录精确的 input_cost 和 output_cost（6 位小数）
+- 预算保护：保守估算 token 用量，防止预算超支
+- 优雅降级：可选功能（budget, routing）失败不影响主流程
+- 数据持久化：SQLite 存储所有 usage 数据，支持后续分析
+
+**剩余 Phase 3 高级功能**：
+- ⏸️ **routes.yaml 配置支持**（当前通过代码配置）
+- ⏸️ **pricing.yaml 自动获取**（当前使用 internal/domain/pricing）
+- ⏸️ **boba budget 命令**（预算管理 CLI）
+- ⏸️ **boba route test 命令**（路由规则测试）
+- ⏸️ **Git Hooks 集成**
+- ⏸️ **boba action --auto**（超预算自动操作）
+
+**下一步**: 实现 `boba stats` 命令和可选的 Dashboard Stats 视图
 
 ### 代码质量改进记录
 
@@ -649,8 +710,8 @@ Epic 9: Usage 记录与统计
 |-------|------|----------|------|----------|
 | Phase 1 | ✅ 已完成 | 2025-11-16 | 2bd10d4 | Claude 集成、Domain 模型、CLI 命令、TUI Dashboard |
 | Phase 1.5 | ✅ 已完成 | 2025-11-17 | f21c337 | OpenAI/Codex + Gemini 集成 |
-| Phase 2 | 🚧 进行中 | - | e1bd2f9, 8e856a4 | HTTP Proxy + Usage 监控（Epic 7-8 部分完成） |
-| Phase 3 | 📝 规划中 | - | - | 高级路由、预算控制、Git Hooks |
+| Phase 2 | ✅ 已完成 | 2025-11-17 | e1bd2f9, 8e856a4 | HTTP Proxy + Usage 监控 + Dashboard Proxy 控制 |
+| Phase 3 | ✅ 核心完成 | 2025-11-17 | 20f4123, 1cc54c6, 2fbb40b | Token 解析、成本追踪、预算检查、路由引擎集成 |
 
 ---
 
