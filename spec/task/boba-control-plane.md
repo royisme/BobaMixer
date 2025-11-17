@@ -13,6 +13,69 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 **提交**: `2bd10d4` - feat: complete Phase 1 control plane implementation
 **分支**: `claude/redesign-tui-onboarding-017wA8dpXTCb5qoWvaeSNngn`
 
+### Phase 1.5 状态：✅ **已完成**（OpenAI/Gemini 集成）
+
+**完成时间**: 2025-11-17
+**提交**: `f21c337` - feat: implement Phase 1.5 OpenAI/Codex and Gemini CLI integration
+**分支**: `claude/add-openai-gemini-providers-01TN5bCPA8m66bHGhwzoNNS1`
+
+**已交付功能**：
+- ✅ OpenAIRunner 实现（env 注入: OPENAI_API_KEY, OPENAI_BASE_URL）
+- ✅ GeminiRunner 实现（env 注入: GEMINI_API_KEY, GOOGLE_API_KEY）
+- ✅ 更新 loader.go 添加 OpenAI/Gemini 默认 Provider 配置
+- ✅ 更新 Onboarding 向导支持 codex/gemini CLI 检测
+- ✅ Dashboard TUI 支持显示所有三种 Provider（Claude/OpenAI/Gemini）
+- ✅ Doctor 命令支持 OpenAI/Gemini Provider 诊断
+
+**技术亮点**：
+- 统一 Runner 模式：OpenAIRunner 和 GeminiRunner 遵循 ClaudeRunner 相同的架构
+- 自动注册机制：使用 init() 函数自动注册到 Runner 注册表
+- 多 API Key 支持：Gemini 同时设置 GEMINI_API_KEY 和 GOOGLE_API_KEY 以兼容不同版本
+- 工具检测：Onboarding 自动扫描 PATH 中的 claude/codex/gemini CLI
+- 配置集中：所有 Provider 定义在 providers.yaml 中统一管理
+
+**下一步**: Phase 2 HTTP Proxy
+
+### Phase 2 状态：🚧 **进行中**（HTTP Proxy & 监控）
+
+**开始时间**: 2025-11-17
+**分支**: `claude/add-openai-gemini-providers-01TN5bCPA8m66bHGhwzoNNS1`
+
+**已完成**：
+- ✅ Epic 7.1: HTTP Proxy 服务器实现（127.0.0.1:7777）
+  - 提交: `e1bd2f9` - feat: implement Phase 2 Part 1 - HTTP Proxy Server
+- ✅ Epic 7.2: OpenAI-style endpoint 转发（/openai/v1/*）
+- ✅ Epic 7.3: Anthropic-style endpoint 转发（/anthropic/v1/*）
+- ✅ Epic 7.4: 基础请求日志和统计（线程安全）
+- ✅ Epic 8.1: Runner 支持 use_proxy 模式（Claude/OpenAI/Gemini）
+- ✅ Epic 8.2: `boba proxy status` 命令实现
+- ✅ 端到端工作流测试（scripts/e2e-test.sh）
+  - 提交: `8e856a4` - feat: enhance init command and add end-to-end workflow testing
+- ✅ 代码质量改进（golint 规范修复）
+  - 提交: `621e66b`, `8c25606` - style: fix golint warnings (part 1 & 2)
+
+**待完成**：
+- ⏳ Epic 8.3: Dashboard TUI 添加 Proxy 状态和开关
+- ⏳ Epic 9.1: usage.db schema 设计和实现
+- ⏳ Epic 9.2: `boba stats` 命令实现
+- ⏳ Epic 9.3: Dashboard Stats 视图
+
+**技术亮点**：
+- 反向代理：使用 httputil.ReverseProxy 实现请求转发
+- 路由解析：自动识别 /openai/v1/* 和 /anthropic/v1/* 路径
+- 统计收集：线程安全的请求计数和字节统计（sync.RWMutex）
+- 健康检查：/health endpoint 返回 Proxy 状态
+- 优雅启动：后台 goroutine 运行，支持优雅关闭
+
+### 代码质量改进记录
+
+**golint 规范修复** (2025-11-17):
+- 提交: `ee30cf0`, `7018600`, `621e66b`, `8c25606`
+- 修复范围：所有导出类型、函数、常量添加规范文档注释
+- 覆盖包：adapters, db, domain, logging, settings, store, version
+- 剩余 7 个 stuttering 警告已通过 nolint 指令说明（API 稳定性考虑）
+- 验证：✅ go build, ✅ go vet, ✅ gofmt
+
 **调整说明**：
 - Phase 1 专注于 **Claude Code CLI** 集成，奠定架构基础
 - Epic 4 (Codex) 和 Epic 5 (Gemini) 推迟到 Phase 1.5
@@ -271,11 +334,11 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 
 ---
 
-### Epic 4：Codex Runner 集成（基础版）⏸️ **推迟到 Phase 1.5**
+### Epic 4：Codex Runner 集成（基础版）✅ **Phase 1.5 已完成**
 
 **说明**: Phase 1 专注 Claude，为其他 Provider 奠定基础。Codex/OpenAI 集成移到 Phase 1.5。
 
-**P1-E4-1：实现 Codex Runner（env + 可选 config 写入）** ⏸️
+**P1-E4-1：实现 Codex Runner（env + 可选 config 写入）** ✅
 
 * 内容：
 
@@ -291,7 +354,7 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 
 ---
 
-**P1-E4-2：给 Codex 加最小的 model 覆盖能力（可选）** ⏸️
+**P1-E4-2：给 Codex 加最小的 model 覆盖能力（可选）** ✅
 
 * 内容：
 
@@ -302,11 +365,11 @@ Phase 1 是"必须先做完才能真正用起来"的部分，会写得最细。
 
 ---
 
-### Epic 5：Gemini Runner 集成（基础 env 管理）⏸️ **推迟到 Phase 1.5**
+### Epic 5：Gemini Runner 集成（基础 env 管理）✅ **Phase 1.5 已完成**
 
 **说明**: Phase 1 专注 Claude，为其他 Provider 奠定基础。Gemini 集成移到 Phase 1.5。
 
-**P1-E5-1：实现 Gemini Runner（env 注入）** ⏸️
+**P1-E5-1：实现 Gemini Runner（env 注入）** ✅
 
 * 内容：
 
@@ -585,8 +648,8 @@ Epic 9: Usage 记录与统计
 | Phase | 状态 | 完成时间 | 提交 | 核心功能 |
 |-------|------|----------|------|----------|
 | Phase 1 | ✅ 已完成 | 2025-11-16 | 2bd10d4 | Claude 集成、Domain 模型、CLI 命令、TUI Dashboard |
-| Phase 1.5 | ⏸️ 待启动 | - | - | OpenAI/Codex + Gemini 集成 |
-| Phase 2 | ⏸️ 待启动 | - | - | HTTP Proxy + Usage 监控 |
+| Phase 1.5 | ✅ 已完成 | 2025-11-17 | f21c337 | OpenAI/Codex + Gemini 集成 |
+| Phase 2 | 🚧 进行中 | - | e1bd2f9, 8e856a4 | HTTP Proxy + Usage 监控（Epic 7-8 部分完成） |
 | Phase 3 | 📝 规划中 | - | - | 高级路由、预算控制、Git Hooks |
 
 ---
