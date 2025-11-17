@@ -8,8 +8,9 @@
 *.so
 *.dylib
 
-# Project binary
+# Project binaries
 boba
+boba-maint
 
 # Test binary, built with `go test -c`
 *.test
