@@ -46,7 +46,7 @@ features:
 ## One-Minute Quickstart | 一分钟体验
 
 ```bash
-# Install (Go 1.22+) | 安装
+# Install (Go 1.25+) | 安装
 go install github.com/royisme/bobamixer/cmd/boba@latest
 
 # Initialize configuration | 初始化配置

@@ -1,8 +1,8 @@
 module github.com/royisme/bobamixer
 
-go 1.24.0
+go 1.25.0
 
-toolchain go1.24.7
+toolchain go1.25.4
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.4

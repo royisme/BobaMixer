@@ -3,7 +3,7 @@
 ## Title Options (Choose based on subreddit)
 
 **Option 1 (r/golang):**
-`[Project] BobaMixer 🧋 - Cut AI API costs by 50% with intelligent routing and budget control (Go 1.22+, 0 lint issues)`
+`[Project] BobaMixer 🧋 - Cut AI API costs by 50% with intelligent routing and budget control (Go 1.25+, 0 lint issues)`
 
 **Option 2 (r/programming, r/opensource):**
 `BobaMixer: Open-source intelligent router for AI workflows - Think Kubernetes for your Claude/OpenAI/Gemini calls`
@@ -108,7 +108,7 @@ boba proxy start
 
 ### Try It Now
 
-**Installation (Go 1.22+):**
+**Installation (Go 1.25+):**
 ```bash
 go install github.com/royisme/bobamixer/cmd/boba@latest
 boba init
@@ -155,7 +155,7 @@ I'd love to hear your thoughts on:
 3. What analytics/metrics matter most to you?
 4. Would you use this in production? What concerns do you have?
 
-Built with ❤️ using Go 1.22+, following Go best practices. MIT License.
+Built with ❤️ using Go 1.25+, following Go best practices. MIT License.
 
 ---
 
@@ -232,7 +232,7 @@ Built an open-source tool to solve AI API cost management. Main features:
 
 Real results: 45% cost reduction for one user, $98.50/$100 budget achievement for another.
 
-Built with Go 1.22+, following best practices (0 lint issues, full docs, concurrency-safe).
+Built with Go 1.25+, following best practices (0 lint issues, full docs, concurrency-safe).
 
 GitHub: https://github.com/royisme/BobaMixer
 Docs: https://royisme.github.io/BobaMixer/
