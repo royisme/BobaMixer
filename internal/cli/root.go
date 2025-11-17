@@ -109,6 +109,8 @@ func Run(args []string) error {
 		return runBind(home, args[1:])
 	case "run":
 		return runRun(home, args[1:])
+	case "secrets":
+		return runSecrets(home, args[1:])
 	case "proxy":
 		return runProxy(home, args[1:])
 
@@ -158,6 +160,7 @@ func printUsage() {
 	fmt.Println("Control Plane (Phase 1 & 2):")
 	fmt.Println("  boba providers                                List AI providers")
 	fmt.Println("  boba tools                                    List CLI tools")
+	fmt.Println("  boba secrets [list|set|remove]                Manage API keys (no YAML editing!)")
 	fmt.Println("  boba bind <tool> <provider> [--proxy=on|off]  Bind tool to provider")
 	fmt.Println("  boba run <tool> [args...]                     Run CLI tool with injected config")
 	fmt.Println("  boba proxy serve                              Start local proxy server")
