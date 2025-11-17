@@ -104,67 +104,88 @@ func runSecretsSet(home string, args []string) error {
 	}
 
 	providerID := args[0]
+	apiKey := parseKeyFlag(args)
 
-	// Check if --key flag is provided (non-interactive mode)
-	var apiKey string
-	for i, arg := range args {
-		if arg == "--key" && i+1 < len(args) {
-			apiKey = args[i+1]
-			break
-		}
-	}
-
-	// Validate provider exists
 	providers, err := core.LoadProviders(home)
 	if err != nil {
 		return fmt.Errorf("failed to load providers: %w", err)
 	}
 
-	var provider *core.Provider
-	for i := range providers.Providers {
-		if providers.Providers[i].ID == providerID {
-			provider = &providers.Providers[i]
-			break
-		}
+	provider, err := findProvider(providers, providerID)
+	if err != nil {
+		return err
 	}
 
-	if provider == nil {
-		fmt.Printf("Error: Provider '%s' not found\n\n", providerID)
-		fmt.Println("Available providers:")
-
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		for _, p := range providers.Providers {
-			if _, err := fmt.Fprintf(w, "  %s\t%s\n", p.ID, p.DisplayName); err != nil {
-				return fmt.Errorf("failed to write provider: %w", err)
-			}
-		}
-		if err := w.Flush(); err != nil {
-			return fmt.Errorf("failed to flush output: %w", err)
-		}
-
-		fmt.Println("\nRun 'boba providers' to see more details")
-		return fmt.Errorf("provider not found: %s", providerID)
-	}
-
-	// Interactive mode: prompt for API key
 	if apiKey == "" {
-		fmt.Printf("Enter API key for %s: ", provider.DisplayName)
-
-		// Use terminal.ReadPassword for secure input
-		keyBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+		apiKey, err = promptForAPIKey(provider.DisplayName)
 		if err != nil {
-			return fmt.Errorf("failed to read password: %w", err)
+			return err
 		}
-		fmt.Println() // Newline after password input
-
-		apiKey = string(keyBytes)
 	}
 
 	if apiKey == "" {
 		return fmt.Errorf("API key cannot be empty")
 	}
 
-	// Load existing secrets
+	if err := saveAPIKey(home, providerID, apiKey); err != nil {
+		return err
+	}
+
+	printSuccessMessage(provider)
+	return nil
+}
+
+// parseKeyFlag extracts the --key flag value from args
+func parseKeyFlag(args []string) string {
+	for i, arg := range args {
+		if arg == "--key" && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+	return ""
+}
+
+// findProvider finds a provider by ID and returns an error with available providers if not found
+func findProvider(providers *core.ProvidersConfig, providerID string) (*core.Provider, error) {
+	for i := range providers.Providers {
+		if providers.Providers[i].ID == providerID {
+			return &providers.Providers[i], nil
+		}
+	}
+
+	// Provider not found - show available providers
+	fmt.Printf("Error: Provider '%s' not found\n\n", providerID)
+	fmt.Println("Available providers:")
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	for _, p := range providers.Providers {
+		if _, err := fmt.Fprintf(w, "  %s\t%s\n", p.ID, p.DisplayName); err != nil {
+			return nil, fmt.Errorf("failed to write provider: %w", err)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return nil, fmt.Errorf("failed to flush output: %w", err)
+	}
+
+	fmt.Println("\nRun 'boba providers' to see more details")
+	return nil, fmt.Errorf("provider not found: %s", providerID)
+}
+
+// promptForAPIKey prompts the user to enter an API key securely
+func promptForAPIKey(providerName string) (string, error) {
+	fmt.Printf("Enter API key for %s: ", providerName)
+
+	keyBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", fmt.Errorf("failed to read password: %w", err)
+	}
+	fmt.Println() // Newline after password input
+
+	return string(keyBytes), nil
+}
+
+// saveAPIKey saves an API key to the secrets file
+func saveAPIKey(home, providerID, apiKey string) error {
 	secrets, err := core.LoadSecrets(home)
 	if err != nil {
 		return fmt.Errorf("failed to load secrets: %w", err)
@@ -174,7 +195,6 @@ func runSecretsSet(home string, args []string) error {
 		secrets.Secrets = make(map[string]core.Secret)
 	}
 
-	// Save the new secret
 	secrets.Secrets[providerID] = core.Secret{
 		APIKey: apiKey,
 	}
@@ -183,6 +203,11 @@ func runSecretsSet(home string, args []string) error {
 		return fmt.Errorf("failed to save secrets: %w", err)
 	}
 
+	return nil
+}
+
+// printSuccessMessage prints a success message after saving an API key
+func printSuccessMessage(provider *core.Provider) {
 	fmt.Println("✓ API key saved")
 	fmt.Printf("  Provider: %s\n", provider.DisplayName)
 	fmt.Printf("  Location: ~/.boba/secrets.yaml\n")
@@ -196,8 +221,6 @@ func runSecretsSet(home string, args []string) error {
 			fmt.Printf("      BobaMixer will use secrets.yaml since env var is not set\n")
 		}
 	}
-
-	return nil
 }
 
 // runSecretsRemove removes an API key for a provider
