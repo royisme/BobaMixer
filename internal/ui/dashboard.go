@@ -138,6 +138,7 @@ func (m *DashboardModel) loadStatsData() tea.Msg {
 	if err != nil {
 		return statsLoadedMsg{err: err}
 	}
+	defer db.Close()
 
 	ctx := context.Background()
 
