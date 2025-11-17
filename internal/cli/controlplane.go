@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/royisme/bobamixer/internal/domain/core"
+	"github.com/royisme/bobamixer/internal/domain/pricing"
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/runner"
@@ -567,7 +568,7 @@ func runDoctorPricing(home string) error {
 
 		// Check sources configuration
 		if len(pricingCfg.Sources) == 0 {
-			fmt.Printf("  %s No remote sources configured (using local pricing only)\n", statusWarning)
+			fmt.Printf("  %s No remote sources configured (using automatic OpenRouter fetch with cache)\n", statusWarning)
 			hasWarnings = true
 		} else {
 			fmt.Printf("  %s Found %d pricing source(s)\n", statusOK, len(pricingCfg.Sources))
@@ -600,73 +601,101 @@ func runDoctorPricing(home string) error {
 		if pricingCfg.Refresh.IntervalHours > 0 {
 			fmt.Printf("  %s Refresh interval: %d hours\n", statusOK, pricingCfg.Refresh.IntervalHours)
 		} else {
-			fmt.Printf("  %s Refresh interval: not configured (no automatic refresh)\n", statusWarning)
+			fmt.Printf("  %s Refresh interval: not configured (default 24h cache)\n", statusWarning)
 			hasWarnings = true
 		}
 
 		if pricingCfg.Refresh.OnStartup {
 			fmt.Printf("  %s Refresh on startup: enabled\n", statusOK)
 		} else {
-			fmt.Printf("  %s Refresh on startup: disabled\n", statusWarning)
+			fmt.Printf("  %s Refresh on startup: disabled (will reuse cache if fresh)\n", statusWarning)
 		}
 	}
 	fmt.Println()
 
-	// Check pricing cache
-	fmt.Println("📦 Pricing Cache")
-	fmt.Println("────────────────")
-
-	cachePath := filepath.Join(home, "pricing.cache.json")
-	cacheInfo, err := os.Stat(cachePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Printf("  %s Cache file not found (will be created on first fetch)\n", statusWarning)
-			hasWarnings = true
-		} else {
-			fmt.Printf("  %s Failed to check cache: %v\n", statusError, err)
-			hasErrors = true
+	loaderCfg := pricing.DefaultLoaderConfig()
+	if pricingCfg != nil {
+		loaderCfg.RefreshOnStartup = pricingCfg.Refresh.OnStartup
+		if pricingCfg.Refresh.IntervalHours > 0 {
+			loaderCfg.CacheTTLHours = pricingCfg.Refresh.IntervalHours
 		}
-	} else {
-		cacheAge := time.Since(cacheInfo.ModTime())
-		cacheAgeHours := int(cacheAge.Hours())
-
-		if cacheAge > 24*time.Hour {
-			fmt.Printf("  %s Cache is %d hours old (stale, consider refreshing)\n", statusWarning, cacheAgeHours)
-			hasWarnings = true
-		} else {
-			fmt.Printf("  %s Cache is %d hours old (fresh)\n", statusOK, cacheAgeHours)
-		}
-		fmt.Printf("  %s Cache size: %.2f KB\n", statusOK, float64(cacheInfo.Size())/1024)
 	}
-	fmt.Println()
+	loader := pricing.NewLoader(home, loaderCfg)
 
 	// Try to load pricing data
 	fmt.Println("🔍 Pricing Data Validation")
 	fmt.Println("──────────────────────────")
 
-	table, err := loadPricingTable(home)
-	if err != nil {
-		fmt.Printf("  %s Failed to load pricing table: %v\n", statusError, err)
-		hasErrors = true
-	} else {
-		if len(table) == 0 {
+	useLegacy := pricingCfg != nil && len(pricingCfg.Sources) > 0
+
+	if useLegacy {
+		fmt.Println("  Using pricing.yaml sources (legacy pipeline)")
+
+		table, err := pricing.Load(home)
+		if err != nil {
+			fmt.Printf("  %s Failed to load pricing table: %v\n", statusError, err)
+			hasErrors = true
+		} else if len(table.Models) == 0 {
 			fmt.Printf("  %s No pricing data available\n", statusWarning)
-			fmt.Println("  ℹ️  Tip: Add models to pricing.yaml or configure remote sources")
+			fmt.Println("  ℹ️  Tip: Verify remote sources and pricing.yaml entries")
 			hasWarnings = true
 		} else {
-			fmt.Printf("  %s Successfully loaded pricing for %d model(s)\n", statusOK, len(table))
+			fmt.Printf("  %s Successfully loaded pricing for %d model(s)\n", statusOK, len(table.Models))
+			printPricingSamples(table.Models)
+		}
+	} else {
+		schema, err := loader.LoadWithFallback(context.Background())
+		if err != nil {
+			fmt.Printf("  %s Failed to load pricing table: %v\n", statusError, err)
+			hasErrors = true
+		} else {
+			table := schema.ToLegacyTable()
+			if len(table.Models) == 0 {
+				fmt.Printf("  %s No pricing data available\n", statusWarning)
+				fmt.Println("  ℹ️  Tip: Configure pricing.yaml or ensure OpenRouter access is available")
+				hasWarnings = true
+			} else {
+				fmt.Printf("  %s Successfully loaded pricing for %d model(s)\n", statusOK, len(table.Models))
+				printPricingSamples(table.Models)
 
-			// Show sample models
-			sampleCount := 0
-			for modelName, price := range table {
-				if sampleCount >= 5 {
-					fmt.Printf("  ... and %d more models\n", len(table)-5)
-					break
+				// Summarize source kinds from schema
+				sourceCounts := make(map[string]int)
+				for _, model := range schema.Models {
+					sourceCounts[model.Source.Kind]++
 				}
-				fmt.Printf("    - %s: $%.4f/$%.4f per 1K tokens\n", modelName, price.InputPer1K, price.OutputPer1K)
-				sampleCount++
+				if len(sourceCounts) > 0 {
+					fmt.Println("  Sources:")
+					for kind, count := range sourceCounts {
+						fmt.Printf("    - %s: %d model(s)\n", kind, count)
+					}
+				}
 			}
 		}
+	}
+	fmt.Println()
+
+	// Pricing cache status
+	fmt.Println("📦 Pricing Cache")
+	fmt.Println("────────────────")
+
+	cacheFresh, cacheMeta, cacheErr := loader.GetCacheStatus()
+	if cacheErr != nil {
+		fmt.Printf("  %s Cache metadata unavailable: %v\n", statusWarning, cacheErr)
+		hasWarnings = true
+	} else {
+		cacheAge := time.Since(cacheMeta.FetchedAt)
+		timeLeft := time.Until(cacheMeta.ExpiresAt)
+
+		if cacheFresh {
+			fmt.Printf("  %s Cache is fresh (Source: %s)\n", statusOK, cacheMeta.SourceKind)
+		} else {
+			fmt.Printf("  %s Cache is stale (Source: %s)\n", statusWarning, cacheMeta.SourceKind)
+			hasWarnings = true
+		}
+
+		fmt.Printf("  %s Fetched: %s ago\n", statusOK, formatDuration(cacheAge))
+		fmt.Printf("  %s Expires in: %s\n", statusOK, formatDuration(timeLeft))
+		fmt.Printf("  %s TTL (hours): %d\n", statusOK, cacheMeta.TTLHours)
 	}
 	fmt.Println()
 
@@ -689,23 +718,34 @@ func runDoctorPricing(home string) error {
 	return nil
 }
 
-// loadPricingTable is a helper function to load pricing data
-// This is a placeholder that will call the pricing package
-func loadPricingTable(home string) (map[string]struct{ InputPer1K, OutputPer1K float64 }, error) {
-	// Load pricing configuration
-	pricingCfg, err := config.LoadPricing(home)
-	if err != nil {
-		return nil, err
+// formatDuration renders a duration in a concise human-readable form
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		return "expired"
 	}
 
-	// Convert to simple map for validation
-	result := make(map[string]struct{ InputPer1K, OutputPer1K float64 })
-	for name, price := range pricingCfg.Models {
-		result[name] = struct{ InputPer1K, OutputPer1K float64 }{
-			InputPer1K:  price.InputPer1K,
-			OutputPer1K: price.OutputPer1K,
+	switch {
+	case d >= time.Hour:
+		hours := int(d.Hours())
+		minutes := int((d % time.Hour) / time.Minute)
+		return fmt.Sprintf("%dh%dm", hours, minutes)
+	case d >= time.Minute:
+		minutes := int(d / time.Minute)
+		seconds := int((d % time.Minute) / time.Second)
+		return fmt.Sprintf("%dm%ds", minutes, seconds)
+	default:
+		return fmt.Sprintf("%ds", int(d/time.Second))
+	}
+}
+
+func printPricingSamples(models map[string]pricing.ModelPrice) {
+	sampleCount := 0
+	for modelName, price := range models {
+		if sampleCount >= 5 {
+			fmt.Printf("  ... and %d more models\n", len(models)-5)
+			break
 		}
+		fmt.Printf("    - %s: $%.4f/$%.4f per 1K tokens\n", modelName, price.InputPer1K, price.OutputPer1K)
+		sampleCount++
 	}
-
-	return result, nil
 }

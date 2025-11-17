@@ -1,7 +1,7 @@
 
----
-
 # BobaMixer 架构设计（控制平面 / boba run / Proxy）
+
+> This is the canonical spec for the control plane and `boba run` behavior.
 
 版本：v0.1（Draft）
 目标读者：BobaMixer 维护者 & AI coding 工具高级用户
@@ -32,7 +32,9 @@ BobaMixer（后简称 boba）不是一个 AI coding tool，而是一个**本地 
 
 * 不是一个「再造一个 AI chat/coding 界面」的工具；
 * 不负责替代 Claude Code / Codex / Gemini CLI 自己的交互体验；
-* 不在 v1 阶段实现复杂的多模型路由决策、预算控制、团队审计等（这些归为高级功能，后续迭代）。
+* 不在 v1 阶段实现复杂的多模型路由决策、预算控制、团队审计等（这些归为**高级/legacy**功能，后续迭代）。
+
+> Advanced / legacy scope: profile-based routing、pricing/budget/stats 等均视为高级能力，不是 Control Plane 主线的一部分。
 
 ---
 

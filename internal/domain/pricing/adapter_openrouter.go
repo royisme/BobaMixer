@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -19,17 +20,22 @@ const (
 
 // OpenRouterAdapter fetches pricing from OpenRouter Models API
 type OpenRouterAdapter struct {
-	client  *http.Client
-	apiURL  string
+	client *http.Client
+	apiURL string
 }
 
 // NewOpenRouterAdapter creates a new OpenRouter adapter
 func NewOpenRouterAdapter() *OpenRouterAdapter {
+	apiURL := OpenRouterModelsAPI
+	if override := os.Getenv("BOBA_PRICING_OPENROUTER_API"); override != "" {
+		apiURL = override
+	}
+
 	return &OpenRouterAdapter{
 		client: &http.Client{
 			Timeout: OpenRouterTimeout,
 		},
-		apiURL: OpenRouterModelsAPI,
+		apiURL: apiURL,
 	}
 }
 
@@ -40,22 +46,22 @@ type OpenRouterResponse struct {
 
 // OpenRouterModel represents a model from OpenRouter API
 type OpenRouterModel struct {
-	ID              string                 `json:"id"`
-	Name            string                 `json:"name"`
-	ContextLength   int                    `json:"context_length"`
-	Pricing         OpenRouterPricing      `json:"pricing"`
-	Architecture    map[string]interface{} `json:"architecture,omitempty"`
+	ID            string                 `json:"id"`
+	Name          string                 `json:"name"`
+	ContextLength int                    `json:"context_length"`
+	Pricing       OpenRouterPricing      `json:"pricing"`
+	Architecture  map[string]interface{} `json:"architecture,omitempty"`
 }
 
 // OpenRouterPricing represents pricing from OpenRouter
 type OpenRouterPricing struct {
-	Prompt           string `json:"prompt"`            // Price per token (as string)
-	Completion       string `json:"completion"`        // Price per token (as string)
-	Request          string `json:"request,omitempty"` // Price per request
-	Image            string `json:"image,omitempty"`   // Price per image
-	WebSearch        string `json:"web_search,omitempty"`
-	InputCacheRead   string `json:"input_cache_read,omitempty"`
-	InputCacheWrite  string `json:"input_cache_write,omitempty"`
+	Prompt            string `json:"prompt"`            // Price per token (as string)
+	Completion        string `json:"completion"`        // Price per token (as string)
+	Request           string `json:"request,omitempty"` // Price per request
+	Image             string `json:"image,omitempty"`   // Price per image
+	WebSearch         string `json:"web_search,omitempty"`
+	InputCacheRead    string `json:"input_cache_read,omitempty"`
+	InputCacheWrite   string `json:"input_cache_write,omitempty"`
 	InternalReasoning string `json:"internal_reasoning,omitempty"`
 }
 
