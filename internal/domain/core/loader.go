@@ -187,16 +187,30 @@ func SaveSecrets(home string, config *SecretsConfig) error {
 func ResolveAPIKey(provider *Provider, secrets *SecretsConfig) (string, error) {
 	switch provider.APIKey.Source {
 	case APIKeySourceEnv:
-		// Try to get from environment
+		// Try to get from environment first
 		key := os.Getenv(provider.APIKey.EnvVar)
-		if key == "" {
-			return "", fmt.Errorf("%w: environment variable %s not set for provider %s",
-				ErrMissingAPIKey, provider.APIKey.EnvVar, provider.ID)
+		if key != "" {
+			return key, nil
 		}
-		return key, nil
+
+		// Fall back to secrets.yaml if env var is not set
+		if secrets != nil && secrets.Secrets != nil {
+			secret, ok := secrets.Secrets[provider.ID]
+			if ok && secret.APIKey != "" {
+				return secret.APIKey, nil
+			}
+		}
+
+		// Neither source has the key
+		return "", fmt.Errorf("%w: environment variable %s not set and no secret found in secrets.yaml for provider %s",
+			ErrMissingAPIKey, provider.APIKey.EnvVar, provider.ID)
 
 	case APIKeySourceSecrets:
 		// Get from secrets.yaml
+		if secrets == nil || secrets.Secrets == nil {
+			return "", fmt.Errorf("%w: no secret found for provider %s",
+				ErrMissingAPIKey, provider.ID)
+		}
 		secret, ok := secrets.Secrets[provider.ID]
 		if !ok || secret.APIKey == "" {
 			return "", fmt.Errorf("%w: no secret found for provider %s",
