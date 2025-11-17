@@ -10,6 +10,22 @@
 
 [**📚 English Docs**](https://royisme.github.io/BobaMixer/) | [**🚀 Quick Start**](#quick-start) | [**中文文档**](https://royisme.github.io/BobaMixer/zh/)
 
+**Architecture baseline:** [spec/boba-control-plane.md](spec/boba-control-plane.md) — This is the canonical spec for the control plane and `boba run` behavior.
+
+---
+
+## Feature Overview | 功能概览
+
+**Core (Control Plane + boba run)**
+- Manage Providers / Tools / Bindings as first-class objects
+- Run local AI CLI tools with auto-injected credentials and endpoints via `boba run`
+- Optional local proxy to consolidate requests
+
+**Advanced (legacy/optional)**
+- Routing / Profiles
+- Budget & Pricing controls
+- Usage Stats & Git hooks
+
 ---
 
 ## Why BobaMixer?
@@ -94,7 +110,11 @@ $ boba proxy serve &
 - **Thread-safe** - Concurrent request support with `sync.RWMutex`
   线程安全 - 使用sync.RWMutex保护共享状态
 
-### 3. Intelligent Routing Engine | 智能路由引擎 (Context-Aware)
+## Advanced Capabilities (Legacy / Optional)
+
+> The following modules are advanced/legacy features. They are not part of the core Control Plane + `boba run` path, but remain available for power users.
+
+### [Advanced] Intelligent Routing Engine | 智能路由引擎 (Context-Aware)
 
 Automatically select optimal model based on task characteristics:
 
@@ -134,7 +154,7 @@ Fallback: claude-anthropic
 
 **核心算法**: Epsilon-Greedy探索 + 规则引擎,在成本优化和效果探索之间自动平衡。
 
-### 4. Budget Management & Alerts | 预算管理与告警
+### [Advanced] Budget Management & Alerts | 预算管理与告警
 
 Multi-level budget control to prevent cost overruns:
 
@@ -166,7 +186,7 @@ $ boba action --auto
 
 **技术实现**: 请求前预算检查、保守Token估算、HTTP 429响应、优雅降级
 
-### 5. Usage Analytics & Cost Tracking | 使用分析与成本追踪
+### [Advanced] Usage Analytics & Cost Tracking | 使用分析与成本追踪
 
 Precise token-level tracking with multi-dimensional analysis:
 
