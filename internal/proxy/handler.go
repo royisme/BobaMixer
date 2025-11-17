@@ -302,7 +302,7 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, response)
 }
 
-// parseProxyURL extracts the target base URL from a proxy-style URL
+// ParseProxyURL extracts the target base URL from a proxy-style URL.
 func ParseProxyURL(rawURL string) (baseURL string, err error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {

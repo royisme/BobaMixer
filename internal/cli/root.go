@@ -52,6 +52,8 @@ const (
 
 var supportedShells = []string{shellBash, shellZsh, shellFish}
 
+// Run executes the BobaMixer CLI with the given arguments and routes to appropriate subcommands.
+//
 //nolint:gocyclo // Complex CLI entry point with multiple subcommands
 func Run(args []string) error {
 	home, err := config.ResolveHome()

@@ -16,6 +16,7 @@ import (
 // OnboardingStage represents the current stage in the setup wizard
 type OnboardingStage int
 
+// Onboarding wizard stages
 const (
 	StageWelcome OnboardingStage = iota
 	StageScanning
@@ -147,11 +148,10 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Use env key
 					m.stage = StageComplete
 					return m.saveConfiguration()
-				} else {
-					// Enter different key
-					m.apiKeyFromEnv = false
-					m.initializeAPIKeyInput()
 				}
+				// Enter different key
+				m.apiKeyFromEnv = false
+				m.initializeAPIKeyInput()
 				return m, nil
 			}
 		}
