@@ -1,3 +1,26 @@
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-17)
+
+
+### Bug Fixes
+
+* resolve all CI lint issues (54 total) ([3a27f0b](https://github.com/royisme/BobaMixer/commit/3a27f0b23f7ff6c18db73ed437536d08522197b5))
+* resolve all golangci-lint issues (27 issues fixed) ([a55ede6](https://github.com/royisme/BobaMixer/commit/a55ede6dbd90cb9dc1ad2707dd69a2793472b41a)), closes [#nosec](https://github.com/royisme/BobaMixer/issues/nosec)
+* resolve golangci-lint issues (errcheck, goconst, gosec) ([5e9b7c2](https://github.com/royisme/BobaMixer/commit/5e9b7c2b10009e7119b24fe8b04bf7ff1d5118b2)), closes [#nosec](https://github.com/royisme/BobaMixer/issues/nosec)
+* resolve variable redeclaration error in gitTag function ([e18da4b](https://github.com/royisme/BobaMixer/commit/e18da4b7ca91ded4248b8065b53050f2d460b35a))
+
+
+### Features
+
+* add interactive setup wizard for first-run experience ([02a46a3](https://github.com/royisme/BobaMixer/commit/02a46a33f236ac941517311b02adc3d40c9933cb))
+* add Phase 1 domain models and config loaders ([6a18f4a](https://github.com/royisme/BobaMixer/commit/6a18f4a6dea6b21eb2c4d7304148907160919059))
+* complete Phase 1 control plane implementation ([2bd10d4](https://github.com/royisme/BobaMixer/commit/2bd10d4e0b468434d5a79e1bb6cdd21c5f725ebb))
+* enhance init command and add end-to-end workflow testing ([8e856a4](https://github.com/royisme/BobaMixer/commit/8e856a4581d1d2ce4c64bec65a9b154fea5b4477))
+* implement Phase 1 CLI commands (providers, tools, bind, doctor) ([53392b1](https://github.com/royisme/BobaMixer/commit/53392b1bb4278bfde98aa2c827b608bd2506a217))
+* implement Phase 1.5 - OpenAI/Codex and Gemini CLI integration ([f21c337](https://github.com/royisme/BobaMixer/commit/f21c337e1487bcb28be022ea5cc4a227628671c3))
+* implement Phase 2 Part 1 - HTTP Proxy Server ([e1bd2f9](https://github.com/royisme/BobaMixer/commit/e1bd2f9e46bf3c2a4e385e1d12e1a3c6b49779d3))
+
+
+
 # [1.0.0](https://github.com/royisme/BobaMixer/compare/v1.0.19...v1.0.0) (2025-11-16)
 
 
