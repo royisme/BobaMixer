@@ -194,9 +194,11 @@ func ResolveAPIKey(provider *Provider, secrets *SecretsConfig) (string, error) {
 		}
 
 		// Fall back to secrets.yaml if env var is not set
-		secret, ok := secrets.Secrets[provider.ID]
-		if ok && secret.APIKey != "" {
-			return secret.APIKey, nil
+		if secrets != nil && secrets.Secrets != nil {
+			secret, ok := secrets.Secrets[provider.ID]
+			if ok && secret.APIKey != "" {
+				return secret.APIKey, nil
+			}
 		}
 
 		// Neither source has the key
@@ -205,6 +207,10 @@ func ResolveAPIKey(provider *Provider, secrets *SecretsConfig) (string, error) {
 
 	case APIKeySourceSecrets:
 		// Get from secrets.yaml
+		if secrets == nil || secrets.Secrets == nil {
+			return "", fmt.Errorf("%w: no secret found for provider %s",
+				ErrMissingAPIKey, provider.ID)
+		}
 		secret, ok := secrets.Secrets[provider.ID]
 		if !ok || secret.APIKey == "" {
 			return "", fmt.Errorf("%w: no secret found for provider %s",
