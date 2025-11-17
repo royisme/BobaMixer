@@ -21,6 +21,10 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	keyCtrlC = "ctrl+c"
+)
+
 // ViewMode represents different views in the TUI
 type ViewMode int
 
@@ -119,7 +123,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case keyCtrlC, "q":
 			return m, tea.Quit
 
 		case "tab":

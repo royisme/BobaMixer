@@ -14,11 +14,14 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
+const (
+	providerAnthropic = "anthropic"
+)
+
 // Handler handles HTTP proxy requests
 type Handler struct {
 	db    *sqlite.DB
 	stats *Stats
-	mu    sync.RWMutex
 }
 
 // Stats tracks proxy statistics
@@ -102,7 +105,7 @@ func (h *Handler) parseRoute(path string) (providerType, targetPath string) {
 	targetPath = "/" + parts[1]
 
 	// Validate provider type
-	if providerType != "openai" && providerType != "anthropic" {
+	if providerType != "openai" && providerType != providerAnthropic {
 		return "", ""
 	}
 
@@ -120,7 +123,7 @@ func (h *Handler) getTargetURL(r *http.Request, providerType string) string {
 	switch providerType {
 	case "openai":
 		return "https://api.openai.com"
-	case "anthropic":
+	case providerAnthropic:
 		return "https://api.anthropic.com"
 	default:
 		return ""
@@ -135,7 +138,11 @@ func (h *Handler) forwardRequest(w http.ResponseWriter, r *http.Request, targetU
 		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
 		return fmt.Errorf("read body: %w", err)
 	}
-	defer r.Body.Close()
+	defer func() {
+		if cerr := r.Body.Close(); cerr != nil {
+			h.stats.ErrorCount++
+		}
+	}()
 
 	// Build upstream URL
 	upstreamURL := targetURL + targetPath
@@ -166,7 +173,11 @@ func (h *Handler) forwardRequest(w http.ResponseWriter, r *http.Request, targetU
 		http.Error(w, "Failed to reach upstream provider", http.StatusBadGateway)
 		return fmt.Errorf("do request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			h.stats.ErrorCount++
+		}
+	}()
 
 	// Read response body
 	respBodyBytes, err := io.ReadAll(resp.Body)
@@ -253,7 +264,7 @@ func (h *Handler) updateProviderStats(providerType string) {
 	switch providerType {
 	case "openai":
 		h.stats.OpenAIRequests++
-	case "anthropic":
+	case providerAnthropic:
 		h.stats.AnthropicRequests++
 	}
 }
@@ -282,7 +293,7 @@ func (h *Handler) Stats() *Stats {
 }
 
 // handleHealth handles health check requests
-func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	stats := h.Stats()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -299,7 +310,10 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 }`, stats.TotalRequests, stats.OpenAIRequests, stats.AnthropicRequests,
 		stats.ErrorCount, stats.BytesProxied, stats.LastRequest.Format(time.RFC3339))
 
-	fmt.Fprint(w, response)
+	if _, err := fmt.Fprint(w, response); err != nil {
+		// Log error but don't fail - client may have disconnected
+		h.stats.ErrorCount++
+	}
 }
 
 // ParseProxyURL extracts the target base URL from a proxy-style URL.
@@ -321,7 +335,7 @@ func ParseProxyURL(rawURL string) (baseURL string, err error) {
 		switch providerType {
 		case "openai":
 			return "http://127.0.0.1:7777/openai", nil
-		case "anthropic":
+		case providerAnthropic:
 			return "http://127.0.0.1:7777/anthropic", nil
 		default:
 			return "", fmt.Errorf("unknown provider type: %s", providerType)

@@ -72,7 +72,10 @@ func (s *Server) Start() error {
 		return fmt.Errorf("server already running")
 	}
 
-	listener, err := net.Listen("tcp", s.addr)
+	// Use ListenConfig with context for proper context support
+	ctx := context.Background()
+	lc := net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", s.addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
 	}

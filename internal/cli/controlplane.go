@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +15,10 @@ import (
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/runner"
+)
+
+const (
+	keyCtrlC = "Ctrl+C"
 )
 
 // runProviders lists all configured providers
@@ -38,8 +43,8 @@ func runProviders(home string, _ []string) error {
 
 	// Print providers in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED")
-	_, _ = fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────")
+	fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED")
+	fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────")
 
 	for _, provider := range providers.Providers {
 		// Determine key status
@@ -64,7 +69,7 @@ func runProviders(home string, _ []string) error {
 			baseURL = baseURL[:32] + "..."
 		}
 
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			provider.ID,
 			provider.Kind,
 			provider.DisplayName,
@@ -73,7 +78,9 @@ func runProviders(home string, _ []string) error {
 			enabledStatus,
 		)
 	}
-	_ = w.Flush()
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush output: %w", err)
+	}
 
 	fmt.Println()
 	fmt.Println("✓ = Configured   ✗ = Missing   env = From environment   secrets = From secrets.yaml")
@@ -103,8 +110,8 @@ func runTools(home string, _ []string) error {
 
 	// Print tools in a table
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	_, _ = fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO")
-	_, _ = fmt.Fprintln(w, "────────────────────────────────────────────────────────────────")
+	fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO")
+	fmt.Fprintln(w, "────────────────────────────────────────────────────────────────")
 
 	for _, tool := range tools.Tools {
 		// Check if tool executable exists in PATH
@@ -119,7 +126,7 @@ func runTools(home string, _ []string) error {
 			boundTo = binding.ProviderID
 		}
 
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			tool.ID,
 			tool.Name,
 			tool.Exec,
@@ -127,7 +134,9 @@ func runTools(home string, _ []string) error {
 			boundTo,
 		)
 	}
-	_ = w.Flush()
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush output: %w", err)
+	}
 
 	return nil
 }
@@ -230,7 +239,7 @@ func runBind(home string, args []string) error {
 // runDoctorV2 runs diagnostics for the control plane configuration
 //
 //nolint:gocyclo // Comprehensive diagnostics require checking multiple components
-func runDoctorV2(home string, args []string) error {
+func runDoctorV2(home string, _ []string) error {
 	logging.Info("Running doctor (control plane)")
 
 	fmt.Println("BobaMixer Control Plane Diagnostics")
@@ -437,31 +446,44 @@ func runProxyServe(home string, _ []string) error {
 	}
 
 	fmt.Printf("✓ Proxy server started on %s\n", server.Addr())
-	fmt.Println("\nPress Ctrl+C to stop...")
+	fmt.Printf("\nPress %s to stop...\n", keyCtrlC)
 
 	// Wait for interrupt signal
 	select {}
 }
 
 // runProxyStatus shows the proxy server status
-func runProxyStatus(home string, _ []string) error {
+func runProxyStatus(_ string, _ []string) error {
 	logging.Info("Checking proxy status")
 
 	// Try to connect to the proxy to check if it's running
 	addr := proxy.DefaultAddr
-	client := &http.Client{
-		Timeout: 1 * time.Second,
-	}
+	ctx := context.Background()
 
-	// Try a simple health check (we'll add a health endpoint later)
-	resp, err := client.Get("http://" + addr + "/health")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+"/health", nil)
 	if err != nil {
 		fmt.Println("Proxy Status: ❌ Not running")
 		fmt.Printf("Address: %s\n", addr)
 		fmt.Println("\nTo start: boba proxy serve")
 		return nil
 	}
-	defer resp.Body.Close()
+
+	client := &http.Client{
+		Timeout: 1 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Proxy Status: ❌ Not running")
+		fmt.Printf("Address: %s\n", addr)
+		fmt.Println("\nTo start: boba proxy serve")
+		return nil
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			logging.Warn("failed to close response body", logging.Err(cerr))
+		}
+	}()
 
 	fmt.Println("Proxy Status: ✅ Running")
 	fmt.Printf("Address: %s\n", addr)
@@ -473,12 +495,12 @@ func runProxyStatus(home string, _ []string) error {
 }
 
 // runProxyStop stops the proxy server
-func runProxyStop(home string, _ []string) error {
+func runProxyStop(_ string, _ []string) error {
 	logging.Info("Stopping proxy server")
 
 	// For now, just inform the user
 	// In a production implementation, we'd use a PID file or similar
-	fmt.Println("To stop the proxy server, press Ctrl+C in the terminal where it's running")
+	fmt.Printf("To stop the proxy server, press %s in the terminal where it's running\n", keyCtrlC)
 	fmt.Println("Or use: killall -SIGTERM boba")
 
 	return nil

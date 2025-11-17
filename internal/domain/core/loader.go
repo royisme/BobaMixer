@@ -142,6 +142,7 @@ func SaveBindings(home string, config *BindingsConfig) error {
 func LoadSecrets(home string) (*SecretsConfig, error) {
 	path := filepath.Join(home, "secrets.yaml")
 
+	//nolint:gosec // G304: Reading from trusted config directory, path is constructed from user's home
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {

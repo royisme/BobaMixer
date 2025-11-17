@@ -96,7 +96,13 @@ func NewOnboarding(home string) (*OnboardingModel, error) {
 	theme := loadTheme(home)
 	localizer, err := NewLocalizer(GetUserLanguage())
 	if err != nil {
-		localizer, _ = NewLocalizer("en")
+		// Fallback to English - this should always succeed
+		var fallbackErr error
+		localizer, fallbackErr = NewLocalizer("en")
+		if fallbackErr != nil {
+			// If even English fails, something is seriously wrong
+			panic(fmt.Sprintf("failed to initialize localizer: %v (fallback to English also failed: %v)", err, fallbackErr))
+		}
 	}
 
 	// Create spinner for scanning
