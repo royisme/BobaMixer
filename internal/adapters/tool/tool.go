@@ -15,6 +15,7 @@ import (
 	"github.com/royisme/bobamixer/internal/adapters"
 )
 
+// Runner is an adapter that executes external command-line tools.
 type Runner struct {
 	name string
 	bin  string
@@ -30,16 +31,20 @@ type UsageEvent struct {
 	LatencyMS    int64  `json:"latency_ms"`
 }
 
+// New creates a new tool runner with the given name, binary path, and environment variables.
 func New(name, bin string, env []string) *Runner {
 	return &Runner{name: name, bin: bin, env: env, args: []string{}}
 }
 
+// NewWithArgs creates a new tool runner with additional command-line arguments.
 func NewWithArgs(name, bin string, args []string, env []string) *Runner {
 	return &Runner{name: name, bin: bin, args: args, env: env}
 }
 
+// Name returns the name of this tool runner.
 func (r *Runner) Name() string { return r.name }
 
+// Execute runs the external tool and returns the result.
 func (r *Runner) Execute(ctx context.Context, req adapters.Request) (adapters.Result, error) {
 	// Build command with args
 	// #nosec G204 -- bin and args are from tool configuration, not direct user input

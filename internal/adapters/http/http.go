@@ -15,6 +15,7 @@ import (
 	"github.com/royisme/bobamixer/internal/logging"
 )
 
+// Client is an HTTP-based adapter for communicating with AI provider APIs.
 type Client struct {
 	headers    map[string]string
 	httpClient *http.Client
@@ -34,6 +35,7 @@ type UsageResponse struct {
 	} `json:"usage"`
 }
 
+// New creates a new HTTP adapter client with the given name, endpoint, and headers.
 func New(name, endpoint string, headers map[string]string) *Client {
 	return &Client{
 		name:       name,
@@ -43,6 +45,7 @@ func New(name, endpoint string, headers map[string]string) *Client {
 	}
 }
 
+// NewWithProvider creates a new HTTP adapter client with provider-specific configuration.
 func NewWithProvider(name, provider, endpoint string, headers map[string]string) *Client {
 	return &Client{
 		name:       name,
@@ -53,8 +56,10 @@ func NewWithProvider(name, provider, endpoint string, headers map[string]string)
 	}
 }
 
+// Name returns the name of this adapter client.
 func (c *Client) Name() string { return c.name }
 
+// Execute sends an HTTP request to the configured endpoint and returns the result.
 func (c *Client) Execute(ctx context.Context, req adapters.Request) (adapters.Result, error) {
 	if c.endpoint == "" {
 		return adapters.Result{}, errors.New("endpoint not configured")

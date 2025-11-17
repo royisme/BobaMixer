@@ -159,12 +159,14 @@ func (e *Estimator) EstimatePair(input, output string) (inputTokens, outputToken
 // Confidence represents the confidence level of a token estimation
 type Confidence string
 
+// Token estimation confidence levels
 const (
 	ConfidenceHigh   Confidence = "high"   // Within 10% typically
 	ConfidenceMedium Confidence = "medium" // Within 20% typically
 	ConfidenceLow    Confidence = "low"    // Within 50% typically
 )
 
+// Estimation contains token count estimate with confidence level.
 type Estimation struct {
 	Confidence Confidence
 	Tokens     int

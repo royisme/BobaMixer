@@ -6,26 +6,30 @@ import "time"
 // SchemaVersion represents the version of the pricing schema
 const SchemaVersion = 1
 
-// PricingSchema represents the complete pricing data structure
+// PricingSchema represents the complete pricing data structure.
+//
+//nolint:revive // PricingSchema is the established API name
 type PricingSchema struct {
-	Version  int             `json:"version"`
-	Currency string          `json:"currency"`
-	Models   []ModelPricing  `json:"models"`
+	Version   int            `json:"version"`
+	Currency  string         `json:"currency"`
+	Models    []ModelPricing `json:"models"`
 	FetchedAt time.Time      `json:"fetched_at,omitempty"`
 }
 
 // ModelPricing represents comprehensive pricing information for a model
 type ModelPricing struct {
-	Provider     string        `json:"provider"`               // e.g., "openai", "anthropic"
-	ID           string        `json:"id"`                     // Unique model identifier
-	DisplayName  string        `json:"display_name,omitempty"` // Human-readable name
+	Provider      string       `json:"provider"`               // e.g., "openai", "anthropic"
+	ID            string       `json:"id"`                     // Unique model identifier
+	DisplayName   string       `json:"display_name,omitempty"` // Human-readable name
 	ContextTokens int          `json:"context_tokens,omitempty"`
-	Pricing      PricingTiers  `json:"pricing"`
-	Source       SourceMeta    `json:"source"`
+	Pricing       PricingTiers `json:"pricing"`
+	Source        SourceMeta   `json:"source"`
 }
 
-// PricingTiers contains all pricing dimensions for a model
-type PricingTiers struct {
+// PricingTiers contains all pricing dimensions for a model.
+//
+//nolint:revive // PricingTiers is the established API name
+type PricingTiers struct{
 	Token         *TokenPricing   `json:"token,omitempty"`
 	PerRequest    *RequestPricing `json:"per_request,omitempty"`
 	Image         *ImagePricing   `json:"image,omitempty"`

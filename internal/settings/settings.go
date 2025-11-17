@@ -4,7 +4,7 @@ package settings
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // Required for go:embed directives
 	"errors"
 	"fmt"
 	"os"
