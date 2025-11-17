@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,7 +12,17 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
+	"github.com/royisme/bobamixer/internal/domain/stats"
 	"github.com/royisme/bobamixer/internal/proxy"
+	"github.com/royisme/bobamixer/internal/store/sqlite"
+)
+
+// viewMode represents the current view in the dashboard
+type viewMode int
+
+const (
+	viewDashboard viewMode = iota
+	viewStats
 )
 
 // DashboardModel represents the control plane dashboard
@@ -26,10 +37,18 @@ type DashboardModel struct {
 	bindings  *core.BindingsConfig
 	secrets   *core.SecretsConfig
 
+	// Stats data
+	todayStats   stats.Summary
+	weekStats    stats.Summary
+	profileStats []stats.ProfileStats
+	statsLoaded  bool
+	statsError   string
+
 	// UI components
 	table table.Model
 
 	// State
+	currentView viewMode
 	width       int
 	height      int
 	quitting    bool
@@ -66,6 +85,7 @@ func NewDashboard(home string) (*DashboardModel, error) {
 		bindings:    bindings,
 		secrets:     secrets,
 		proxyStatus: "checking",
+		currentView: viewDashboard,
 	}
 
 	m.initializeTable()
@@ -76,6 +96,14 @@ func NewDashboard(home string) (*DashboardModel, error) {
 // proxyStatusMsg is sent when proxy status is checked
 type proxyStatusMsg struct {
 	running bool
+}
+
+// statsLoadedMsg is sent when stats are loaded
+type statsLoadedMsg struct {
+	today        stats.Summary
+	week         stats.Summary
+	profileStats []stats.ProfileStats
+	err          error
 }
 
 // checkProxyStatus checks if the proxy server is running
@@ -101,6 +129,45 @@ func checkProxyStatus() tea.Msg {
 	}()
 
 	return proxyStatusMsg{running: resp.StatusCode == http.StatusOK}
+}
+
+// loadStatsData loads usage statistics from the database
+func (m *DashboardModel) loadStatsData() tea.Msg {
+	dbPath := filepath.Join(m.home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return statsLoadedMsg{err: err}
+	}
+
+	ctx := context.Background()
+
+	// Load today's stats
+	today, err := stats.Today(ctx, db)
+	if err != nil {
+		return statsLoadedMsg{err: fmt.Errorf("load today stats: %w", err)}
+	}
+
+	// Load 7-day stats
+	to := time.Now()
+	from := to.AddDate(0, 0, -7)
+	week, err := stats.Window(ctx, db, from, to)
+	if err != nil {
+		return statsLoadedMsg{err: fmt.Errorf("load week stats: %w", err)}
+	}
+
+	// Load profile stats
+	analyzer := stats.NewAnalyzer(db)
+	profileStats, err := analyzer.GetProfileStats(7)
+	if err != nil {
+		// Don't fail if profile stats can't be loaded
+		profileStats = []stats.ProfileStats{}
+	}
+
+	return statsLoadedMsg{
+		today:        today,
+		week:         week,
+		profileStats: profileStats,
+	}
 }
 
 // initializeTable sets up the table with current data
@@ -221,11 +288,15 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 
 // Init initializes the dashboard
 func (m DashboardModel) Init() tea.Cmd {
-	// Check proxy status on startup
-	return checkProxyStatus
+	// Check proxy status on startup and load stats
+	return tea.Batch(
+		checkProxyStatus,
+		m.loadStatsData,
+	)
 }
 
 // Update handles messages
+//nolint:gocyclo // UI event handlers are inherently complex
 func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -239,15 +310,41 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case statsLoadedMsg:
+		// Update stats data
+		if msg.err != nil {
+			m.statsError = msg.err.Error()
+		} else {
+			m.todayStats = msg.today
+			m.weekStats = msg.week
+			m.profileStats = msg.profileStats
+			m.statsLoaded = true
+			m.statsError = ""
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			m.quitting = true
 			return m, tea.Quit
 
+		case "v", "tab":
+			// Toggle between dashboard and stats view
+			if m.currentView == viewDashboard {
+				m.currentView = viewStats
+				// Reload stats when switching to stats view
+				return m, m.loadStatsData
+			}
+			m.currentView = viewDashboard
+			return m, nil
+
 		case "r":
-			// Run selected tool
-			return m.handleRun()
+			// Run selected tool (only in dashboard view)
+			if m.currentView == viewDashboard {
+				return m.handleRun()
+			}
+			return m, nil
 
 		case "b":
 			// Change binding (placeholder for now)
@@ -255,8 +352,11 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "x":
-			// Toggle proxy for selected tool
-			return m.handleToggleProxy()
+			// Toggle proxy for selected tool (only in dashboard view)
+			if m.currentView == viewDashboard {
+				return m.handleToggleProxy()
+			}
+			return m, nil
 
 		case "s":
 			// Check proxy status
@@ -280,8 +380,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Update table
-	m.table, cmd = m.table.Update(msg)
+	// Update table (only in dashboard view)
+	if m.currentView == viewDashboard {
+		m.table, cmd = m.table.Update(msg)
+	}
 	return m, cmd
 }
 
@@ -382,6 +484,16 @@ func (m DashboardModel) View() string {
 		return ""
 	}
 
+	switch m.currentView {
+	case viewStats:
+		return m.renderStatsView()
+	default:
+		return m.renderDashboardView()
+	}
+}
+
+// renderDashboardView renders the main dashboard view
+func (m DashboardModel) renderDashboardView() string {
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary).
@@ -431,7 +543,102 @@ func (m DashboardModel) View() string {
 	}
 
 	// Footer/Help
-	helpText := "[R] Run  [X] Toggle Proxy  [S] Check Proxy  [P] Providers  [?] Help  [Q] Quit"
+	helpText := "[V] Stats  [R] Run  [X] Toggle Proxy  [S] Check Proxy  [P] Providers  [?] Help  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderStatsView renders the usage statistics view
+func (m DashboardModel) renderStatsView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	sectionStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	dataStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 2)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	errorStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Danger).
+		Padding(0, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Usage Statistics"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Check if stats are loaded
+	if !m.statsLoaded {
+		if m.statsError != "" {
+			content.WriteString(errorStyle.Render(fmt.Sprintf("Error loading stats: %s", m.statsError)))
+		} else {
+			content.WriteString(dataStyle.Render("Loading stats..."))
+		}
+		content.WriteString("\n\n")
+		helpText := "[V] Back to Dashboard  [Q] Quit"
+		content.WriteString(helpStyle.Render(helpText))
+		return content.String()
+	}
+
+	// Today's Stats
+	content.WriteString(sectionStyle.Render("📅 Today's Usage"))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Tokens:   %d", m.todayStats.TotalTokens)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Cost:     $%.4f", m.todayStats.TotalCost)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Sessions: %d", m.todayStats.TotalSessions)))
+	content.WriteString("\n\n")
+
+	// Last 7 Days Stats
+	content.WriteString(sectionStyle.Render("📊 Last 7 Days"))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Total Tokens:   %d", m.weekStats.TotalTokens)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Total Cost:     $%.4f", m.weekStats.TotalCost)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Total Sessions: %d", m.weekStats.TotalSessions)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Avg Daily Tokens: %.0f", m.weekStats.AvgDailyTokens)))
+	content.WriteString("\n")
+	content.WriteString(dataStyle.Render(fmt.Sprintf("  Avg Daily Cost:   $%.4f", m.weekStats.AvgDailyCost)))
+	content.WriteString("\n\n")
+
+	// Profile Breakdown
+	if len(m.profileStats) > 0 {
+		content.WriteString(sectionStyle.Render("🎯 By Profile (7d)"))
+		content.WriteString("\n")
+		for _, ps := range m.profileStats {
+			line := fmt.Sprintf("  • %s: tokens=%d cost=$%.4f sessions=%d latency=%.0fms usage=%.1f%% cost=%.1f%%",
+				ps.ProfileName,
+				ps.TotalTokens,
+				ps.TotalCost,
+				ps.SessionCount,
+				ps.AvgLatencyMS,
+				ps.UsagePercent,
+				ps.CostPercent,
+			)
+			content.WriteString(dataStyle.Render(line))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	// Footer/Help
+	helpText := "[V] Back to Dashboard  [S] Refresh  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
