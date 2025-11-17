@@ -11,10 +11,12 @@ import (
 
 const schemaVersion = 3
 
+// DB represents a SQLite database connection using the sqlite3 CLI.
 type DB struct {
 	Path string
 }
 
+// Open creates and initializes a SQLite database at the specified path.
 func Open(path string) (*DB, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -36,12 +38,14 @@ func (db *DB) ensureFile() error {
 	return cmd.Run()
 }
 
+// Exec executes a SQL statement against the database.
 func (db *DB) Exec(query string) error {
 	// #nosec G204 -- db.Path is from safe home directory structure
 	cmd := exec.CommandContext(context.Background(), "sqlite3", db.Path, query)
 	return cmd.Run()
 }
 
+// QueryRow executes a query and returns the first row as a string.
 func (db *DB) QueryRow(query string) (string, error) {
 	rows, err := db.QueryRows(query)
 	if err != nil {
@@ -69,6 +73,7 @@ func (db *DB) QueryRows(query string) ([]string, error) {
 	return parts, nil
 }
 
+// QueryInt executes a query and returns the first row parsed as an integer.
 func (db *DB) QueryInt(query string) (int, error) {
 	out, err := db.QueryRow(query)
 	if err != nil {

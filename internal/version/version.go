@@ -9,6 +9,7 @@ import (
 // Version information
 const defaultVersion = "dev"
 
+// Version is the current version, set during build.
 var (
 	Version = defaultVersion // Version is set during build
 	Commit  = "unknown"      // Commit hash is set during build
@@ -16,7 +17,9 @@ var (
 	BuiltBy = "unknown"      // Builder information
 )
 
-// VersionInfo holds all version information
+// VersionInfo holds all version information.
+//
+//nolint:revive // VersionInfo is the established API name
 type VersionInfo struct {
 	Version string
 	Commit  string
