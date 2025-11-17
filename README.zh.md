@@ -9,7 +9,6 @@
 
 [**📚 中文文档**](https://royisme.github.io/BobaMixer/zh/) | [**🚀 快速开始**](#快速开始) | [**English**](README.md)
 
-**架构基准**: [spec/boba-control-plane.md](spec/boba-control-plane.md) — 控制平面和 `boba run` 行为的规范文档。
 
 ---
 
