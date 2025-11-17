@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/royisme/bobamixer/internal/domain/budget"
 	"github.com/royisme/bobamixer/internal/domain/pricing"
+	"github.com/royisme/bobamixer/internal/domain/routing"
 	"github.com/royisme/bobamixer/internal/logging"
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
@@ -29,6 +31,7 @@ type Handler struct {
 	stats         *Stats
 	pricingTable  *pricing.Table
 	budgetTracker *budget.Tracker
+	routingEngine *routing.Engine
 	mu            sync.RWMutex
 }
 
@@ -74,11 +77,18 @@ func NewHandler(dbPath string) (*Handler, error) {
 	// Initialize budget tracker
 	budgetTracker := budget.NewTracker(db)
 
+	// Initialize routing engine (optional, for future use)
+	// This allows for dynamic routing based on request content
+	var routingEngine *routing.Engine
+	// Note: Routing engine initialization would load routes.yaml here
+	// For now, we keep it nil and use URL-based routing
+
 	return &Handler{
 		db:            db,
 		stats:         &Stats{},
 		pricingTable:  pricingTable,
 		budgetTracker: budgetTracker,
+		routingEngine: routingEngine,
 	}, nil
 }
 
@@ -87,6 +97,79 @@ func (h *Handler) SetPricingTable(table *pricing.Table) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pricingTable = table
+}
+
+// SetRoutingEngine updates the routing engine
+func (h *Handler) SetRoutingEngine(engine *routing.Engine) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.routingEngine = engine
+}
+
+// evaluateRouting evaluates routing decision for logging purposes
+// This is currently used for debugging and future unified endpoint support
+func (h *Handler) evaluateRouting(reqBody []byte) *routing.RoutingDecision {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if h.routingEngine == nil {
+		return nil
+	}
+
+	// Extract features from request
+	var req map[string]interface{}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		return nil
+	}
+
+	// Build routing features
+	features := routing.Features{
+		Intent:     "api_request",
+		TextSample: extractTextSample(req),
+		CtxChars:   len(reqBody),
+	}
+
+	// Execute routing
+	decision, trace, err := h.routingEngine.Match(context.Background(), features)
+	if err != nil {
+		logging.Warn("Routing evaluation failed", logging.Err(err))
+		return nil
+	}
+
+	// Log routing decision for debugging
+	if trace.Matched {
+		logging.Info("Routing decision",
+			logging.String("profile", decision.Profile),
+			logging.String("rule_id", trace.RuleID),
+			logging.String("explain", trace.Explain),
+			logging.Bool("explore", decision.Explore))
+	}
+
+	return decision
+}
+
+// extractTextSample extracts a text sample from the request for routing
+func extractTextSample(req map[string]interface{}) string {
+	// Try to extract from common fields
+	if messages, ok := req["messages"].([]interface{}); ok && len(messages) > 0 {
+		if msg, ok := messages[0].(map[string]interface{}); ok {
+			if content, ok := msg["content"].(string); ok {
+				if len(content) > 200 {
+					return content[:200]
+				}
+				return content
+			}
+		}
+	}
+
+	if prompt, ok := req["prompt"].(string); ok {
+		if len(prompt) > 200 {
+			return prompt[:200]
+		}
+		return prompt
+	}
+
+	return ""
 }
 
 // ServeHTTP implements http.Handler
@@ -191,6 +274,10 @@ func (h *Handler) forwardRequest(w http.ResponseWriter, r *http.Request, targetU
 		logging.Warn("Budget check failed", logging.String("error", err.Error()))
 		return fmt.Errorf("budget check: %w", err)
 	}
+
+	// Evaluate routing (for debugging and future use)
+	// Currently logs routing decisions but doesn't change behavior
+	h.evaluateRouting(bodyBytes)
 
 	// Build upstream URL
 	upstreamURL := targetURL + targetPath
