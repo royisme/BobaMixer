@@ -37,6 +37,18 @@ const (
 	viewHelp
 )
 
+// UI constants for repeated strings
+const (
+	proxyStatusRunning  = "running"
+	proxyStatusStopped  = "stopped"
+	proxyStatusChecking = "checking"
+	iconCircleFilled    = "●"
+	iconCircleEmpty     = "○"
+	iconCheckmark       = "✓"
+	iconCross           = "✗"
+	helpTextNavigation  = "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
+)
+
 // DashboardModel represents the control plane dashboard
 type DashboardModel struct {
 	home      string
@@ -60,9 +72,6 @@ type DashboardModel struct {
 	suggestions      []suggestions.Suggestion
 	suggestionsError string
 
-	// Routing test input
-	routingTestInput string
-
 	// UI components
 	table table.Model
 
@@ -72,7 +81,7 @@ type DashboardModel struct {
 	width         int
 	height        int
 	quitting      bool
-	proxyStatus   string // "running", "stopped", "checking"
+	proxyStatus   string // proxyStatusRunning, proxyStatusStopped, proxyStatusChecking
 	message       string // Status message to display
 }
 
@@ -104,7 +113,7 @@ func NewDashboard(home string) (*DashboardModel, error) {
 		tools:       tools,
 		bindings:    bindings,
 		secrets:     secrets,
-		proxyStatus: "checking",
+		proxyStatus: proxyStatusChecking,
 		currentView: viewDashboard,
 	}
 
@@ -325,9 +334,9 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case proxyStatusMsg:
 		// Update proxy status based on check
 		if msg.running {
-			m.proxyStatus = "running"
+			m.proxyStatus = proxyStatusRunning
 		} else {
-			m.proxyStatus = "stopped"
+			m.proxyStatus = proxyStatusStopped
 		}
 		return m, nil
 
@@ -416,11 +425,12 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Cycle through views
 			m.currentView = (m.currentView + 1) % 13
 			m.selectedIndex = 0
-			if m.currentView == viewStats {
+			switch m.currentView {
+			case viewStats:
 				return m, m.loadStatsData
-			} else if m.currentView == viewProxy {
+			case viewProxy:
 				return m, checkProxyStatus
-			} else if m.currentView == viewSuggestions {
+			case viewSuggestions:
 				return m, m.loadSuggestions
 			}
 			return m, nil
@@ -446,7 +456,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "s":
 			// Check proxy status
-			m.proxyStatus = "checking"
+			m.proxyStatus = proxyStatusChecking
 			return m, checkProxyStatus
 
 		case "p":
@@ -658,14 +668,14 @@ func (m DashboardModel) renderDashboardView() string {
 	content.WriteString(titleStyle.Render(title))
 
 	// Proxy status
-	proxyStatusIcon := "○"
+	proxyStatusIcon := iconCircleEmpty
 	proxyStatusText := "Checking..."
 	switch m.proxyStatus {
-	case "running":
-		proxyStatusIcon = "●"
+	case proxyStatusRunning:
+		proxyStatusIcon = iconCircleFilled
 		proxyStatusText = "Running"
-	case "stopped":
-		proxyStatusIcon = "○"
+	case proxyStatusStopped:
+		proxyStatusIcon = iconCircleEmpty
 		proxyStatusText = "Stopped"
 	}
 	proxyInfo := fmt.Sprintf("  Proxy: %s %s", proxyStatusIcon, proxyStatusText)
@@ -832,9 +842,9 @@ func (m DashboardModel) renderProvidersView() string {
 	} else {
 		for i, provider := range m.providers.Providers {
 			// Status indicators
-			enabledIcon := "✓"
+			enabledIcon := iconCheckmark
 			if !provider.Enabled {
-				enabledIcon = "✗"
+				enabledIcon = iconCross
 			}
 
 			// Check if API key is configured
@@ -881,8 +891,7 @@ func (m DashboardModel) renderProvidersView() string {
 	}
 
 	// Footer/Help
-	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
-	content.WriteString(helpStyle.Render(helpText))
+	content.WriteString(helpStyle.Render(helpTextNavigation))
 
 	return content.String()
 }
@@ -935,9 +944,9 @@ func (m DashboardModel) renderToolsView() string {
 	} else {
 		for i, tool := range m.tools.Tools {
 			// Check if tool has a binding
-			boundIcon := "○"
+			boundIcon := iconCircleEmpty
 			if _, err := m.bindings.FindBinding(tool.ID); err == nil {
-				boundIcon = "●"
+				boundIcon = iconCircleFilled
 			}
 
 			line := fmt.Sprintf("  %s %-15s %-30s %s",
@@ -977,8 +986,7 @@ func (m DashboardModel) renderToolsView() string {
 	}
 
 	// Footer/Help
-	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
-	content.WriteString(helpStyle.Render(helpText))
+	content.WriteString(helpStyle.Render(helpTextNavigation))
 
 	return content.String()
 }
@@ -1043,9 +1051,9 @@ func (m DashboardModel) renderBindingsView() string {
 			}
 
 			// Proxy status
-			proxyIcon := "○"
+			proxyIcon := iconCircleEmpty
 			if binding.UseProxy {
-				proxyIcon = "●"
+				proxyIcon = iconCircleFilled
 			}
 
 			line := fmt.Sprintf("  %-15s → %-25s  Proxy: %s",
@@ -1156,11 +1164,11 @@ func (m DashboardModel) renderSecretsView() string {
 			var statusIcon, statusText string
 			var keyStatusStyle lipgloss.Style
 			if hasKey {
-				statusIcon = "✓"
+				statusIcon = iconCheckmark
 				statusText = "Configured"
 				keyStatusStyle = successStyle
 			} else {
-				statusIcon = "✗"
+				statusIcon = iconCross
 				statusText = "Missing"
 				keyStatusStyle = dangerStyle
 			}
@@ -1197,8 +1205,7 @@ func (m DashboardModel) renderSecretsView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
-	content.WriteString(helpStyle.Render(helpText))
+	content.WriteString(helpStyle.Render(helpTextNavigation))
 
 	return content.String()
 }
@@ -1246,12 +1253,12 @@ func (m DashboardModel) renderProxyView() string {
 	var statusIcon, statusText string
 
 	switch m.proxyStatus {
-	case "running":
-		statusIcon = "●"
+	case proxyStatusRunning:
+		statusIcon = iconCircleFilled
 		statusText = "Running"
 		statusStyle = successStyle
-	case "stopped":
-		statusIcon = "○"
+	case proxyStatusStopped:
+		statusIcon = iconCircleEmpty
 		statusText = "Stopped"
 		statusStyle = dangerStyle
 	default:
@@ -1274,7 +1281,7 @@ func (m DashboardModel) renderProxyView() string {
 	content.WriteString("\n\n")
 
 	// Usage
-	if m.proxyStatus == "running" {
+	if m.proxyStatus == proxyStatusRunning {
 		content.WriteString(headerStyle.Render("📝 Configuration"))
 		content.WriteString("\n")
 		content.WriteString(normalStyle.Render("  Tools with proxy enabled will automatically use:"))
@@ -1287,7 +1294,7 @@ func (m DashboardModel) renderProxyView() string {
 
 	// Footer/Help
 	var helpText string
-	if m.proxyStatus == "running" {
+	if m.proxyStatus == proxyStatusRunning {
 		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit"
 	} else {
 		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit\n  Note: Use 'boba proxy serve' in terminal to start the proxy server"
@@ -1668,10 +1675,10 @@ func (m DashboardModel) renderHooksView() string {
 		var statusIcon string
 		if hook.active {
 			statusStyle = successStyle
-			statusIcon = "✓"
+			statusIcon = iconCheckmark
 		} else {
 			statusStyle = dangerStyle
-			statusIcon = "✗"
+			statusIcon = iconCross
 		}
 
 		content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", hook.name)))
