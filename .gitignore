@@ -45,6 +45,8 @@ CLAUDE.md
 GEMINI.md
 .serena/
 .claude/
+.agent/
+
 # VitePress
 docs/.vitepress/dist
 docs/.vitepress/cache
