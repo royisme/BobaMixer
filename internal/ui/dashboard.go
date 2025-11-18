@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/domain/stats"
+	"github.com/royisme/bobamixer/internal/domain/suggestions"
 	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
@@ -27,6 +28,9 @@ const (
 	viewBindings
 	viewSecrets
 	viewStats
+	viewProxy
+	viewRouting
+	viewSuggestions
 )
 
 // DashboardModel represents the control plane dashboard
@@ -47,6 +51,13 @@ type DashboardModel struct {
 	profileStats []stats.ProfileStats
 	statsLoaded  bool
 	statsError   string
+
+	// Suggestions data
+	suggestions      []suggestions.Suggestion
+	suggestionsError string
+
+	// Routing test input
+	routingTestInput string
 
 	// UI components
 	table table.Model
@@ -367,12 +378,31 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Reload stats when switching to stats view
 			return m, m.loadStatsData
 
+		case "7":
+			m.currentView = viewProxy
+			m.selectedIndex = 0
+			return m, checkProxyStatus
+
+		case "8":
+			m.currentView = viewRouting
+			m.selectedIndex = 0
+			return m, nil
+
+		case "9":
+			m.currentView = viewSuggestions
+			m.selectedIndex = 0
+			return m, m.loadSuggestions
+
 		case "tab":
 			// Cycle through views
-			m.currentView = (m.currentView + 1) % 6
+			m.currentView = (m.currentView + 1) % 9
 			m.selectedIndex = 0
 			if m.currentView == viewStats {
 				return m, m.loadStatsData
+			} else if m.currentView == viewProxy {
+				return m, checkProxyStatus
+			} else if m.currentView == viewSuggestions {
+				return m, m.loadSuggestions
 			}
 			return m, nil
 
@@ -428,6 +458,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				maxIndex = len(m.bindings.Bindings) - 1
 			case viewSecrets:
 				maxIndex = len(m.providers.Providers) - 1 // Secrets are per-provider
+			case viewSuggestions:
+				maxIndex = len(m.suggestions) - 1
 			}
 			if m.currentView != viewDashboard && m.selectedIndex < maxIndex {
 				m.selectedIndex++
@@ -557,6 +589,12 @@ func (m DashboardModel) View() string {
 		return m.renderSecretsView()
 	case viewStats:
 		return m.renderStatsView()
+	case viewProxy:
+		return m.renderProxyView()
+	case viewRouting:
+		return m.renderRoutingView()
+	case viewSuggestions:
+		return m.renderSuggestionsView()
 	default:
 		return m.renderDashboardView()
 	}
@@ -613,7 +651,7 @@ func (m DashboardModel) renderDashboardView() string {
 	}
 
 	// Footer/Help
-	helpText := "[1] Dashboard [2] Providers [3] Tools [4] Bindings [5] Secrets [6] Stats  [R] Run  [X] Toggle Proxy  [Tab] Next  [Q] Quit"
+	helpText := "[1-9] Views: Dashboard|Providers|Tools|Bindings|Secrets|Stats|Proxy|Routing|Suggestions  [R] Run  [X] Proxy  [Tab] Next  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1131,6 +1169,344 @@ func (m DashboardModel) renderSecretsView() string {
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
+}
+
+// renderProxyView renders the proxy server control panel
+func (m DashboardModel) renderProxyView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	successStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Success).
+		Padding(0, 1)
+
+	dangerStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Danger).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Proxy Server Control"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Proxy status section
+	content.WriteString(headerStyle.Render("🌐 Proxy Status"))
+	content.WriteString("\n\n")
+
+	var statusStyle lipgloss.Style
+	var statusIcon, statusText string
+
+	switch m.proxyStatus {
+	case "running":
+		statusIcon = "●"
+		statusText = "Running"
+		statusStyle = successStyle
+	case "stopped":
+		statusIcon = "○"
+		statusText = "Stopped"
+		statusStyle = dangerStyle
+	default:
+		statusIcon = "⋯"
+		statusText = "Checking..."
+		statusStyle = normalStyle
+	}
+
+	content.WriteString(normalStyle.Render(fmt.Sprintf("  Status:   %s", statusStyle.Render(statusIcon+" "+statusText))))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render(fmt.Sprintf("  Address:  %s", proxy.DefaultAddr)))
+	content.WriteString("\n\n")
+
+	// Information section
+	content.WriteString(headerStyle.Render("ℹ️  Information"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  The proxy server intercepts AI API requests from CLI tools"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  and routes them through BobaMixer for tracking and control."))
+	content.WriteString("\n\n")
+
+	// Usage
+	if m.proxyStatus == "running" {
+		content.WriteString(headerStyle.Render("📝 Configuration"))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render("  Tools with proxy enabled will automatically use:"))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  • HTTP_PROXY=%s", proxy.DefaultAddr)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  • HTTPS_PROXY=%s", proxy.DefaultAddr)))
+		content.WriteString("\n\n")
+	}
+
+	// Footer/Help
+	var helpText string
+	if m.proxyStatus == "running" {
+		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit"
+	} else {
+		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit\n  Note: Use 'boba proxy serve' in terminal to start the proxy server"
+	}
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderRoutingView renders the routing rules tester
+func (m DashboardModel) renderRoutingView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Routing Rules Tester"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Description
+	content.WriteString(headerStyle.Render("🧪 Test Routing Rules"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  Test how routing rules would apply to different queries."))
+	content.WriteString("\n\n")
+
+	// Example usage
+	content.WriteString(headerStyle.Render("💡 How to Use"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  1. Prepare a test query (text or file)"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  2. Run: boba route test \"your query text\""))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  3. Or: boba route test @path/to/file.txt"))
+	content.WriteString("\n\n")
+
+	// Example
+	content.WriteString(headerStyle.Render("📋 Example"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  $ boba route test \"Write a Python function\""))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  → Profile: claude-sonnet-3.5"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  → Rule: short-query-fast-model"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  → Reason: Query < 100 chars"))
+	content.WriteString("\n\n")
+
+	// Info
+	content.WriteString(headerStyle.Render("ℹ️  Context Detection"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  Routing considers:"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Query length and complexity"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Current project and branch"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Time of day (day/evening/night)"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Project type (go, web, etc.)"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "[1-9] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba route test <text|@file>"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderSuggestionsView renders the optimization suggestions view
+func (m DashboardModel) renderSuggestionsView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Background(m.theme.Primary).
+		Bold(true).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	warningStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Warning).
+		Padding(0, 1)
+
+	dangerStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Danger).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Optimization Suggestions"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Check for errors
+	if m.suggestionsError != "" {
+		content.WriteString(dangerStyle.Render(fmt.Sprintf("  Error: %s", m.suggestionsError)))
+		content.WriteString("\n\n")
+		helpText := "[1-9] Switch View  [R] Retry  [Tab] Next View  [Q] Quit"
+		content.WriteString(helpStyle.Render(helpText))
+		return content.String()
+	}
+
+	// Section header
+	content.WriteString(headerStyle.Render("💡 Recommendations (Last 7 Days)"))
+	content.WriteString("\n\n")
+
+	// Suggestions list
+	if len(m.suggestions) == 0 {
+		content.WriteString(mutedStyle.Render("  ✓ No suggestions - your usage is optimized!"))
+		content.WriteString("\n")
+	} else {
+		for i, sugg := range m.suggestions {
+			// Priority indicator
+			var priorityStyle lipgloss.Style
+			var priorityIcon string
+			switch sugg.Priority {
+			case 5:
+				priorityStyle = dangerStyle
+				priorityIcon = "🔴"
+			case 4:
+				priorityStyle = warningStyle
+				priorityIcon = "🟠"
+			case 3:
+				priorityStyle = normalStyle
+				priorityIcon = "🟡"
+			default:
+				priorityStyle = mutedStyle
+				priorityIcon = "🟢"
+			}
+
+			// Type icon
+			var typeIcon string
+			switch sugg.Type {
+			case suggestions.SuggestionCostOptimization:
+				typeIcon = "💰"
+			case suggestions.SuggestionProfileSwitch:
+				typeIcon = "🔄"
+			case suggestions.SuggestionBudgetAdjust:
+				typeIcon = "📊"
+			case suggestions.SuggestionAnomaly:
+				typeIcon = "⚠️ "
+			default:
+				typeIcon = "📈"
+			}
+
+			line := fmt.Sprintf("  %s %s [P%d] %s",
+				priorityIcon,
+				typeIcon,
+				sugg.Priority,
+				sugg.Title,
+			)
+
+			if i == m.selectedIndex {
+				content.WriteString(selectedStyle.Render("▶ "+line))
+			} else {
+				content.WriteString(priorityStyle.Render(line))
+			}
+			content.WriteString("\n")
+		}
+
+		// Selected suggestion details
+		if m.selectedIndex < len(m.suggestions) {
+			sugg := m.suggestions[m.selectedIndex]
+			content.WriteString("\n")
+			content.WriteString(headerStyle.Render("Details"))
+			content.WriteString("\n")
+			content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", sugg.Description)))
+			content.WriteString("\n")
+			content.WriteString(normalStyle.Render(fmt.Sprintf("  Impact: %s", sugg.Impact)))
+			content.WriteString("\n\n")
+
+			if len(sugg.ActionItems) > 0 {
+				content.WriteString(headerStyle.Render("Recommended Actions"))
+				content.WriteString("\n")
+				for idx, action := range sugg.ActionItems {
+					content.WriteString(normalStyle.Render(fmt.Sprintf("  %d. %s", idx+1, action)))
+					content.WriteString("\n")
+				}
+			}
+		}
+	}
+
+	content.WriteString("\n")
+
+	// Footer/Help
+	helpText := "[1-9] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba action [--auto] to apply suggestions"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// loadSuggestions loads optimization suggestions
+func (m *DashboardModel) loadSuggestions() tea.Msg {
+	dbPath := filepath.Join(m.home, "usage.db")
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		m.suggestionsError = err.Error()
+		return nil
+	}
+
+	engine := suggestions.NewEngine(db)
+	suggs, err := engine.GenerateSuggestions(7)
+	if err != nil {
+		m.suggestionsError = err.Error()
+		return nil
+	}
+
+	m.suggestions = suggs
+	m.suggestionsError = ""
+	return nil
 }
 
 // RunDashboard starts the dashboard TUI
