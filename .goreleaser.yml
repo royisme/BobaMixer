@@ -66,31 +66,33 @@ changelog:
       regexp: "^.*fix[(\\w)]*:+.*$"
     - title: Others
 
-# GoReleaser v2 cask config (recommended for v2)
-casks:
+# Homebrew Casks configuration
+homebrew_casks:
   - name: bobamixer
-    directory: Casks
-    homepage: "https://github.com/royisme/BobaMixer"
-    description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
-    license: MIT
     ids:
       - default
     repository:
       owner: royisme
       name: homebrew-tap
+    directory: Casks
+    homepage: "https://github.com/royisme/BobaMixer"
+    description: "CLI tool for managing multiple AI providers with intelligent routing and cost tracking"
+    license: MIT
     commit_author:
       name: royisme
       email: imroybox@gmail.com
     
-    # Map binary: source file "boba" will be installed as "bobamixer" command
-    binary: boba
-    target: bobamixer
+    # Specify binaries - maps "boba" to "bobamixer" command
+    binaries:
+      - boba:bobamixer
     
-    # Helps pass homebrew audit
-    url_template: "https://github.com/royisme/BobaMixer/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-    
-    # Remove macOS quarantine attribute to avoid "unidentified developer" warnings
-    postflight: |
-      if OS.mac?
-        system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/boba"]
-      end
+    url:
+      template: "https://github.com/royisme/BobaMixer/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+      verified: "github.com/royisme/BobaMixer"
+    hooks:
+      post:
+        # replace foo with the actual binary name
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/bobamixer"]
+          end
