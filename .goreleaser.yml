@@ -8,7 +8,7 @@ before:
 builds:
   - id: boba
     main: ./cmd/boba
-    binary: boba
+    binary: bobamixer
     env:
       - CGO_ENABLED=0
     goos:
@@ -81,10 +81,10 @@ homebrew_casks:
     commit_author:
       name: royisme
       email: imroybox@gmail.com
-    
-    # Specify binaries - maps "boba" to "bobamixer" command
+
+    # Specify binaries to install
     binaries:
-      - boba:bobamixer
+      - bobamixer
     
     url:
       template: "https://github.com/royisme/BobaMixer/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
