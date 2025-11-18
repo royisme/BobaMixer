@@ -39,14 +39,16 @@ const (
 
 // UI constants for repeated strings
 const (
-	proxyStatusRunning  = "running"
-	proxyStatusStopped  = "stopped"
-	proxyStatusChecking = "checking"
-	iconCircleFilled    = "●"
-	iconCircleEmpty     = "○"
-	iconCheckmark       = "✓"
-	iconCross           = "✗"
-	helpTextNavigation  = "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
+        proxyStatusRunning  = "running"
+        proxyStatusStopped  = "stopped"
+        proxyStatusChecking = "checking"
+        proxyStateOn        = "ON"
+        proxyStateOff       = "OFF"
+        iconCircleFilled    = "●"
+        iconCircleEmpty     = "○"
+        iconCheckmark       = "✓"
+        iconCross           = "✗"
+        helpTextNavigation  = "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
 )
 
 const totalViews viewMode = viewHelp + 1
@@ -327,10 +329,10 @@ func (m *DashboardModel) buildTableRows() []table.Row {
 		}
 
 		// Proxy status
-		proxyStatus := "OFF"
-		if binding.UseProxy {
-			proxyStatus = "ON"
-		}
+                proxyStatus := proxyStateOff
+                if binding.UseProxy {
+                        proxyStatus = proxyStateOn
+                }
 
 		rows = append(rows, table.Row{
 			tool.Name,
@@ -655,11 +657,11 @@ func (m DashboardModel) handleToggleProxy() (tea.Model, tea.Cmd) {
 	m.table.SetRows(m.buildTableRows())
 
 	// Set success message
-	proxyState := "OFF"
-	if binding.UseProxy {
-		proxyState = "ON"
-	}
-	m.message = fmt.Sprintf("Proxy %s for %s", proxyState, tool.Name)
+        proxyState := proxyStateOff
+        if binding.UseProxy {
+                proxyState = proxyStateOn
+        }
+        m.message = fmt.Sprintf("Proxy %s for %s", proxyState, tool.Name)
 
 	return m, nil
 }
@@ -690,10 +692,10 @@ func (m DashboardModel) handleToggleBindingProxy() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	proxyState := "OFF"
-	if binding.UseProxy {
-		proxyState = "ON"
-	}
+        proxyState := proxyStateOff
+        if binding.UseProxy {
+                proxyState = proxyStateOn
+        }
 
 	// Update dashboard table rows to keep views consistent
 	m.table.SetRows(m.buildTableRows())
