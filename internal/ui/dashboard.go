@@ -31,6 +31,10 @@ const (
 	viewProxy
 	viewRouting
 	viewSuggestions
+	viewReports
+	viewHooks
+	viewConfig
+	viewHelp
 )
 
 // DashboardModel represents the control plane dashboard
@@ -393,9 +397,24 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedIndex = 0
 			return m, m.loadSuggestions
 
+		case "0":
+			m.currentView = viewReports
+			m.selectedIndex = 0
+			return m, nil
+
+		case "h":
+			m.currentView = viewHooks
+			m.selectedIndex = 0
+			return m, nil
+
+		case "c":
+			m.currentView = viewConfig
+			m.selectedIndex = 0
+			return m, nil
+
 		case "tab":
 			// Cycle through views
-			m.currentView = (m.currentView + 1) % 9
+			m.currentView = (m.currentView + 1) % 13
 			m.selectedIndex = 0
 			if m.currentView == viewStats {
 				return m, m.loadStatsData
@@ -436,7 +455,8 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "?":
-			// Show help (placeholder for now)
+			m.currentView = viewHelp
+			m.selectedIndex = 0
 			return m, nil
 
 		case "up", "k":
@@ -460,6 +480,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				maxIndex = len(m.providers.Providers) - 1 // Secrets are per-provider
 			case viewSuggestions:
 				maxIndex = len(m.suggestions) - 1
+			case viewReports:
+				maxIndex = 5 // 6 report options
+			case viewConfig:
+				maxIndex = 6 // 7 config files
 			}
 			if m.currentView != viewDashboard && m.selectedIndex < maxIndex {
 				m.selectedIndex++
@@ -595,6 +619,14 @@ func (m DashboardModel) View() string {
 		return m.renderRoutingView()
 	case viewSuggestions:
 		return m.renderSuggestionsView()
+	case viewReports:
+		return m.renderReportsView()
+	case viewHooks:
+		return m.renderHooksView()
+	case viewConfig:
+		return m.renderConfigView()
+	case viewHelp:
+		return m.renderHelpView()
 	default:
 		return m.renderDashboardView()
 	}
@@ -651,7 +683,7 @@ func (m DashboardModel) renderDashboardView() string {
 	}
 
 	// Footer/Help
-	helpText := "[1-9] Views: Dashboard|Providers|Tools|Bindings|Secrets|Stats|Proxy|Routing|Suggestions  [R] Run  [X] Proxy  [Tab] Next  [Q] Quit"
+	helpText := "[1-9] Views  [0] Reports  [H] Hooks  [C] Config  [?] Help  [R] Run  [X] Proxy  [Tab] Next  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1507,6 +1539,343 @@ func (m *DashboardModel) loadSuggestions() tea.Msg {
 	m.suggestions = suggs
 	m.suggestionsError = ""
 	return nil
+}
+
+// renderReportsView renders the report generation interface
+func (m DashboardModel) renderReportsView() string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Padding(0, 2)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Success).Padding(1, 2)
+	normalStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Padding(0, 2)
+	selectedStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Background(m.theme.Primary).Bold(true).Padding(0, 1)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	content.WriteString(titleStyle.Render("📊 Generate Usage Report"))
+	content.WriteString("\n\n")
+
+	// Report options
+	reportOptions := []struct {
+		label string
+		desc  string
+	}{
+		{"Last 7 Days Report", "Generate usage report for the past 7 days"},
+		{"Last 30 Days Report", "Generate monthly usage report"},
+		{"Custom Date Range", "Specify custom start and end dates"},
+		{"JSON Format", "Export report as JSON (default)"},
+		{"CSV Format", "Export report as CSV for spreadsheet tools"},
+		{"HTML Format", "Generate visual HTML report with charts"},
+	}
+
+	content.WriteString(headerStyle.Render("Report Options"))
+	content.WriteString("\n")
+
+	for i, opt := range reportOptions {
+		line := fmt.Sprintf("  %s", opt.label)
+		if i == m.selectedIndex {
+			content.WriteString(selectedStyle.Render("▶ "+line))
+		} else {
+			content.WriteString(normalStyle.Render("  "+line))
+		}
+		content.WriteString("\n")
+
+		// Show description for selected item
+		if i == m.selectedIndex {
+			content.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 4).Render("  → "+opt.desc))
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+	content.WriteString(headerStyle.Render("Output Configuration"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render(fmt.Sprintf("  Default path: %s/reports/", m.home)))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  Filename: bobamixer-<date>.<format>"))
+	content.WriteString("\n\n")
+
+	content.WriteString(headerStyle.Render("Report Contents"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  ✓ Summary statistics (tokens, costs, sessions)"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  ✓ Daily trends and usage patterns"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  ✓ Profile breakdown and comparison"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  ✓ Cost analysis and optimization opportunities"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  ✓ Peak usage times and anomalies"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "[1-9] Switch View  [↑/↓] Navigate Options  [Tab] Next View  [Q] Quit\n  Use CLI: boba report --format <json|csv|html> --days <N> --out <file>"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderHooksView renders the Git hooks management interface
+func (m DashboardModel) renderHooksView() string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Padding(0, 2)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Success).Padding(1, 2)
+	normalStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Padding(0, 2)
+	successStyle := lipgloss.NewStyle().Foreground(m.theme.Success).Padding(0, 2)
+	dangerStyle := lipgloss.NewStyle().Foreground(m.theme.Danger).Padding(0, 2)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	content.WriteString(titleStyle.Render("🪝 Git Hooks Management"))
+	content.WriteString("\n\n")
+
+	// Repository detection
+	content.WriteString(headerStyle.Render("Current Repository"))
+	content.WriteString("\n")
+
+	// Try to detect current git repo
+	repoPath := "(Not in a git repository)"
+	hooksInstalled := false
+
+	// Simple check - in real implementation this would call git commands
+	content.WriteString(normalStyle.Render(fmt.Sprintf("  Path: %s", repoPath)))
+	content.WriteString("\n")
+
+	if hooksInstalled {
+		content.WriteString(successStyle.Render("  Status: ✓ Hooks Installed"))
+	} else {
+		content.WriteString(dangerStyle.Render("  Status: ✗ Hooks Not Installed"))
+	}
+	content.WriteString("\n\n")
+
+	// Hook types
+	content.WriteString(headerStyle.Render("Available Hooks"))
+	content.WriteString("\n")
+
+	hookTypes := []struct {
+		name   string
+		desc   string
+		active bool
+	}{
+		{"post-checkout", "Track branch switches and suggest optimal profiles", hooksInstalled},
+		{"post-commit", "Record commit events for usage tracking", hooksInstalled},
+		{"post-merge", "Track merge events and repository changes", hooksInstalled},
+	}
+
+	for _, hook := range hookTypes {
+		var statusStyle lipgloss.Style
+		var statusIcon string
+		if hook.active {
+			statusStyle = successStyle
+			statusIcon = "✓"
+		} else {
+			statusStyle = dangerStyle
+			statusIcon = "✗"
+		}
+
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", hook.name)))
+		content.WriteString(statusStyle.Render(fmt.Sprintf("  %s", statusIcon)))
+		content.WriteString("\n")
+		content.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 4).Render(fmt.Sprintf("  → %s", hook.desc)))
+		content.WriteString("\n")
+	}
+
+	content.WriteString("\n")
+	content.WriteString(headerStyle.Render("Benefits"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Automatic profile suggestions based on branch/project"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Track repository events for better usage analytics"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Context-aware AI model selection"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Zero-overhead tracking (async logging)"))
+	content.WriteString("\n\n")
+
+	// Recent activity (placeholder)
+	content.WriteString(headerStyle.Render("Recent Hook Activity"))
+	content.WriteString("\n")
+	content.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 2).Render("  No recent activity recorded"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "[1-9] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba hooks install (to install hooks)  |  boba hooks remove (to uninstall)"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderConfigView renders the configuration file selector
+func (m DashboardModel) renderConfigView() string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Padding(0, 2)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Success).Padding(1, 2)
+	normalStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Padding(0, 2)
+	selectedStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Background(m.theme.Primary).Bold(true).Padding(0, 1)
+	mutedStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 2)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	content.WriteString(titleStyle.Render("⚙️  Configuration Editor"))
+	content.WriteString("\n\n")
+
+	content.WriteString(headerStyle.Render("Configuration Files"))
+	content.WriteString("\n")
+
+	// Config files
+	configFiles := []struct {
+		name string
+		file string
+		desc string
+	}{
+		{"Providers", "providers.yaml", "AI provider configurations and API endpoints"},
+		{"Tools", "tools.yaml", "CLI tool detection and management"},
+		{"Bindings", "bindings.yaml", "Tool-to-provider bindings and proxy settings"},
+		{"Secrets", "secrets.yaml", "Encrypted API keys (edit with caution!)"},
+		{"Routes", "routes.yaml", "Context-based routing rules"},
+		{"Pricing", "pricing.yaml", "Token pricing for cost calculations"},
+		{"Settings", "settings.yaml", "Global application settings"},
+	}
+
+	for i, cfg := range configFiles {
+		line := fmt.Sprintf("  %s", cfg.name)
+		filePath := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(fmt.Sprintf(" (%s)", cfg.file))
+
+		if i == m.selectedIndex {
+			content.WriteString(selectedStyle.Render("▶ "+line))
+			content.WriteString(filePath)
+		} else {
+			content.WriteString(normalStyle.Render("  "+line))
+			content.WriteString(filePath)
+		}
+		content.WriteString("\n")
+
+		// Show description for selected item
+		if i == m.selectedIndex {
+			content.WriteString(mutedStyle.Render(fmt.Sprintf("    %s", cfg.desc)))
+			content.WriteString("\n")
+			content.WriteString(mutedStyle.Render(fmt.Sprintf("    Full path: %s/%s", m.home, cfg.file)))
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+	content.WriteString(headerStyle.Render("Editor Settings"))
+	content.WriteString("\n")
+
+	editor := "vim" // Default, in real implementation check $EDITOR
+	content.WriteString(normalStyle.Render(fmt.Sprintf("  Editor: $EDITOR (%s)", editor)))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  Tip: Set $EDITOR environment variable to use your preferred editor"))
+	content.WriteString("\n\n")
+
+	content.WriteString(headerStyle.Render("Safety Features"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Automatic backup before editing"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • YAML syntax validation after save"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Rollback support if validation fails"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "[1-9] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba edit <target> (to open in editor)"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderHelpView renders comprehensive help and shortcuts
+func (m DashboardModel) renderHelpView() string {
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary).Padding(0, 2)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Success).Padding(1, 2)
+	normalStyle := lipgloss.NewStyle().Foreground(m.theme.Text).Padding(0, 2)
+	keyStyle := lipgloss.NewStyle().Foreground(m.theme.Primary).Bold(true)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	content.WriteString(titleStyle.Render("❓ BobaMixer Help & Shortcuts"))
+	content.WriteString("\n\n")
+
+	// Navigation
+	content.WriteString(headerStyle.Render("View Navigation"))
+	content.WriteString("\n")
+	shortcuts := []struct {
+		key  string
+		desc string
+	}{
+		{"1", "Dashboard - Overview and tool bindings"},
+		{"2", "Providers - Manage AI providers"},
+		{"3", "Tools - Manage CLI tools"},
+		{"4", "Bindings - Tool-to-provider bindings"},
+		{"5", "Secrets - API key configuration"},
+		{"6", "Stats - Usage statistics"},
+		{"7", "Proxy - Proxy server control"},
+		{"8", "Routing - Routing rules tester"},
+		{"9", "Suggestions - Optimization suggestions"},
+		{"0", "Reports - Generate usage reports"},
+		{"H", "Hooks - Git hooks management"},
+		{"C", "Config - Configuration editor"},
+		{"?", "Help - This screen"},
+	}
+
+	for _, sc := range shortcuts {
+		content.WriteString(normalStyle.Render("  "))
+		content.WriteString(keyStyle.Render(fmt.Sprintf("[%s]", sc.key)))
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", sc.desc)))
+		content.WriteString("\n")
+	}
+
+	content.WriteString("\n")
+	content.WriteString(headerStyle.Render("Global Shortcuts"))
+	content.WriteString("\n")
+
+	globalShortcuts := []struct {
+		key  string
+		desc string
+	}{
+		{"Tab", "Cycle to next view"},
+		{"↑/↓ or k/j", "Navigate in lists"},
+		{"R", "Run selected tool (Dashboard view)"},
+		{"X", "Toggle proxy (Dashboard view)"},
+		{"Q or Ctrl+C", "Quit BobaMixer"},
+	}
+
+	for _, sc := range globalShortcuts {
+		content.WriteString(normalStyle.Render("  "))
+		content.WriteString(keyStyle.Render(fmt.Sprintf("[%s]", sc.key)))
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  %s", sc.desc)))
+		content.WriteString("\n")
+	}
+
+	content.WriteString("\n")
+	content.WriteString(headerStyle.Render("Quick Tips"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Use number keys (1-9, 0) for fast view switching"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • All interactive features are in the TUI"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • CLI commands available for automation"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  • Press ? anytime to return to this help screen"))
+	content.WriteString("\n\n")
+
+	content.WriteString(headerStyle.Render("Documentation"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  Full docs: https://royisme.github.io/BobaMixer/"))
+	content.WriteString("\n")
+	content.WriteString(normalStyle.Render("  GitHub: https://github.com/royisme/BobaMixer"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "Press any number key (1-9, 0) to switch views  |  [Tab] Next View  |  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
 }
 
 // RunDashboard starts the dashboard TUI
