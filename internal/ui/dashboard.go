@@ -46,8 +46,40 @@ const (
 	iconCircleEmpty     = "○"
 	iconCheckmark       = "✓"
 	iconCross           = "✗"
-	helpTextNavigation  = "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
+	helpTextNavigation  = "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
 )
+
+const totalViews viewMode = viewHelp + 1
+
+type reportOption struct {
+	label string
+	desc  string
+}
+
+var reportOptions = []reportOption{
+	{"Last 7 Days Report", "Generate usage report for the past 7 days"},
+	{"Last 30 Days Report", "Generate monthly usage report"},
+	{"Custom Date Range", "Specify custom start and end dates"},
+	{"JSON Format", "Export report as JSON (default)"},
+	{"CSV Format", "Export report as CSV for spreadsheet tools"},
+	{"HTML Format", "Generate visual HTML report with charts"},
+}
+
+type configFile struct {
+	name string
+	file string
+	desc string
+}
+
+var configFiles = []configFile{
+	{"Providers", "providers.yaml", "AI provider configurations and API endpoints"},
+	{"Tools", "tools.yaml", "CLI tool detection and management"},
+	{"Bindings", "bindings.yaml", "Tool-to-provider bindings and proxy settings"},
+	{"Secrets", "secrets.yaml", "Encrypted API keys (edit with caution!)"},
+	{"Routes", "routes.yaml", "Context-based routing rules"},
+	{"Pricing", "pricing.yaml", "Token pricing for cost calculations"},
+	{"Settings", "settings.yaml", "Global application settings"},
+}
 
 // DashboardModel represents the control plane dashboard
 type DashboardModel struct {
@@ -428,19 +460,19 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectedIndex = 0
 			return m, nil
 
-		case "h":
+		case "h", "H":
 			m.currentView = viewHooks
 			m.selectedIndex = 0
 			return m, nil
 
-		case "c":
+		case "c", "C":
 			m.currentView = viewConfig
 			m.selectedIndex = 0
 			return m, nil
 
 		case "tab":
 			// Cycle through views
-			m.currentView = (m.currentView + 1) % 13
+			m.currentView = (m.currentView + 1) % totalViews
 			m.selectedIndex = 0
 			switch m.currentView {
 			case viewStats:
@@ -465,11 +497,15 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "x":
-			// Toggle proxy for selected tool (only in dashboard view)
-			if m.currentView == viewDashboard {
+			// Toggle proxy for selected tool or binding depending on view
+			switch m.currentView {
+			case viewDashboard:
 				return m.handleToggleProxy()
+			case viewBindings:
+				return m.handleToggleBindingProxy()
+			default:
+				return m, nil
 			}
-			return m, nil
 
 		case "s":
 			// Check proxy status
@@ -495,23 +531,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "down", "j":
 			// Navigate down in list views
-			maxIndex := 0
-			switch m.currentView {
-			case viewProviders:
-				maxIndex = len(m.providers.Providers) - 1
-			case viewTools:
-				maxIndex = len(m.tools.Tools) - 1
-			case viewBindings:
-				maxIndex = len(m.bindings.Bindings) - 1
-			case viewSecrets:
-				maxIndex = len(m.providers.Providers) - 1 // Secrets are per-provider
-			case viewSuggestions:
-				maxIndex = len(m.suggestions) - 1
-			case viewReports:
-				maxIndex = 5 // 6 report options
-			case viewConfig:
-				maxIndex = 6 // 7 config files
-			}
+			maxIndex := m.maxSelectableIndex()
 			if m.currentView != viewDashboard && m.selectedIndex < maxIndex {
 				m.selectedIndex++
 			}
@@ -530,6 +550,27 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table, cmd = m.table.Update(msg)
 	}
 	return m, cmd
+}
+
+func (m DashboardModel) maxSelectableIndex() int {
+	switch m.currentView {
+	case viewProviders:
+		return len(m.providers.Providers) - 1
+	case viewTools:
+		return len(m.tools.Tools) - 1
+	case viewBindings:
+		return len(m.bindings.Bindings) - 1
+	case viewSecrets:
+		return len(m.providers.Providers) - 1 // Secrets are per-provider
+	case viewSuggestions:
+		return len(m.suggestions) - 1
+	case viewReports:
+		return len(reportOptions) - 1
+	case viewConfig:
+		return len(configFiles) - 1
+	default:
+		return 0
+	}
 }
 
 // updateTableSize adjusts table dimensions based on window size
@@ -623,6 +664,44 @@ func (m DashboardModel) handleToggleProxy() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleToggleBindingProxy toggles proxy usage for the selected binding in the bindings view
+func (m DashboardModel) handleToggleBindingProxy() (tea.Model, tea.Cmd) {
+	if len(m.bindings.Bindings) == 0 {
+		m.message = "No bindings configured"
+		return m, nil
+	}
+
+	if m.selectedIndex < 0 || m.selectedIndex >= len(m.bindings.Bindings) {
+		m.message = "No binding selected"
+		return m, nil
+	}
+
+	binding := &m.bindings.Bindings[m.selectedIndex]
+
+	toolName := binding.ToolID
+	if tool, err := m.tools.FindTool(binding.ToolID); err == nil {
+		toolName = tool.Name
+	}
+
+	binding.UseProxy = !binding.UseProxy
+
+	if err := core.SaveBindings(m.home, m.bindings); err != nil {
+		m.message = fmt.Sprintf("Failed to save binding: %v", err)
+		return m, nil
+	}
+
+	proxyState := "OFF"
+	if binding.UseProxy {
+		proxyState = "ON"
+	}
+
+	// Update dashboard table rows to keep views consistent
+	m.table.SetRows(m.buildTableRows())
+	m.message = fmt.Sprintf("Proxy %s for %s", proxyState, toolName)
+
+	return m, nil
+}
+
 // View renders the dashboard
 func (m DashboardModel) View() string {
 	if m.quitting {
@@ -710,7 +789,7 @@ func (m DashboardModel) renderDashboardView() string {
 	}
 
 	// Footer/Help
-	helpText := "[1-9] Views  [0] Reports  [H] Hooks  [C] Config  [?] Help  [R] Run  [X] Proxy  [Tab] Next  [Q] Quit"
+	helpText := "[1-9,0,H,C,?] Switch View  [R] Run Tool  [X] Toggle Proxy  [Tab] Next View  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1312,9 +1391,9 @@ func (m DashboardModel) renderProxyView() string {
 	// Footer/Help
 	var helpText string
 	if m.proxyStatus == proxyStatusRunning {
-		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit"
+		helpText = "[1-9,0,H,C,?] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit"
 	} else {
-		helpText = "[1-9] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit\n  Note: Use 'boba proxy serve' in terminal to start the proxy server"
+		helpText = "[1-9,0,H,C,?] Switch View  [S] Refresh Status  [Tab] Next View  [Q] Quit\n  Note: Use 'boba proxy serve' in terminal to start the proxy server"
 	}
 	content.WriteString(helpStyle.Render(helpText))
 
@@ -1395,7 +1474,7 @@ func (m DashboardModel) renderRoutingView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "[1-9] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba route test <text|@file>"
+	helpText := "[1-9,0,H,C,?] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba route test <text|@file>"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1450,7 +1529,7 @@ func (m DashboardModel) renderSuggestionsView() string {
 	if m.suggestionsError != "" {
 		content.WriteString(dangerStyle.Render(fmt.Sprintf("  Error: %s", m.suggestionsError)))
 		content.WriteString("\n\n")
-		helpText := "[1-9] Switch View  [R] Retry  [Tab] Next View  [Q] Quit"
+		helpText := "[1-9,0,H,C,?] Switch View  [R] Retry  [Tab] Next View  [Q] Quit"
 		content.WriteString(helpStyle.Render(helpText))
 		return content.String()
 	}
@@ -1538,7 +1617,7 @@ func (m DashboardModel) renderSuggestionsView() string {
 	content.WriteString("\n")
 
 	// Footer/Help
-	helpText := "[1-9] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba action [--auto] to apply suggestions"
+	helpText := "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba action [--auto] to apply suggestions"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1575,17 +1654,8 @@ func (m DashboardModel) renderReportsView() string {
 	content.WriteString(titleStyle.Render("📊 Generate Usage Report"))
 	content.WriteString("\n\n")
 
-	// Report options
-	reportOptions := []struct {
-		label string
-		desc  string
-	}{
-		{"Last 7 Days Report", "Generate usage report for the past 7 days"},
-		{"Last 30 Days Report", "Generate monthly usage report"},
-		{"Custom Date Range", "Specify custom start and end dates"},
-		{"JSON Format", "Export report as JSON (default)"},
-		{"CSV Format", "Export report as CSV for spreadsheet tools"},
-		{"HTML Format", "Generate visual HTML report with charts"},
+	if m.selectedIndex >= len(reportOptions) {
+		m.selectedIndex = 0
 	}
 
 	content.WriteString(headerStyle.Render("Report Options"))
@@ -1629,7 +1699,7 @@ func (m DashboardModel) renderReportsView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "[1-9] Switch View  [↑/↓] Navigate Options  [Tab] Next View  [Q] Quit\n  Use CLI: boba report --format <json|csv|html> --days <N> --out <file>"
+	helpText := "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate Options  [Tab] Next View  [Q] Quit\n  Use CLI: boba report --format <json|csv|html> --days <N> --out <file>"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1720,7 +1790,7 @@ func (m DashboardModel) renderHooksView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "[1-9] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba hooks install (to install hooks)  |  boba hooks remove (to uninstall)"
+	helpText := "[1-9,0,H,C,?] Switch View  [Tab] Next View  [Q] Quit\n  Use CLI: boba hooks install (to install hooks)  |  boba hooks remove (to uninstall)"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1744,19 +1814,8 @@ func (m DashboardModel) renderConfigView() string {
 	content.WriteString(headerStyle.Render("Configuration Files"))
 	content.WriteString("\n")
 
-	// Config files
-	configFiles := []struct {
-		name string
-		file string
-		desc string
-	}{
-		{"Providers", "providers.yaml", "AI provider configurations and API endpoints"},
-		{"Tools", "tools.yaml", "CLI tool detection and management"},
-		{"Bindings", "bindings.yaml", "Tool-to-provider bindings and proxy settings"},
-		{"Secrets", "secrets.yaml", "Encrypted API keys (edit with caution!)"},
-		{"Routes", "routes.yaml", "Context-based routing rules"},
-		{"Pricing", "pricing.yaml", "Token pricing for cost calculations"},
-		{"Settings", "settings.yaml", "Global application settings"},
+	if m.selectedIndex >= len(configFiles) {
+		m.selectedIndex = 0
 	}
 
 	for i, cfg := range configFiles {
@@ -1801,7 +1860,7 @@ func (m DashboardModel) renderConfigView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "[1-9] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba edit <target> (to open in editor)"
+	helpText := "[1-9,0,H,C,?] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit\n  Use CLI: boba edit <target> (to open in editor)"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -1892,7 +1951,7 @@ func (m DashboardModel) renderHelpView() string {
 	content.WriteString("\n\n")
 
 	// Footer/Help
-	helpText := "Press any number key (1-9, 0) to switch views  |  [Tab] Next View  |  [Q] Quit"
+	helpText := "Use navigation keys (1-9, 0, H, C, ?) to switch views  |  [Tab] Next View  |  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
