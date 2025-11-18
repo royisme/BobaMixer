@@ -1,3 +1,17 @@
+# [1.0.0](https://github.com/royisme/BobaMixer/compare/v2.0.3...v1.0.0) (2025-11-18)
+
+
+### Bug Fixes
+
+* resolve linting errors in dashboard.go ([b643509](https://github.com/royisme/BobaMixer/commit/b643509b1a1fc30e1bc2c0c4224f59017360ffcc))
+
+
+### Features
+
+* implement Phase 3 advanced TUI views ([f5c6d0a](https://github.com/royisme/BobaMixer/commit/f5c6d0a768552fa0c77ea4299afffcb47a53b6fb))
+
+
+
 # Changelog
 
 ## 2.0.3 - 2025-11-17
