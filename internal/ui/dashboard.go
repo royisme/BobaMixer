@@ -22,6 +22,10 @@ type viewMode int
 
 const (
 	viewDashboard viewMode = iota
+	viewProviders
+	viewTools
+	viewBindings
+	viewSecrets
 	viewStats
 )
 
@@ -48,12 +52,13 @@ type DashboardModel struct {
 	table table.Model
 
 	// State
-	currentView viewMode
-	width       int
-	height      int
-	quitting    bool
-	proxyStatus string // "running", "stopped", "checking"
-	message     string // Status message to display
+	currentView   viewMode
+	selectedIndex int    // Currently selected item in list views
+	width         int
+	height        int
+	quitting      bool
+	proxyStatus   string // "running", "stopped", "checking"
+	message       string // Status message to display
 }
 
 // NewDashboard creates a new dashboard model
@@ -330,14 +335,45 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case "v":
-			// Toggle between dashboard and stats view
-			if m.currentView == viewDashboard {
-				m.currentView = viewStats
-				// Reload stats when switching to stats view
+		case "1":
+			m.currentView = viewDashboard
+			m.selectedIndex = 0
+			return m, nil
+
+		case "2":
+			m.currentView = viewProviders
+			m.selectedIndex = 0
+			return m, nil
+
+		case "3":
+			m.currentView = viewTools
+			m.selectedIndex = 0
+			return m, nil
+
+		case "4":
+			m.currentView = viewBindings
+			m.selectedIndex = 0
+			return m, nil
+
+		case "5":
+			m.currentView = viewSecrets
+			m.selectedIndex = 0
+			return m, nil
+
+		case "6", "v":
+			// Stats view
+			m.currentView = viewStats
+			m.selectedIndex = 0
+			// Reload stats when switching to stats view
+			return m, m.loadStatsData
+
+		case "tab":
+			// Cycle through views
+			m.currentView = (m.currentView + 1) % 6
+			m.selectedIndex = 0
+			if m.currentView == viewStats {
 				return m, m.loadStatsData
 			}
-			m.currentView = viewDashboard
 			return m, nil
 
 		case "r":
@@ -371,6 +407,31 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "?":
 			// Show help (placeholder for now)
+			return m, nil
+
+		case "up", "k":
+			// Navigate up in list views
+			if m.currentView != viewDashboard && m.selectedIndex > 0 {
+				m.selectedIndex--
+			}
+			return m, nil
+
+		case "down", "j":
+			// Navigate down in list views
+			maxIndex := 0
+			switch m.currentView {
+			case viewProviders:
+				maxIndex = len(m.providers.Providers) - 1
+			case viewTools:
+				maxIndex = len(m.tools.Tools) - 1
+			case viewBindings:
+				maxIndex = len(m.bindings.Bindings) - 1
+			case viewSecrets:
+				maxIndex = len(m.providers.Providers) - 1 // Secrets are per-provider
+			}
+			if m.currentView != viewDashboard && m.selectedIndex < maxIndex {
+				m.selectedIndex++
+			}
 			return m, nil
 		}
 
@@ -486,6 +547,14 @@ func (m DashboardModel) View() string {
 	}
 
 	switch m.currentView {
+	case viewProviders:
+		return m.renderProvidersView()
+	case viewTools:
+		return m.renderToolsView()
+	case viewBindings:
+		return m.renderBindingsView()
+	case viewSecrets:
+		return m.renderSecretsView()
 	case viewStats:
 		return m.renderStatsView()
 	default:
@@ -544,7 +613,7 @@ func (m DashboardModel) renderDashboardView() string {
 	}
 
 	// Footer/Help
-	helpText := "[V] Stats  [R] Run  [X] Toggle Proxy  [S] Check Proxy  [P] Providers  [?] Help  [Q] Quit"
+	helpText := "[1] Dashboard [2] Providers [3] Tools [4] Bindings [5] Secrets [6] Stats  [R] Run  [X] Toggle Proxy  [Tab] Next  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
@@ -640,6 +709,425 @@ func (m DashboardModel) renderStatsView() string {
 
 	// Footer/Help
 	helpText := "[V] Back to Dashboard  [S] Refresh  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderProvidersView renders the AI providers management view
+func (m DashboardModel) renderProvidersView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Background(m.theme.Primary).
+		Bold(true).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - AI Providers Management"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Section header
+	content.WriteString(headerStyle.Render("📡 Available Providers"))
+	content.WriteString("\n\n")
+
+	// Provider list
+	if len(m.providers.Providers) == 0 {
+		content.WriteString(mutedStyle.Render("  No providers configured."))
+		content.WriteString("\n")
+	} else {
+		for i, provider := range m.providers.Providers {
+			// Status indicators
+			enabledIcon := "✓"
+			if !provider.Enabled {
+				enabledIcon = "✗"
+			}
+
+			// Check if API key is configured
+			keyStatus := "⚠"
+			if _, err := core.ResolveAPIKey(&provider, m.secrets); err == nil {
+				keyStatus = "🔑"
+			}
+
+			line := fmt.Sprintf("  %s %s %-25s %-35s %s",
+				enabledIcon,
+				keyStatus,
+				provider.DisplayName,
+				provider.BaseURL,
+				provider.DefaultModel,
+			)
+
+			if i == m.selectedIndex {
+				content.WriteString(selectedStyle.Render("▶ "+line))
+			} else {
+				content.WriteString(normalStyle.Render("  "+line))
+			}
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+
+	// Selected provider details
+	if m.selectedIndex < len(m.providers.Providers) {
+		provider := m.providers.Providers[m.selectedIndex]
+		content.WriteString(headerStyle.Render("Details"))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  ID: %s", provider.ID)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Kind: %s", provider.Kind)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  API Key Source: %s", provider.APIKey.Source)))
+		content.WriteString("\n")
+		if provider.APIKey.Source == core.APIKeySourceEnv {
+			content.WriteString(normalStyle.Render(fmt.Sprintf("  Env Var: %s", provider.APIKey.EnvVar)))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	// Footer/Help
+	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderToolsView renders the CLI tools management view
+func (m DashboardModel) renderToolsView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Background(m.theme.Primary).
+		Bold(true).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - CLI Tools Management"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Section header
+	content.WriteString(headerStyle.Render("🛠 Detected Tools"))
+	content.WriteString("\n\n")
+
+	// Tools list
+	if len(m.tools.Tools) == 0 {
+		content.WriteString(mutedStyle.Render("  No tools configured."))
+		content.WriteString("\n")
+	} else {
+		for i, tool := range m.tools.Tools {
+			// Check if tool has a binding
+			boundIcon := "○"
+			if _, err := m.bindings.FindBinding(tool.ID); err == nil {
+				boundIcon = "●"
+			}
+
+			line := fmt.Sprintf("  %s %-15s %-30s %s",
+				boundIcon,
+				tool.Name,
+				tool.Exec,
+				tool.Kind,
+			)
+
+			if i == m.selectedIndex {
+				content.WriteString(selectedStyle.Render("▶ "+line))
+			} else {
+				content.WriteString(normalStyle.Render("  "+line))
+			}
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+
+	// Selected tool details
+	if m.selectedIndex < len(m.tools.Tools) {
+		tool := m.tools.Tools[m.selectedIndex]
+		content.WriteString(headerStyle.Render("Details"))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  ID: %s", tool.ID)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Config Type: %s", tool.ConfigType)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Config Path: %s", tool.ConfigPath)))
+		content.WriteString("\n")
+		if tool.Description != "" {
+			content.WriteString(normalStyle.Render(fmt.Sprintf("  Description: %s", tool.Description)))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	// Footer/Help
+	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderBindingsView renders the tool-to-provider bindings view
+func (m DashboardModel) renderBindingsView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Background(m.theme.Primary).
+		Bold(true).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Tool ↔ Provider Bindings"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Section header
+	content.WriteString(headerStyle.Render("🔗 Active Bindings"))
+	content.WriteString("\n\n")
+
+	// Bindings list
+	if len(m.bindings.Bindings) == 0 {
+		content.WriteString(mutedStyle.Render("  No bindings configured."))
+		content.WriteString("\n")
+	} else {
+		for i, binding := range m.bindings.Bindings {
+			// Get tool name
+			toolName := binding.ToolID
+			if tool, err := m.tools.FindTool(binding.ToolID); err == nil {
+				toolName = tool.Name
+			}
+
+			// Get provider name
+			providerName := binding.ProviderID
+			if provider, err := m.providers.FindProvider(binding.ProviderID); err == nil {
+				providerName = provider.DisplayName
+			}
+
+			// Proxy status
+			proxyIcon := "○"
+			if binding.UseProxy {
+				proxyIcon = "●"
+			}
+
+			line := fmt.Sprintf("  %-15s → %-25s  Proxy: %s",
+				toolName,
+				providerName,
+				proxyIcon,
+			)
+
+			if i == m.selectedIndex {
+				content.WriteString(selectedStyle.Render("▶ "+line))
+			} else {
+				content.WriteString(normalStyle.Render("  "+line))
+			}
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+
+	// Selected binding details
+	if m.selectedIndex < len(m.bindings.Bindings) {
+		binding := m.bindings.Bindings[m.selectedIndex]
+		content.WriteString(headerStyle.Render("Details"))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Tool ID: %s", binding.ToolID)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Provider ID: %s", binding.ProviderID)))
+		content.WriteString("\n")
+		content.WriteString(normalStyle.Render(fmt.Sprintf("  Use Proxy: %t", binding.UseProxy)))
+		content.WriteString("\n")
+		if binding.Options.Model != "" {
+			content.WriteString(normalStyle.Render(fmt.Sprintf("  Model Override: %s", binding.Options.Model)))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	// Footer/Help
+	helpText := "[1-6] Switch View  [↑/↓] Navigate  [X] Toggle Proxy  [Tab] Next View  [Q] Quit"
+	content.WriteString(helpStyle.Render(helpText))
+
+	return content.String()
+}
+
+// renderSecretsView renders the API keys/secrets management view
+func (m DashboardModel) renderSecretsView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Primary).
+		Padding(0, 2)
+
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(m.theme.Success).
+		Padding(1, 2)
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Background(m.theme.Primary).
+		Bold(true).
+		Padding(0, 1)
+
+	normalStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Text).
+		Padding(0, 1)
+
+	mutedStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(0, 1)
+
+	dangerStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Danger).
+		Padding(0, 1)
+
+	successStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Success).
+		Padding(0, 1)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		Padding(1, 2)
+
+	var content strings.Builder
+
+	// Header
+	title := "BobaMixer - Secrets Management (API Keys)"
+	content.WriteString(titleStyle.Render(title))
+	content.WriteString("\n\n")
+
+	// Section header
+	content.WriteString(headerStyle.Render("🔒 API Key Status"))
+	content.WriteString("\n\n")
+
+	// Provider secrets list
+	if len(m.providers.Providers) == 0 {
+		content.WriteString(mutedStyle.Render("  No providers configured."))
+		content.WriteString("\n")
+	} else {
+		for i, provider := range m.providers.Providers {
+			// Check if API key is configured
+			hasKey := false
+			keySource := "(not set)"
+			if _, err := core.ResolveAPIKey(&provider, m.secrets); err == nil {
+				hasKey = true
+				keySource = string(provider.APIKey.Source)
+			}
+
+			var statusIcon, statusText string
+			var keyStatusStyle lipgloss.Style
+			if hasKey {
+				statusIcon = "✓"
+				statusText = "Configured"
+				keyStatusStyle = successStyle
+			} else {
+				statusIcon = "✗"
+				statusText = "Missing"
+				keyStatusStyle = dangerStyle
+			}
+
+			line := fmt.Sprintf("  %-25s %s %-15s [%s]",
+				provider.DisplayName,
+				statusIcon,
+				statusText,
+				keySource,
+			)
+
+			var fullLine string
+			if i == m.selectedIndex {
+				fullLine = selectedStyle.Render("▶ " + line)
+			} else {
+				fullLine = normalStyle.Render("  "+line[:len("  ")+len(provider.DisplayName)+1]) +
+					keyStatusStyle.Render(line[len("  ")+len(provider.DisplayName)+1:])
+			}
+			content.WriteString(fullLine)
+			content.WriteString("\n")
+		}
+	}
+
+	content.WriteString("\n")
+
+	// Security notice
+	content.WriteString(headerStyle.Render("🔐 Security"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  • API keys are stored encrypted in ~/.boba/secrets.yaml"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  • Keys can also be loaded from environment variables"))
+	content.WriteString("\n")
+	content.WriteString(mutedStyle.Render("  • Use 'boba edit secrets' to manage keys manually"))
+	content.WriteString("\n\n")
+
+	// Footer/Help
+	helpText := "[1-6] Switch View  [↑/↓] Navigate  [Tab] Next View  [Q] Quit"
 	content.WriteString(helpStyle.Render(helpText))
 
 	return content.String()
