@@ -1,5 +1,5 @@
-// Package ui provides internationalization support for BobaMixer TUI
-package ui
+// Package i18n provides internationalization support for BobaMixer TUI.
+package i18n
 
 import (
 	"embed"

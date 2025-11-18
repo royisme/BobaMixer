@@ -1,4 +1,4 @@
-package ui
+package i18n
 
 import (
 	"os"

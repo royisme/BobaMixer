@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
+	"github.com/royisme/bobamixer/internal/ui/i18n"
 )
 
 // OnboardingStage represents the current stage in the setup wizard
@@ -39,7 +40,7 @@ type OnboardingModel struct {
 	stage     OnboardingStage
 	home      string
 	theme     Theme
-	localizer *Localizer
+	localizer *i18n.Localizer
 
 	// Scanning state
 	spinner    spinner.Model
@@ -94,11 +95,11 @@ func (p providerItem) Description() string {
 func NewOnboarding(home string) (*OnboardingModel, error) {
 	// Load theme and localizer
 	theme := loadTheme(home)
-	localizer, err := NewLocalizer(GetUserLanguage())
+	localizer, err := i18n.NewLocalizer(i18n.GetUserLanguage())
 	if err != nil {
 		// Fallback to English - this should always succeed
 		var fallbackErr error
-		localizer, fallbackErr = NewLocalizer("en")
+		localizer, fallbackErr = i18n.NewLocalizer("en")
 		if fallbackErr != nil {
 			// If even English fails, something is seriously wrong
 			panic(fmt.Sprintf("failed to initialize localizer: %v (fallback to English also failed: %v)", err, fallbackErr))
@@ -138,7 +139,7 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case "esc":
+		case keyEsc:
 			// Allow going back in most stages
 			if m.stage > StageWelcome && m.stage < StageComplete {
 				m.stage--
