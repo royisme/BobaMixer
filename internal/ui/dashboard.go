@@ -77,7 +77,7 @@ type DashboardModel struct {
 
 	// State
 	currentView   viewMode
-	selectedIndex int    // Currently selected item in list views
+	selectedIndex int // Currently selected item in list views
 	width         int
 	height        int
 	quitting      bool
@@ -133,6 +133,12 @@ type statsLoadedMsg struct {
 	week         stats.Summary
 	profileStats []stats.ProfileStats
 	err          error
+}
+
+// suggestionsLoadedMsg is sent when suggestions are loaded
+type suggestionsLoadedMsg struct {
+	suggestions []suggestions.Suggestion
+	err         error
 }
 
 // checkProxyStatus checks if the proxy server is running
@@ -326,6 +332,7 @@ func (m DashboardModel) Init() tea.Cmd {
 }
 
 // Update handles messages
+//
 //nolint:gocyclo // UI event handlers are inherently complex
 func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -351,6 +358,16 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statsLoaded = true
 			m.statsError = ""
 		}
+		return m, nil
+
+	case suggestionsLoadedMsg:
+		if msg.err != nil {
+			m.suggestionsError = msg.err.Error()
+			return m, nil
+		}
+
+		m.suggestions = msg.suggestions
+		m.suggestionsError = ""
 		return m, nil
 
 	case tea.KeyMsg:
@@ -529,17 +546,17 @@ func (m *DashboardModel) updateTableSize() {
 	// Update column widths based on width
 	columns := m.table.Columns()
 	if m.width > 100 {
-		columns[0].Width = 15  // Tool
-		columns[1].Width = 25  // Provider
-		columns[2].Width = 28  // Model
-		columns[3].Width = 10  // Proxy
-		columns[4].Width = 15  // Status
+		columns[0].Width = 15 // Tool
+		columns[1].Width = 25 // Provider
+		columns[2].Width = 28 // Model
+		columns[3].Width = 10 // Proxy
+		columns[4].Width = 15 // Status
 	} else if m.width < 80 {
-		columns[0].Width = 10  // Tool
-		columns[1].Width = 18  // Provider
-		columns[2].Width = 20  // Model
-		columns[3].Width = 8   // Proxy
-		columns[4].Width = 12  // Status
+		columns[0].Width = 10 // Tool
+		columns[1].Width = 18 // Provider
+		columns[2].Width = 20 // Model
+		columns[3].Width = 8  // Proxy
+		columns[4].Width = 12 // Status
 	}
 
 	m.table.SetColumns(columns)
@@ -688,7 +705,7 @@ func (m DashboardModel) renderDashboardView() string {
 
 	// Message
 	if m.message != "" {
-		content.WriteString(messageStyle.Render("  "+m.message))
+		content.WriteString(messageStyle.Render("  " + m.message))
 		content.WriteString("\n")
 	}
 
@@ -862,9 +879,9 @@ func (m DashboardModel) renderProvidersView() string {
 			)
 
 			if i == m.selectedIndex {
-				content.WriteString(selectedStyle.Render("▶ "+line))
+				content.WriteString(selectedStyle.Render("▶ " + line))
 			} else {
-				content.WriteString(normalStyle.Render("  "+line))
+				content.WriteString(normalStyle.Render("  " + line))
 			}
 			content.WriteString("\n")
 		}
@@ -957,9 +974,9 @@ func (m DashboardModel) renderToolsView() string {
 			)
 
 			if i == m.selectedIndex {
-				content.WriteString(selectedStyle.Render("▶ "+line))
+				content.WriteString(selectedStyle.Render("▶ " + line))
 			} else {
-				content.WriteString(normalStyle.Render("  "+line))
+				content.WriteString(normalStyle.Render("  " + line))
 			}
 			content.WriteString("\n")
 		}
@@ -1063,9 +1080,9 @@ func (m DashboardModel) renderBindingsView() string {
 			)
 
 			if i == m.selectedIndex {
-				content.WriteString(selectedStyle.Render("▶ "+line))
+				content.WriteString(selectedStyle.Render("▶ " + line))
 			} else {
-				content.WriteString(normalStyle.Render("  "+line))
+				content.WriteString(normalStyle.Render("  " + line))
 			}
 			content.WriteString("\n")
 		}
@@ -1489,7 +1506,7 @@ func (m DashboardModel) renderSuggestionsView() string {
 			)
 
 			if i == m.selectedIndex {
-				content.WriteString(selectedStyle.Render("▶ "+line))
+				content.WriteString(selectedStyle.Render("▶ " + line))
 			} else {
 				content.WriteString(priorityStyle.Render(line))
 			}
@@ -1532,20 +1549,16 @@ func (m *DashboardModel) loadSuggestions() tea.Msg {
 	dbPath := filepath.Join(m.home, "usage.db")
 	db, err := sqlite.Open(dbPath)
 	if err != nil {
-		m.suggestionsError = err.Error()
-		return nil
+		return suggestionsLoadedMsg{err: err}
 	}
 
 	engine := suggestions.NewEngine(db)
 	suggs, err := engine.GenerateSuggestions(7)
 	if err != nil {
-		m.suggestionsError = err.Error()
-		return nil
+		return suggestionsLoadedMsg{err: err}
 	}
 
-	m.suggestions = suggs
-	m.suggestionsError = ""
-	return nil
+	return suggestionsLoadedMsg{suggestions: suggs}
 }
 
 // renderReportsView renders the report generation interface
@@ -1581,15 +1594,15 @@ func (m DashboardModel) renderReportsView() string {
 	for i, opt := range reportOptions {
 		line := fmt.Sprintf("  %s", opt.label)
 		if i == m.selectedIndex {
-			content.WriteString(selectedStyle.Render("▶ "+line))
+			content.WriteString(selectedStyle.Render("▶ " + line))
 		} else {
-			content.WriteString(normalStyle.Render("  "+line))
+			content.WriteString(normalStyle.Render("  " + line))
 		}
 		content.WriteString("\n")
 
 		// Show description for selected item
 		if i == m.selectedIndex {
-			content.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 4).Render("  → "+opt.desc))
+			content.WriteString(lipgloss.NewStyle().Foreground(m.theme.Muted).Padding(0, 4).Render("  → " + opt.desc))
 			content.WriteString("\n")
 		}
 	}
@@ -1751,10 +1764,10 @@ func (m DashboardModel) renderConfigView() string {
 		filePath := lipgloss.NewStyle().Foreground(m.theme.Muted).Render(fmt.Sprintf(" (%s)", cfg.file))
 
 		if i == m.selectedIndex {
-			content.WriteString(selectedStyle.Render("▶ "+line))
+			content.WriteString(selectedStyle.Render("▶ " + line))
 			content.WriteString(filePath)
 		} else {
-			content.WriteString(normalStyle.Render("  "+line))
+			content.WriteString(normalStyle.Render("  " + line))
 			content.WriteString(filePath)
 		}
 		content.WriteString("\n")
