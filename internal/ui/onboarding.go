@@ -138,7 +138,7 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
-		case "esc":
+		case keyEsc:
 			// Allow going back in most stages
 			if m.stage > StageWelcome && m.stage < StageComplete {
 				m.stage--

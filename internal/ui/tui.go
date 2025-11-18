@@ -21,10 +21,6 @@ import (
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 )
 
-const (
-	keyCtrlC = "ctrl+c"
-)
-
 // ViewMode represents different views in the TUI
 type ViewMode int
 
@@ -141,7 +137,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selectedIdx++
 			}
 
-		case "enter":
+		case keyEnter:
 			if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList) {
 				m.activeProfile = m.profileList[m.selectedIdx]
 				return m, m.saveActiveProfile
