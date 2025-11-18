@@ -84,7 +84,7 @@ homebrew_casks:
     
     # Specify binaries - maps "boba" to "bobamixer" command
     binaries:
-      - boba:bobamixer
+      - boba
     
     url:
       template: "https://github.com/royisme/BobaMixer/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
@@ -94,5 +94,5 @@ homebrew_casks:
         # replace foo with the actual binary name
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/bobamixer"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/boba"]
           end
