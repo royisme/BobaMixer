@@ -78,35 +78,7 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case keys.CtrlC, keys.Q:
-			return m, tea.Quit
-
-		case keys.Tab:
-			// Cycle through views
-			m.viewMode = ViewMode((int(m.viewMode) + 1) % viewCount)
-			return m, m.loadData
-
-		case keys.Up, keys.K:
-			if m.viewMode == ViewProfiles && m.selectedIdx > 0 {
-				m.selectedIdx--
-			}
-
-		case keys.Down, keys.J:
-			if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList)-1 {
-				m.selectedIdx++
-			}
-
-		case keys.Enter:
-			if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList) {
-				m.activeProfile = m.profileList[m.selectedIdx]
-				return m, m.saveActiveProfile
-			}
-
-		case keys.R:
-			// Refresh data
-			return m, m.loadData
-		}
+		return m.handleKeyMsg(msg)
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -134,6 +106,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 	}
 
+	return m, nil
+}
+
+func (m Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case keys.CtrlC, keys.Q:
+		return m, tea.Quit
+
+	case keys.Tab:
+		// Cycle through views
+		m.viewMode = ViewMode((int(m.viewMode) + 1) % viewCount)
+		return m, m.loadData
+
+	case keys.Up, keys.K:
+		if m.viewMode == ViewProfiles && m.selectedIdx > 0 {
+			m.selectedIdx--
+		}
+
+	case keys.Down, keys.J:
+		if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList)-1 {
+			m.selectedIdx++
+		}
+
+	case keys.Enter:
+		if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList) {
+			m.activeProfile = m.profileList[m.selectedIdx]
+			return m, m.saveActiveProfile
+		}
+
+	case keys.R:
+		// Refresh data
+		return m, m.loadData
+	}
 	return m, nil
 }
 

@@ -1,3 +1,4 @@
+// Package keys defines constants for keyboard keys and combinations used in the TUI.
 package keys
 
 const (

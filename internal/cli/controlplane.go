@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"text/tabwriter"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/domain/pricing"
@@ -40,30 +41,42 @@ func runProviders(home string, _ []string) error {
 		return fmt.Errorf("failed to load secrets: %w", err)
 	}
 
-	// Print providers in a table
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	if _, err := fmt.Fprintln(w, "ID\tTYPE\tNAME\tBASE URL\tKEY\tENABLED"); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
-	}
-	if _, err := fmt.Fprintln(w, "──────────────────────────────────────────────────────────────────────────────"); err != nil {
-		return fmt.Errorf("failed to write separator: %w", err)
-	}
+	// Define styles
+	var (
+		headerStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("99")).
+				Padding(0, 1)
+
+		cellStyle = lipgloss.NewStyle().
+				Padding(0, 1)
+
+		checkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))  // Green
+		crossStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // Red
+		envStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("208")) // Orange
+	)
+
+	var rows [][]string
 
 	for _, provider := range providers.Providers {
 		// Determine key status
-		keyStatus := "✗"
+		var keyStatus string
 		if _, err := core.ResolveAPIKey(&provider, secrets); err == nil {
 			if provider.APIKey.Source == core.APIKeySourceEnv {
-				keyStatus = "✓ env"
+				keyStatus = envStyle.Render("✓ env")
 			} else {
-				keyStatus = "✓ secrets"
+				keyStatus = checkStyle.Render("✓ secrets")
 			}
+		} else {
+			keyStatus = crossStyle.Render("✗")
 		}
 
 		// Enabled status
-		enabledStatus := "yes"
-		if !provider.Enabled {
-			enabledStatus = "no"
+		var enabledStatus string
+		if provider.Enabled {
+			enabledStatus = checkStyle.Render("yes")
+		} else {
+			enabledStatus = crossStyle.Render("no")
 		}
 
 		// Truncate base URL if too long
@@ -72,21 +85,28 @@ func runProviders(home string, _ []string) error {
 			baseURL = baseURL[:32] + "..."
 		}
 
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		rows = append(rows, []string{
 			provider.ID,
-			provider.Kind,
+			string(provider.Kind),
 			provider.DisplayName,
 			baseURL,
 			keyStatus,
 			enabledStatus,
-		); err != nil {
-			return fmt.Errorf("failed to write provider row: %w", err)
-		}
-	}
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("failed to flush output: %w", err)
+		})
 	}
 
+	t := table.New().
+		Border(lipgloss.HiddenBorder()).
+		Headers("ID", "TYPE", "NAME", "BASE URL", "KEY", "ENABLED").
+		Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == 0 {
+				return headerStyle
+			}
+			return cellStyle
+		})
+
+	fmt.Println(t)
 	fmt.Println()
 	fmt.Println("✓ = Configured   ✗ = Missing   env = From environment   secrets = From secrets.yaml")
 
@@ -113,41 +133,59 @@ func runTools(home string, _ []string) error {
 		return fmt.Errorf("failed to load bindings: %w", err)
 	}
 
-	// Print tools in a table
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	if _, err := fmt.Fprintln(w, "ID\tNAME\tEXEC\tSTATUS\tBOUND TO"); err != nil {
-		return fmt.Errorf("failed to write header: %w", err)
-	}
-	if _, err := fmt.Fprintln(w, "────────────────────────────────────────────────────────────────"); err != nil {
-		return fmt.Errorf("failed to write separator: %w", err)
-	}
+	// Define styles
+	var (
+		headerStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("99")).
+				Padding(0, 1)
+
+		cellStyle = lipgloss.NewStyle().
+				Padding(0, 1)
+
+		checkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))  // Green
+		crossStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // Red
+		faintStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Grey
+	)
+
+	var rows [][]string
 
 	for _, tool := range tools.Tools {
 		// Check if tool executable exists in PATH
-		status := "✓ ready"
+		var status string
 		if _, err := exec.LookPath(tool.Exec); err != nil {
-			status = "✗ not found"
+			status = crossStyle.Render("✗ not found")
+		} else {
+			status = checkStyle.Render("✓ ready")
 		}
 
 		// Find binding
-		boundTo := "(not bound)"
+		boundTo := faintStyle.Render("(not bound)")
 		if binding, err := bindings.FindBinding(tool.ID); err == nil {
 			boundTo = binding.ProviderID
 		}
 
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		rows = append(rows, []string{
 			tool.ID,
 			tool.Name,
 			tool.Exec,
 			status,
 			boundTo,
-		); err != nil {
-			return fmt.Errorf("failed to write tool row: %w", err)
-		}
+		})
 	}
-	if err := w.Flush(); err != nil {
-		return fmt.Errorf("failed to flush output: %w", err)
-	}
+
+	t := table.New().
+		Border(lipgloss.HiddenBorder()).
+		Headers("ID", "NAME", "EXEC", "STATUS", "BOUND TO").
+		Rows(rows...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			if row == 0 {
+				return headerStyle
+			}
+			return cellStyle
+		})
+
+	fmt.Println(t)
 
 	return nil
 }
