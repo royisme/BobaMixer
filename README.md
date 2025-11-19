@@ -83,7 +83,7 @@ $ boba proxy serve &
 - **Real-time cost calculation** - Calculate per-request cost based on latest pricing
 - **Thread-safe** - Concurrent request support with `sync.RWMutex`
 
-## Advanced Capabilities (Legacy / Optional)
+## Advanced Capabilities (Optional)
 
 > The following modules are advanced/legacy features. They are not part of the core Control Plane + `boba run` path, but remain available for power users.
 
