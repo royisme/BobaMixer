@@ -2,13 +2,16 @@
 package root
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/royisme/bobamixer/internal/domain/core"
+	"github.com/royisme/bobamixer/internal/settings"
 	dashboardsvc "github.com/royisme/bobamixer/internal/ui/features/dashboard"
 	proxysvc "github.com/royisme/bobamixer/internal/ui/features/proxy"
+	"github.com/royisme/bobamixer/internal/ui/theme"
 )
 
 // Init initializes the dashboard
@@ -161,6 +164,13 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			sectionIndex := int(key[0] - '1')
 			return m, m.moveToSection(sectionIndex)
 
+		case "c":
+			// Jump to Config view (in DevOps section, index 4)
+			m.currentSection = 4
+			m.sectionViewIndex = 2 // Config is the 3rd item in DevOps section
+			m.updateViewFromSection()
+			return m, m.sectionEnterCmd()
+
 		case "r":
 			if m.currentView == viewSecrets && m.secretService != nil {
 				m.secretService.Remove(m.home, m.filteredProviderIndexes(), m.selectedIndex)
@@ -264,20 +274,48 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case "left", "h":
+			if m.currentView == viewConfig {
+				// Cycle theme left
+				m.themeIndex--
+				if m.themeIndex < 0 {
+					m.themeIndex = len(m.themes) - 1
+				}
+				m.updateTheme()
+				return m, nil
+			}
+
+		case "right", "l":
+			if m.currentView == viewConfig {
+				// Cycle theme right
+				m.themeIndex++
+				if m.themeIndex >= len(m.themes) {
+					m.themeIndex = 0
+				}
+				m.updateTheme()
+				return m, nil
+			}
+
 		case "up", "k":
 			// Navigate up in list views
-			if m.currentView != viewDashboard && m.selectedIndex > 0 {
-				m.selectedIndex--
+			if m.currentView != viewDashboard {
+				if m.selectedIndex > 0 {
+					m.selectedIndex--
+				}
+				return m, nil
 			}
-			return m, nil
+			// For dashboard, fall through to table.Update
 
 		case "down", "j":
 			// Navigate down in list views
-			maxIndex := m.maxSelectableIndex()
-			if m.currentView != viewDashboard && m.selectedIndex < maxIndex {
-				m.selectedIndex++
+			if m.currentView != viewDashboard {
+				maxIndex := m.maxSelectableIndex()
+				if m.selectedIndex < maxIndex {
+					m.selectedIndex++
+				}
+				return m, nil
 			}
-			return m, nil
+			// For dashboard, fall through to table.Update
 		}
 
 	case tea.WindowSizeMsg:
@@ -292,6 +330,22 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table, cmd = m.table.Update(msg)
 	}
 	return m, cmd
+}
+
+// updateTheme updates the current theme and saves it to settings
+func (m *DashboardModel) updateTheme() {
+	themeName := m.themes[m.themeIndex]
+	m.theme = theme.GetTheme(themeName)
+	m.styles = theme.NewStyles(m.theme)
+
+	// Save to settings
+	ctx := context.Background()
+	if s, err := settings.Load(ctx, m.home); err == nil {
+		s.Theme = themeName
+		if err := settings.Save(ctx, m.home, s); err != nil {
+			m.message = fmt.Sprintf("Failed to save theme: %v", err)
+		}
+	}
 }
 
 // maxSelectableIndex returns the maximum selectable index for the current view

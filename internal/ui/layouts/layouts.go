@@ -73,3 +73,11 @@ func filterBlocks(blocks []string) []string {
 	}
 	return result
 }
+
+// Center places the content in the center of a box of size width x height.
+func Center(width, height int, content string) string {
+	if width <= 0 || height <= 0 {
+		return content
+	}
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
+}

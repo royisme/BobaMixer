@@ -50,10 +50,12 @@ type DashboardModel struct {
 	localizer *i18n.Localizer
 
 	// Data
-	providers *core.ProvidersConfig
-	tools     *core.ToolsConfig
-	bindings  *core.BindingsConfig
-	secrets   *core.SecretsConfig
+	providers  *core.ProvidersConfig
+	tools      *core.ToolsConfig
+	bindings   *core.BindingsConfig
+	secrets    *core.SecretsConfig
+	themes     []string
+	themeIndex int
 
 	// Stats data
 	todayStats   stats.Summary
@@ -135,6 +137,19 @@ func NewDashboard(home string) (*DashboardModel, error) {
 		secrets:     secretsConfig,
 		proxyStatus: proxysvc.StatusChecking,
 		currentView: viewDashboard,
+		themes:      []string{"auto", "catppuccin", "dracula"},
+	}
+
+	// Set initial theme index
+	currentTheme := settings.DefaultSettings().Theme
+	if userSettings, err := settings.Load(context.Background(), home); err == nil {
+		currentTheme = userSettings.Theme
+	}
+	for i, t := range m.themes {
+		if t == currentTheme {
+			m.themeIndex = i
+			break
+		}
 	}
 
 	m.initSections()

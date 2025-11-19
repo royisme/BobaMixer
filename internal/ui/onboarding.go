@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/ui/i18n"
+	"github.com/royisme/bobamixer/internal/ui/layouts"
 )
 
 // OnboardingStage represents the current stage in the setup wizard
@@ -23,6 +24,7 @@ const (
 	StageScanning
 	StageScanResults
 	StageProviderSelect
+	StageAuthMethodSelect
 	StageAPIKeyInput
 	StageComplete
 )
@@ -51,6 +53,7 @@ type OnboardingModel struct {
 	providerList     list.Model
 	providers        []core.Provider
 	selectedProvider *core.Provider
+	authMethodList   list.Model
 
 	// API key input
 	apiKeyInput   textinput.Model
@@ -90,6 +93,16 @@ func (p providerItem) Description() string {
 	}
 	return fmt.Sprintf("Model: %s • %s", p.provider.DefaultModel, baseURL)
 }
+
+type authMethodItem struct {
+	title       string
+	description string
+	source      core.APIKeySource
+}
+
+func (a authMethodItem) FilterValue() string { return a.title }
+func (a authMethodItem) Title() string       { return a.title }
+func (a authMethodItem) Description() string { return a.description }
 
 // NewOnboarding creates a new onboarding wizard
 func NewOnboarding(home string) (*OnboardingModel, error) {
@@ -169,6 +182,9 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.providerList.Items() != nil {
 			m.providerList.SetSize(msg.Width-4, msg.Height-10)
 		}
+		if m.authMethodList.Items() != nil {
+			m.authMethodList.SetSize(msg.Width-4, msg.Height-10)
+		}
 		return m, nil
 
 	case scanCompleteMsg:
@@ -188,6 +204,10 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.stage {
 	case StageProviderSelect:
 		m.providerList, cmd = m.providerList.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case StageAuthMethodSelect:
+		m.authMethodList, cmd = m.authMethodList.Update(msg)
 		cmds = append(cmds, cmd)
 
 	case StageAPIKeyInput:
@@ -234,8 +254,24 @@ func (m OnboardingModel) handleEnter() (tea.Model, tea.Cmd) {
 		// Get selected provider
 		if item, ok := m.providerList.SelectedItem().(providerItem); ok {
 			m.selectedProvider = &item.provider
-			m.stage = StageAPIKeyInput
-			m.checkAPIKey()
+			m.stage = StageAuthMethodSelect
+			m.initializeAuthMethodList()
+		}
+		return m, nil
+
+	case StageAuthMethodSelect:
+		if item, ok := m.authMethodList.SelectedItem().(authMethodItem); ok {
+			if item.source == core.APIKeySourceBrowser {
+				// Browser login selected - skip API key input
+				m.selectedProvider.APIKey.Source = core.APIKeySourceBrowser
+				m.selectedProvider.APIKey.EnvVar = "" // Clear env var requirement
+				m.stage = StageComplete
+				return m.saveConfiguration()
+			} else {
+				// API Key selected - proceed to key input
+				m.stage = StageAPIKeyInput
+				m.checkAPIKey()
+			}
 		}
 		return m, nil
 
@@ -320,30 +356,6 @@ func (m *OnboardingModel) initializeProviderList() {
 		// Use default providers for all detected tools
 		m.providers = []core.Provider{
 			{
-				ID:          "claude-anthropic-official",
-				Kind:        core.ProviderKindAnthropic,
-				DisplayName: "Anthropic (Official)",
-				BaseURL:     "https://api.anthropic.com",
-				APIKey: core.APIKeyConfig{
-					Source: core.APIKeySourceEnv,
-					EnvVar: "ANTHROPIC_API_KEY",
-				},
-				DefaultModel: "claude-3-5-sonnet-20241022",
-				Enabled:      true,
-			},
-			{
-				ID:          "claude-zai",
-				Kind:        core.ProviderKindAnthropicCompatible,
-				DisplayName: "Claude via Z.AI",
-				BaseURL:     "https://api.z.ai/api/anthropic",
-				APIKey: core.APIKeyConfig{
-					Source: core.APIKeySourceEnv,
-					EnvVar: "ANTHROPIC_AUTH_TOKEN",
-				},
-				DefaultModel: "glm-4.6",
-				Enabled:      true,
-			},
-			{
 				ID:          "openai-official",
 				Kind:        core.ProviderKindOpenAI,
 				DisplayName: "OpenAI (Official)",
@@ -356,10 +368,46 @@ func (m *OnboardingModel) initializeProviderList() {
 				Enabled:      true,
 			},
 			{
+				ID:          "openai-compatible",
+				Kind:        core.ProviderKindOpenAICompatible,
+				DisplayName: "OpenAI Compatible (Custom)",
+				BaseURL:     "http://localhost:11434/v1",
+				APIKey: core.APIKeyConfig{
+					Source: core.APIKeySourceEnv,
+					EnvVar: "OPENAI_API_KEY",
+				},
+				DefaultModel: "llama3",
+				Enabled:      true,
+			},
+			{
+				ID:          "anthropic-official",
+				Kind:        core.ProviderKindAnthropic,
+				DisplayName: "Anthropic (Official)",
+				BaseURL:     "https://api.anthropic.com",
+				APIKey: core.APIKeyConfig{
+					Source: core.APIKeySourceEnv,
+					EnvVar: "ANTHROPIC_API_KEY",
+				},
+				DefaultModel: "claude-3-5-sonnet-20241022",
+				Enabled:      true,
+			},
+			{
+				ID:          "anthropic-compatible",
+				Kind:        core.ProviderKindAnthropicCompatible,
+				DisplayName: "Anthropic Compatible (Custom)",
+				BaseURL:     "https://api.custom.ai/anthropic",
+				APIKey: core.APIKeyConfig{
+					Source: core.APIKeySourceEnv,
+					EnvVar: "ANTHROPIC_API_KEY",
+				},
+				DefaultModel: "claude-3-5-sonnet-20241022",
+				Enabled:      true,
+			},
+			{
 				ID:          "gemini-official",
 				Kind:        core.ProviderKindGemini,
 				DisplayName: "Google Gemini (Official)",
-				BaseURL:     "https://generativelanguage.googleapis.com/v1",
+				BaseURL:     "https://generativelanguage.googleapis.com/v1beta/openai",
 				APIKey: core.APIKeyConfig{
 					Source: core.APIKeySourceEnv,
 					EnvVar: "GEMINI_API_KEY",
@@ -406,6 +454,46 @@ func (m *OnboardingModel) initializeProviderList() {
 
 	if m.width > 0 {
 		m.providerList.SetSize(m.width-4, m.height-10)
+	}
+}
+
+func (m *OnboardingModel) initializeAuthMethodList() {
+	items := []list.Item{
+		authMethodItem{
+			title:       "API Key",
+			description: "Enter your API key manually (stored in ~/.boba/secrets.yaml)",
+			source:      core.APIKeySourceSecrets, // We'll use secrets/env flow
+		},
+		authMethodItem{
+			title:       "Browser Login / Subscription",
+			description: "Use existing login from CLI tool (no API key needed)",
+			source:      core.APIKeySourceBrowser,
+		},
+	}
+
+	delegate := list.NewDefaultDelegate()
+	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
+		Foreground(m.theme.Primary).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(m.theme.Primary).
+		Padding(0, 0, 0, 1)
+
+	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
+		Foreground(m.theme.Muted).
+		BorderLeft(true).
+		BorderStyle(lipgloss.ThickBorder()).
+		BorderForeground(m.theme.Primary).
+		Padding(0, 0, 0, 1)
+
+	m.authMethodList = list.New(items, delegate, 0, 0)
+	m.authMethodList.Title = "Choose Authentication Method"
+	m.authMethodList.SetShowStatusBar(false)
+	m.authMethodList.SetFilteringEnabled(false)
+	m.authMethodList.SetShowHelp(false)
+
+	if m.width > 0 {
+		m.authMethodList.SetSize(m.width-4, m.height-10)
 	}
 }
 
@@ -570,19 +658,26 @@ func (m OnboardingModel) View() string {
 		return ""
 	}
 
+	var content string
 	switch m.stage {
 	case StageWelcome:
-		return m.viewWelcome()
+		content = m.viewWelcome()
 	case StageScanning:
-		return m.viewScanning()
+		content = m.viewScanning()
 	case StageScanResults:
-		return m.viewScanResults()
+		content = m.viewScanResults()
 	case StageProviderSelect:
-		return m.viewProviderSelect()
+		content = m.viewProviderSelect()
+	case StageAuthMethodSelect:
+		content = m.viewAuthMethodSelect()
 	case StageAPIKeyInput:
-		return m.viewAPIKeyInput()
+		content = m.viewAPIKeyInput()
 	case StageComplete:
-		return m.viewComplete()
+		content = m.viewComplete()
+	}
+
+	if content != "" {
+		return layouts.Center(m.width, m.height, content)
 	}
 
 	return ""
@@ -707,6 +802,14 @@ func (m OnboardingModel) viewProviderSelect() string {
 	)
 }
 
+func (m *OnboardingModel) viewAuthMethodSelect() string {
+	return lipgloss.JoinVertical(
+		lipgloss.Left,
+		"\n",
+		m.authMethodList.View(),
+	)
+}
+
 // viewAPIKeyInput renders the API key input screen
 func (m OnboardingModel) viewAPIKeyInput() string {
 	titleStyle := lipgloss.NewStyle().
@@ -818,14 +921,11 @@ func getProviderKeyURL(provider *core.Provider) string {
 	case core.ProviderKindAnthropic:
 		return "console.anthropic.com"
 	case core.ProviderKindAnthropicCompatible:
-		if strings.Contains(provider.BaseURL, "z.ai") {
-			return "z.ai"
-		}
 		return "provider's website"
 	case core.ProviderKindOpenAI:
 		return "platform.openai.com/api-keys"
 	case core.ProviderKindGemini:
-		return "makersuite.google.com/app/apikey"
+		return "https://aistudio.google.com/api-keys"
 	default:
 		return "provider's website"
 	}

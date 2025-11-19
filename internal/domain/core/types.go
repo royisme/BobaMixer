@@ -26,6 +26,7 @@ type APIKeySource string
 const (
 	APIKeySourceEnv     APIKeySource = "env"     // From environment variable
 	APIKeySourceSecrets APIKeySource = "secrets" // From secrets.yaml
+	APIKeySourceBrowser APIKeySource = "browser" // Browser login / Subscription
 )
 
 // APIKeyConfig describes how to retrieve an API key for a provider

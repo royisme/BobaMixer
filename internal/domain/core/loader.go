@@ -218,6 +218,11 @@ func ResolveAPIKey(provider *Provider, secrets *SecretsConfig) (string, error) {
 		}
 		return secret.APIKey, nil
 
+	case APIKeySourceBrowser:
+		// Browser login / Subscription means no API key is needed/managed by us
+		// The tool is expected to handle authentication internally
+		return "", nil
+
 	default:
 		return "", fmt.Errorf("unknown API key source: %s", provider.APIKey.Source)
 	}

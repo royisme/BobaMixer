@@ -56,9 +56,9 @@ This document consolidates the roadmap intent and actual delivery progress using
 
 ## Outstanding Work and Next Steps
 
-1. **Finish Sprint 4 of the TUI plan** - Implement search/filter, enhanced theming, quick-help overlays, and reusable form components (`spec/TUI_ENHANCEMENT_PLAN.md` Sections 316-401, 412-435).
-2. **Inline editing flows** - Upgrade Providers/Tools/Bindings views with the planned text input / select / confirm components so edits can happen without shelling out (`spec/TUI_ENHANCEMENT_PLAN.md` Form Components section).
-3. **Proxy/routing depth** - Build out the routing engine (time-of-day, cost-aware strategies) and proxy observability promised in the baseline spec to match what the Phase 2 UI exposes.
+1. **Finish Sprint 4 of the TUI plan** - Form components (`internal/ui/forms`) are implemented. Search/filter and enhanced theming are still in progress (`spec/TUI_ENHANCEMENT_PLAN.md` Sections 316-401, 412-435).
+2. **Inline editing flows** - Provider/Tool/Secret forms are implemented as modal overlays. Full "inline" table editing (e.g. spreadsheet style) is deferred in favor of these modal forms for now.
+3. **Proxy/routing depth** - The routing engine (`internal/domain/routing`) implements rule-based routing (intent, text match, time-of-day) and epsilon-greedy exploration. Dynamic cost-aware strategies and latency weighting are still outstanding.
 4. **Hook telemetry loop** - Connect Hooks reports to concrete automation (auto profile suggestions, repository-scoped analytics) so the `Hooks` view reflects live status rather than static instructions.
 5. **Documentation refresh** - Update public docs/help to reflect the new TUI-first command surface and ensure advanced CLI commands are clearly labeled as automation-only usages.
 

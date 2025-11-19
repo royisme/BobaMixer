@@ -421,18 +421,22 @@ func (m DashboardModel) renderHooksView() string {
 }
 
 func (m DashboardModel) renderConfigView() string {
-	data := m.configService.ViewData(m.home)
+	currentTheme := m.themes[m.themeIndex]
+	data := m.configService.ViewData(m.home, currentTheme)
 	props := pages.ConfigPageProps{
 		Title:           data.Title,
 		ConfigTitle:     data.ConfigTitle,
 		EditorTitle:     data.EditorTitle,
 		SafetyTitle:     data.SafetyTitle,
+		ThemeTitle:      data.ThemeTitle,
 		ConfigFiles:     m.configService.ConvertToComponents(),
 		SelectedIndex:   m.selectedIndex,
 		Home:            data.Home,
 		EditorName:      data.EditorName,
 		NavigationHelp:  m.dashboardService.GetNavigationHelp(),
 		CommandHelpLine: data.CommandHelpLine,
+		Themes:          data.Themes,
+		CurrentTheme:    data.CurrentTheme,
 	}
 
 	page := pages.NewConfigPage(m.theme, props)

@@ -12,16 +12,19 @@ func NewService() *Service {
 }
 
 // ViewData returns all static data for the config view.
-func (s *Service) ViewData(home string) ViewData {
+func (s *Service) ViewData(home string, currentTheme string) ViewData {
 	return ViewData{
 		Title:           "⚙️  Configuration Editor",
 		ConfigTitle:     "Configuration Files",
 		EditorTitle:     "Editor Settings",
 		SafetyTitle:     "Safety Features",
+		ThemeTitle:      "Appearance",
 		ConfigFiles:     s.GetConfigFiles(),
 		Home:            home,
 		EditorName:      "vim",
 		CommandHelpLine: "Use CLI: boba edit <target> (to open in editor)",
+		Themes:          []string{"auto", "catppuccin", "dracula"},
+		CurrentTheme:    currentTheme,
 	}
 }
 
@@ -65,8 +68,11 @@ type ViewData struct {
 	ConfigTitle     string
 	EditorTitle     string
 	SafetyTitle     string
+	ThemeTitle      string
 	ConfigFiles     []ConfigFile
 	Home            string
 	EditorName      string
 	CommandHelpLine string
+	Themes          []string
+	CurrentTheme    string
 }

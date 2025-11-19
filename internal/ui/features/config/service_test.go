@@ -108,7 +108,7 @@ func TestConvertToComponents_ReturnType(t *testing.T) {
 func TestViewData(t *testing.T) {
 	svc := NewService()
 	home := "/home/test"
-	data := svc.ViewData(home)
+	data := svc.ViewData(home, "auto")
 
 	// Test title fields
 	if data.Title == "" {
@@ -164,7 +164,7 @@ func TestViewData(t *testing.T) {
 
 func TestViewData_ConfigFilesPopulated(t *testing.T) {
 	svc := NewService()
-	data := svc.ViewData("/test")
+	data := svc.ViewData("/test", "auto")
 
 	expectedFiles := svc.GetConfigFiles()
 
@@ -196,7 +196,7 @@ func TestViewData_DifferentHomePaths(t *testing.T) {
 	}
 
 	for _, home := range testCases {
-		data := svc.ViewData(home)
+		data := svc.ViewData(home, "auto")
 		if data.Home != home {
 			t.Errorf("ViewData with home %q: got %q", home, data.Home)
 		}
@@ -207,8 +207,8 @@ func TestViewData_Consistency(t *testing.T) {
 	svc := NewService()
 
 	// Call ViewData multiple times to ensure consistency
-	data1 := svc.ViewData("/test")
-	data2 := svc.ViewData("/test")
+	data1 := svc.ViewData("/test", "auto")
+	data2 := svc.ViewData("/test", "auto")
 
 	if data1.Title != data2.Title {
 		t.Error("ViewData should return consistent Title")
