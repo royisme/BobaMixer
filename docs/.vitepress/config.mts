@@ -5,7 +5,9 @@ export default defineConfig({
   title: "BobaMixer",
   description: "Smart AI Adapter Router with intelligent routing, budget tracking, and cost optimization",
   base: '/BobaMixer/',
-
+  markdown: {
+    mermaid: true
+  },
   locales: {
     root: {
       label: 'English',
