@@ -17,10 +17,7 @@ import (
 	"github.com/royisme/bobamixer/internal/proxy"
 	"github.com/royisme/bobamixer/internal/runner"
 	"github.com/royisme/bobamixer/internal/store/config"
-)
-
-const (
-	keyCtrlC = "Ctrl+C"
+	"github.com/royisme/bobamixer/internal/ui/keys"
 )
 
 // runProviders lists all configured providers
@@ -474,7 +471,7 @@ func runProxyServe(home string, _ []string) error {
 	}
 
 	fmt.Printf("✓ Proxy server started on %s\n", server.Addr())
-	fmt.Printf("\nPress %s to stop...\n", keyCtrlC)
+	fmt.Printf("\nPress %s to stop...\n", keys.CtrlC)
 
 	// Wait for interrupt signal
 	select {}
@@ -528,7 +525,7 @@ func runProxyStop(_ string, _ []string) error {
 
 	// For now, just inform the user
 	// In a production implementation, we'd use a PID file or similar
-	fmt.Printf("To stop the proxy server, press %s in the terminal where it's running\n", keyCtrlC)
+	fmt.Printf("To stop the proxy server, press %s in the terminal where it's running\n", keys.CtrlC)
 	fmt.Println("Or use: killall -SIGTERM boba")
 
 	return nil

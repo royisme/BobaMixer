@@ -11,6 +11,7 @@ import (
 	"github.com/royisme/bobamixer/internal/settings"
 	dashboardsvc "github.com/royisme/bobamixer/internal/ui/features/dashboard"
 	proxysvc "github.com/royisme/bobamixer/internal/ui/features/proxy"
+	"github.com/royisme/bobamixer/internal/ui/keys"
 	"github.com/royisme/bobamixer/internal/ui/theme"
 )
 
@@ -64,17 +65,17 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		key := msg.String()
-		if key == "ctrl+c" || key == "q" {
+		if key == keys.CtrlC || key == keys.Q {
 			m.quitting = true
 			return m, tea.Quit
 		}
 
 		if m.providerForm.Active() {
 			switch key {
-			case keyEsc:
+			case keys.Esc:
 				m.providerForm.Cancel("Provider edit canceled")
 				return m, nil
-			case keyEnter:
+			case keys.Enter:
 				done, err := m.providerForm.Submit()
 				if err != nil {
 					return m, nil
@@ -94,10 +95,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.bindingForm.Active() {
 			switch key {
-			case keyEsc:
+			case keys.Esc:
 				m.bindingForm.Cancel("Binding edit canceled")
 				return m, nil
-			case keyEnter:
+			case keys.Enter:
 				done, err := m.bindingForm.Submit()
 				if err != nil {
 					return m, nil
@@ -117,10 +118,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.secretForm.Active() {
 			switch key {
-			case keyEsc:
+			case keys.Esc:
 				m.secretForm.Cancel("Canceled secret input")
 				return m, nil
-			case keyEnter:
+			case keys.Enter:
 				value, err := m.secretForm.Submit()
 				if err != nil {
 					return m, nil
@@ -136,10 +137,10 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.searchActive {
 			switch key {
-			case keyEsc:
+			case keys.Esc:
 				m.clearSearch()
 				return m, nil
-			case keyEnter:
+			case keys.Enter:
 				m.searchQuery = strings.TrimSpace(m.searchInput.Value())
 				m.searchActive = false
 				return m, nil
@@ -152,31 +153,31 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch key {
-		case "tab":
+		case keys.Tab:
 			return m, m.cycleSection(1)
-		case "shift+tab":
+		case keys.ShiftTab:
 			return m, m.cycleSection(-1)
-		case "[":
+		case keys.OpenBracket:
 			return m, m.cycleSubview(-1)
-		case "]":
+		case keys.CloseBracket:
 			return m, m.cycleSubview(1)
-		case "1", "2", "3", "4", "5":
+		case keys.One, keys.Two, keys.Three, keys.Four, keys.Five:
 			sectionIndex := int(key[0] - '1')
 			return m, m.moveToSection(sectionIndex)
 
-		case "v":
+		case keys.V:
 			// Switch to Dashboard view
 			m.currentView = viewDashboard
 			return m, nil
 
-		case "c":
+		case keys.C:
 			// Jump to Config view (in DevOps section, index 4)
 			m.currentSection = 4
 			m.sectionViewIndex = 2 // Config is the 3rd item in DevOps section
 			m.updateViewFromSection()
 			return m, m.sectionEnterCmd()
 
-		case "r":
+		case keys.R:
 			if m.currentView == viewSecrets && m.secretService != nil {
 				m.secretService.Remove(m.home, m.filteredProviderIndexes(), m.selectedIndex)
 				return m, nil
@@ -187,12 +188,12 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "b":
+		case keys.B:
 			// Change binding (placeholder for now)
 			// In future, this would open a binding edit view
 			return m, nil
 
-		case "x":
+		case keys.X:
 			// Toggle proxy for selected tool or binding depending on view
 			switch m.currentView {
 			case viewDashboard:
@@ -203,7 +204,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-		case "s":
+		case keys.S:
 			if m.currentView == viewSecrets && m.secretService != nil {
 				if m.secretService.StartForm(m.filteredProviderIndexes(), m.selectedIndex) {
 					m.searchActive = false
@@ -214,7 +215,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.proxyStatus = proxysvc.StatusChecking
 			return m, checkProxyStatus
 
-		case "e":
+		case keys.E:
 			if m.currentView == viewProviders {
 				indexes := m.filteredProviderIndexes()
 				if m.providerService != nil && m.providerService.StartForm(false, indexes, m.selectedIndex) {
@@ -231,7 +232,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "n":
+		case keys.N:
 			if m.currentView == viewBindings {
 				indexes := m.filteredBindingIndexes()
 				if m.bindingService != nil && m.bindingService.StartForm(true, indexes, m.selectedIndex) {
@@ -241,7 +242,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "a":
+		case keys.A:
 			if m.currentView == viewProviders {
 				indexes := m.filteredProviderIndexes()
 				if m.providerService != nil && m.providerService.StartForm(true, indexes, m.selectedIndex) {
@@ -251,24 +252,24 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "t":
+		case keys.T:
 			if m.currentView == viewSecrets && m.secretService != nil {
 				m.secretService.Test(m.filteredProviderIndexes(), m.selectedIndex)
 				return m, nil
 			}
 			return m, nil
 
-		case "/":
+		case keys.Slash:
 			if m.supportsSearch(m.currentView) {
 				m.activateSearch()
 			}
 			return m, nil
 
-		case "?":
+		case keys.Question:
 			m.showHelpOverlay = !m.showHelpOverlay
 			return m, nil
 
-		case "esc":
+		case keys.Esc:
 			if m.showHelpOverlay {
 				m.showHelpOverlay = false
 				return m, nil
@@ -279,7 +280,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "left", "h":
+		case keys.Left, keys.H:
 			if m.currentView == viewConfig {
 				if m.configActiveTab > 0 {
 					m.configActiveTab--
@@ -287,7 +288,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-		case "right", "l":
+		case keys.Right, keys.L:
 			if m.currentView == viewConfig {
 				if m.configActiveTab < 2 {
 					m.configActiveTab++
@@ -295,7 +296,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-		case "up", "k":
+		case keys.Up, keys.K:
 			// Navigate up in list views
 			if m.currentView == viewConfig {
 				switch m.configActiveTab {
@@ -319,7 +320,7 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// For dashboard, fall through to table.Update
 
-		case "down", "j":
+		case keys.Down, keys.J:
 			// Navigate down in list views
 			if m.currentView == viewConfig {
 				switch m.configActiveTab {

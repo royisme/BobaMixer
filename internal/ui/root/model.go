@@ -31,12 +31,6 @@ import (
 	"github.com/royisme/bobamixer/internal/ui/theme"
 )
 
-const (
-	keyCtrlC = "ctrl+c"
-	keyEsc   = "esc"
-	keyEnter = "enter"
-)
-
 // UI constants for repeated strings
 const (
 	promptPrefix = "│ "

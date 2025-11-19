@@ -20,6 +20,7 @@ import (
 	"github.com/royisme/bobamixer/internal/store/config"
 	"github.com/royisme/bobamixer/internal/store/sqlite"
 	"github.com/royisme/bobamixer/internal/ui/i18n"
+	"github.com/royisme/bobamixer/internal/ui/keys"
 	"github.com/royisme/bobamixer/internal/ui/root"
 )
 
@@ -74,37 +75,35 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update handles messages
-//
-//nolint:gocyclo // Complex TUI event handling with multiple message types and view modes
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case keyCtrlC, "q":
+		case keys.CtrlC, keys.Q:
 			return m, tea.Quit
 
-		case "tab":
+		case keys.Tab:
 			// Cycle through views
 			m.viewMode = ViewMode((int(m.viewMode) + 1) % viewCount)
 			return m, m.loadData
 
-		case "up", "k":
+		case keys.Up, keys.K:
 			if m.viewMode == ViewProfiles && m.selectedIdx > 0 {
 				m.selectedIdx--
 			}
 
-		case "down", "j":
+		case keys.Down, keys.J:
 			if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList)-1 {
 				m.selectedIdx++
 			}
 
-		case keyEnter:
+		case keys.Enter:
 			if m.viewMode == ViewProfiles && m.selectedIdx < len(m.profileList) {
 				m.activeProfile = m.profileList[m.selectedIdx]
 				return m, m.saveActiveProfile
 			}
 
-		case "r":
+		case keys.R:
 			// Refresh data
 			return m, m.loadData
 		}

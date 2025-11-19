@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/royisme/bobamixer/internal/domain/core"
 	"github.com/royisme/bobamixer/internal/ui/i18n"
+	"github.com/royisme/bobamixer/internal/ui/keys"
 	"github.com/royisme/bobamixer/internal/ui/layouts"
 )
 
@@ -148,11 +149,11 @@ func (m OnboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case keys.CtrlC:
 			m.quitting = true
 			return m, tea.Quit
 
-		case keyEsc:
+		case keys.Esc:
 			// Allow going back in most stages
 			if m.stage > StageWelcome && m.stage < StageComplete {
 				m.stage--
