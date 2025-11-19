@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "BobaMixer",
   description: "Smart AI Adapter Router with intelligent routing, budget tracking, and cost optimization",
   base: '/BobaMixer/',
-  markdown: {
-    mermaid: true
+  mermaidPlugin: {
+    class: 'mermaid',
   },
   locales: {
     root: {
@@ -151,4 +152,4 @@ export default defineConfig({
     ['meta', { name: 'twitter:title', content: 'BobaMixer: Smart AI Adapter Router' }],
     ['meta', { name: 'twitter:description', content: 'Smart AI Adapter Router with intelligent routing, budget tracking, and cost optimization' }]
   ]
-})
+}))
