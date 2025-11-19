@@ -21,7 +21,7 @@ const (
 	ProxyStateOff = "🔴 OFF"
 
 	// Help text
-	HelpTextNavigation = "[↑↓] Navigate  [Tab] Next Section  [V] Views  [Q] Quit"
+	HelpTextNavigation = "[↑↓] Navigate  [Tab] Next Section  [V] Views  [C] Config  [Q] Quit"
 	HelpTextActions    = "[R] Run Tool  [X] Toggle Proxy"
 
 	// Messages

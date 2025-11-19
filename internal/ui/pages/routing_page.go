@@ -32,6 +32,7 @@ type RoutingPage struct {
 	example    components.Paragraph
 	context    components.BulletList
 	help       components.HelpBar
+	styles     theme.Styles // Added styles field
 	testTitle  string
 	howToTitle string
 	exTitle    string
@@ -56,6 +57,7 @@ func NewRoutingPage(palette theme.Theme, props RoutingPageProps) RoutingPage {
 		example:    components.NewParagraph(strings.Join(props.ExampleLines, "\n"), styles),
 		context:    components.NewBulletList(props.ContextLines, styles),
 		help:       components.NewHelpBar(helpText, styles),
+		styles:     styles, // Initialize styles
 		testTitle:  props.TestTitle,
 		howToTitle: props.HowToTitle,
 		exTitle:    props.ExampleTitle,
@@ -81,16 +83,43 @@ func (p RoutingPage) Update(msg tea.Msg) (Page, tea.Cmd) {
 
 // View assembles the routing tester view.
 func (p RoutingPage) View() string {
+	// Use cards for main sections
+	testCard := components.NewCard(p.styles).
+		WithWidth(60).
+		Render(layouts.Column(
+			p.styles.Header.Render(p.testTitle),
+			p.testDesc.View(),
+		))
+
+	howToCard := components.NewCard(p.styles).
+		WithWidth(60).
+		Render(layouts.Column(
+			p.styles.Header.Render(p.howToTitle),
+			p.howTo.View(),
+		))
+
+	exampleCard := components.NewCard(p.styles).
+		WithWidth(60).
+		Render(layouts.Column(
+			p.styles.Header.Render(p.exTitle),
+			p.example.View(),
+		))
+
+	contextCard := components.NewCard(p.styles).
+		WithWidth(60).
+		Render(layouts.Column(
+			p.styles.Header.Render(p.ctxTitle),
+			p.context.View(),
+		))
+
+	// Arrange in a grid-like layout if possible, or just better vertical spacing
+	// For now, let's stick to vertical but with cards
 	blocks := []string{
 		layouts.Pad(2, p.title.View()),
 		layouts.Gap(1),
-		layouts.Section(p.testTitle, p.testDesc.View()),
+		layouts.Row(testCard, howToCard), // Side by side
 		layouts.Gap(1),
-		layouts.Section(p.howToTitle, p.howTo.View()),
-		layouts.Gap(1),
-		layouts.Section(p.exTitle, p.example.View()),
-		layouts.Gap(1),
-		layouts.Section(p.ctxTitle, p.context.View()),
+		layouts.Row(exampleCard, contextCard), // Side by side
 		layouts.Gap(1),
 		layouts.Pad(2, p.help.View()),
 	}

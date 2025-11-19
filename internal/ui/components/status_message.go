@@ -5,7 +5,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/royisme/bobamixer/internal/ui/theme"
 )
 
 // StatusMessage renders a highlighted status line.
@@ -32,5 +31,16 @@ func (c StatusMessage) View() string {
 	if c.message == "" {
 		return ""
 	}
-	return theme.Colorize(c.color, c.message)
+	// We can't easily access the theme styles here without passing them in.
+	// For now, let's stick to simple colorization but maybe add a background if we could.
+	// However, the plan was to use StatusBar style.
+	// Since StatusMessage is a simple component, let's just enhance the styling locally or assume it's wrapped.
+	// Actually, looking at the code, it just returns a string.
+	// Let's make it look a bit better with a background if possible, but we only have adaptive color.
+	// Let's just stick to the plan of using theme.Colorize but maybe add some padding/bold.
+	return lipgloss.NewStyle().
+		Foreground(c.color).
+		Bold(true).
+		Padding(0, 1).
+		Render(c.message)
 }

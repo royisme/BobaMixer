@@ -31,12 +31,14 @@ func (m *DashboardModel) initializeTable() {
 		BorderForeground(m.theme.Border).
 		BorderBottom(true).
 		Bold(true).
-		Foreground(m.theme.Primary)
+		Foreground(m.theme.Text).  // Changed to Text for better contrast
+		Background(m.theme.Border) // Subtle background for header
 
 	s.Selected = s.Selected.
-		Foreground(m.theme.Text).
+		Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"}).
 		Background(m.theme.Primary).
-		Bold(false)
+		Bold(true).
+		BorderStyle(lipgloss.HiddenBorder()) // Remove borders to use full background
 
 	t.SetStyles(s)
 

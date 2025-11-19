@@ -164,6 +164,11 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			sectionIndex := int(key[0] - '1')
 			return m, m.moveToSection(sectionIndex)
 
+		case "v":
+			// Switch to Dashboard view
+			m.currentView = viewDashboard
+			return m, nil
+
 		case "c":
 			// Jump to Config view (in DevOps section, index 4)
 			m.currentSection = 4
@@ -276,28 +281,36 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "left", "h":
 			if m.currentView == viewConfig {
-				// Cycle theme left
-				m.themeIndex--
-				if m.themeIndex < 0 {
-					m.themeIndex = len(m.themes) - 1
+				if m.configActiveTab > 0 {
+					m.configActiveTab--
 				}
-				m.updateTheme()
 				return m, nil
 			}
 
 		case "right", "l":
 			if m.currentView == viewConfig {
-				// Cycle theme right
-				m.themeIndex++
-				if m.themeIndex >= len(m.themes) {
-					m.themeIndex = 0
+				if m.configActiveTab < 2 {
+					m.configActiveTab++
 				}
-				m.updateTheme()
 				return m, nil
 			}
 
 		case "up", "k":
 			// Navigate up in list views
+			if m.currentView == viewConfig {
+				switch m.configActiveTab {
+				case 0: // Files tab
+					if m.selectedIndex > 0 {
+						m.selectedIndex--
+					}
+				case 1: // Appearance tab
+					if m.themeIndex > 0 {
+						m.themeIndex--
+						m.updateTheme()
+					}
+				}
+				return m, nil
+			}
 			if m.currentView != viewDashboard {
 				if m.selectedIndex > 0 {
 					m.selectedIndex--
@@ -308,6 +321,21 @@ func (m DashboardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "down", "j":
 			// Navigate down in list views
+			if m.currentView == viewConfig {
+				switch m.configActiveTab {
+				case 0: // Files tab
+					maxIndex := len(m.configService.GetConfigFiles()) - 1
+					if m.selectedIndex < maxIndex {
+						m.selectedIndex++
+					}
+				case 1: // Appearance tab
+					if m.themeIndex < len(m.themes)-1 {
+						m.themeIndex++
+						m.updateTheme()
+					}
+				}
+				return m, nil
+			}
 			if m.currentView != viewDashboard {
 				maxIndex := m.maxSelectableIndex()
 				if m.selectedIndex < maxIndex {

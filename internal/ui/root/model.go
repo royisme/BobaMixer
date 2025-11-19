@@ -87,10 +87,11 @@ type DashboardModel struct {
 	searchInput        textinput.Model
 	searchQuery        string
 	searchContextView  viewMode
+	configActiveTab    int // 0: Files, 1: Appearance, 2: System
 	secretMessage      string
-	providerForm       forms.ProviderForm
-	bindingForm        forms.BindingForm
-	secretForm         forms.SecretForm
+	providerForm       *forms.ProviderForm
+	bindingForm        *forms.BindingForm
+	secretForm         *forms.SecretForm
 	toolsService       *toolsvc.Service
 	reportsService     *reportsvc.Service
 	proxyService       *proxysvc.Service
@@ -158,9 +159,13 @@ func NewDashboard(home string) (*DashboardModel, error) {
 	searchInput.CharLimit = 100
 	searchInput.Width = 30
 	m.searchInput = searchInput
-	m.providerForm = forms.NewProviderForm(promptPrefix)
-	m.bindingForm = forms.NewBindingForm(promptPrefix)
-	m.secretForm = forms.NewSecretForm(promptPrefix)
+	providerForm := forms.NewProviderForm(promptPrefix)
+	m.providerForm = &providerForm
+	bindingForm := forms.NewBindingForm(promptPrefix)
+	m.bindingForm = &bindingForm
+	secretForm := forms.NewSecretForm(promptPrefix)
+	m.secretForm = &secretForm
+
 	m.toolsService = toolsvc.NewService(m.tools, m.bindings)
 	m.reportsService = reportsvc.NewService()
 	m.proxyService = proxysvc.NewService(proxy.DefaultAddr)
@@ -168,21 +173,21 @@ func NewDashboard(home string) (*DashboardModel, error) {
 		m.bindings,
 		m.tools,
 		m.providers,
-		&m.bindingForm,
+		m.bindingForm,
 		dashboardsvc.MsgNoProviderSelected,
 		dashboardsvc.MsgInvalidProvider,
 	)
 	m.providerService = providersvc.NewService(
 		m.providers,
 		m.secrets,
-		&m.providerForm,
+		m.providerForm,
 		dashboardsvc.MsgNoProviderSelected,
 		dashboardsvc.MsgInvalidProvider,
 	)
 	m.secretService = secrets.NewService(
 		m.providers,
 		&m.secrets,
-		&m.secretForm,
+		m.secretForm,
 		&m.secretMessage,
 		dashboardsvc.MsgNoProviderSelected,
 		dashboardsvc.MsgInvalidProvider,

@@ -15,35 +15,36 @@ type Theme struct {
 }
 
 // DefaultTheme returns an adaptive palette that works on both light and dark terminals.
+// This theme is designed to be modern, vibrant, and high-contrast.
 func DefaultTheme() Theme {
 	return Theme{
 		Primary: lipgloss.AdaptiveColor{
-			Light: "#5A56E0",
-			Dark:  "#7C3AED",
+			Light: "#4F46E5", // Indigo 600
+			Dark:  "#818CF8", // Indigo 400 (Much brighter)
 		},
 		Success: lipgloss.AdaptiveColor{
 			Light: "#059669",
-			Dark:  "#10B981",
+			Dark:  "#34D399", // Emerald 400
 		},
 		Warning: lipgloss.AdaptiveColor{
 			Light: "#D97706",
-			Dark:  "#F59E0B",
+			Dark:  "#FBBF24", // Amber 400
 		},
 		Danger: lipgloss.AdaptiveColor{
 			Light: "#DC2626",
-			Dark:  "#EF4444",
+			Dark:  "#F87171", // Red 400
 		},
 		Muted: lipgloss.AdaptiveColor{
 			Light: "#6B7280",
-			Dark:  "#9CA3AF",
+			Dark:  "#9CA3AF", // Gray 400
 		},
 		Text: lipgloss.AdaptiveColor{
-			Light: "#1F2937",
-			Dark:  "#E5E7EB",
+			Light: "#111827",
+			Dark:  "#F3F4F6", // Gray 100 (Brighter)
 		},
 		Border: lipgloss.AdaptiveColor{
-			Light: "#D1D5DB",
-			Dark:  "#4B5563",
+			Light: "#E5E7EB",
+			Dark:  "#4B5563", // Gray 600 (Darker contrast)
 		},
 	}
 }

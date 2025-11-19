@@ -437,6 +437,7 @@ func (m DashboardModel) renderConfigView() string {
 		CommandHelpLine: data.CommandHelpLine,
 		Themes:          data.Themes,
 		CurrentTheme:    data.CurrentTheme,
+		ActiveTab:       m.configActiveTab,
 	}
 
 	page := pages.NewConfigPage(m.theme, props)
